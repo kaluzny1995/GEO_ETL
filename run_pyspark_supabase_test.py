@@ -1,0 +1,46 @@
+import findspark
+findspark.init()
+
+import json
+import os
+from pyspark.sql import SparkSession
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(SCRIPT_DIR, "supabase_config.json")
+SPARK_MASTER = "spark://localhost:7078"
+
+with open(CONFIG_PATH) as f:
+    config = json.load(f)
+
+jdbc_url = f"jdbc:postgresql://{config['host']}:{config['port']}/{config['database']}"
+properties = {
+    "user": config["username"],
+    "password": config["password"],
+    "driver": "org.postgresql.Driver",
+}
+
+spark = SparkSession.builder \
+    .master(SPARK_MASTER) \
+    .appName("pyspark_supabase_test") \
+    .getOrCreate()
+
+print(f"Connected to:   {spark.sparkContext.master}")
+print(f"Spark version:  {spark.version}")
+print(f"Supabase host:  {config['host']}")
+print(f"JDBC URL:       {jdbc_url}")
+print()
+
+try:
+    schemas_df = spark.read.jdbc(
+        url=jdbc_url,
+        table="information_schema.schemata",
+        properties=properties,
+    )
+    schemas_df \
+        .select("schema_name") \
+        .filter(~schemas_df.schema_name.startswith("pg_")) \
+        .orderBy("schema_name") \
+        .show(n=100, truncate=False)
+finally:
+    spark.stop()
+    print("Done.")

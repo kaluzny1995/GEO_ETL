@@ -8,3 +8,4 @@ __pycache__/
 metastore_db/
 derby.log
 spark-warehouse/
+supabase_config.json
