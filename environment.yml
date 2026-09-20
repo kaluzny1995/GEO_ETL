@@ -1,0 +1,11 @@
+name: geo_etl_311
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pyspark>=3.5.0
+  - py4j
+  - requests>=2.31.0
+  - pydantic>=2.0.0
+  - pytest>=7.0.0
+  - findspark>=2.0.0
