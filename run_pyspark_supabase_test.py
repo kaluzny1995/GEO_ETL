@@ -31,15 +31,18 @@ print(f"JDBC URL:       {jdbc_url}")
 print()
 
 try:
-    schemas_df = spark.read.jdbc(
+    tables_df = spark.read.jdbc(
         url=jdbc_url,
-        table="information_schema.schemata",
+        table="information_schema.tables",
         properties=properties,
     )
-    schemas_df \
-        .select("schema_name") \
-        .filter(~schemas_df.schema_name.startswith("pg_")) \
-        .orderBy("schema_name") \
+    tables_df \
+        .filter(~tables_df.table_schema.startswith("pg_")) \
+        .groupBy("table_schema") \
+        .count() \
+        .orderBy("table_schema") \
+        .withColumnRenamed("table_schema", "schema") \
+        .withColumnRenamed("count", "tables") \
         .show(n=100, truncate=False)
 finally:
     spark.stop()

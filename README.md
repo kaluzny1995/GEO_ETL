@@ -149,21 +149,18 @@ Spark version:  3.5.5
 Supabase host:  aws-1-eu-west-1.pooler.supabase.com
 JDBC URL:       jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postgres
 
-+------------------+
-|schema_name       |
-+------------------+
-|auth              |
-|extensions        |
-|graphql           |
-|graphql_public    |
-|information_schema|
-|pgbouncer         |
-|public            |
-|realtime          |
-|reddit            |
-|storage           |
-|vault             |
-+------------------+
++------------------+------+
+|schema            |tables|
++------------------+------+
+|auth              |27    |
+|extensions        |2     |
+|information_schema|69    |
+|public            |2     |
+|realtime          |3     |
+|reddit            |9     |
+|storage           |8     |
+|vault             |2     |
++------------------+------+
 
 Done.
 ```
@@ -176,7 +173,18 @@ Done.
 | Spark Worker 1 | `geo_spark_worker_1` | — | 8084 (Web UI) | 2 cores, 2g RAM |
 | Spark Worker 2 | `geo_spark_worker_2` | — | 8085 (Web UI) | 2 cores, 2g RAM |
 
-**Spark Web UI:** http://localhost:8083
+### Spark Web UI
+
+Open http://localhost:8083 in your browser to access the Spark Master Web UI. From there you can:
+
+- **Workers** — see all registered workers, their status, cores, and memory
+- **Applications** — monitor running and completed Spark applications
+- **Jobs** — view job progress, stages, and tasks for each application
+- **Executors** — check executor memory usage, GC stats, and shuffle data
+
+Individual worker Web UIs are available at:
+- Worker 1: http://localhost:8084
+- Worker 2: http://localhost:8085
 
 ## Connecting from PySpark
 
