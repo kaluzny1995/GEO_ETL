@@ -66,7 +66,7 @@ GEO_ETL/
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
 │   └── schema_converter.py           # Pydantic -> PySpark StructType schemas
 │
-├── spark/
+├── spark_cluster_image/              # Docker image for Spark cluster
 │   ├── Dockerfile                    # Custom Spark image (apache/spark:3.5.5 + JARs)
 │   └── jars/
 │       ├── hadoop-aws-3.3.4.jar
@@ -95,10 +95,10 @@ GEO_ETL/
 
 ## Spark JARs
 
-The `spark/jars/` directory is excluded from git (listed in `.gitignore`). After cloning, download the required JARs manually:
+The `spark_cluster_image/jars/` directory is excluded from git (listed in `.gitignore`). After cloning, download the required JARs manually:
 
 ```bash
-cd spark/jars
+cd spark_cluster_image/jars
 curl -fSL -O https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar
 curl -fSL -O https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar
 curl -fSL -O https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar
@@ -115,7 +115,7 @@ These JARs are copied into the Spark Docker image during build.
 The PostgreSQL JDBC driver must also be available locally for the PySpark driver (which runs on the host). Copy it to the PySpark installation:
 
 ```bash
-cp spark/jars/postgresql-42.7.4.jar $(python -c "import pyspark, os; print(os.path.join(os.path.dirname(pyspark.__file__), 'jars'))")
+cp spark_cluster_image/jars/postgresql-42.7.4.jar $(python -c "import pyspark, os; print(os.path.join(os.path.dirname(pyspark.__file__), 'jars'))")
 ```
 
 ## Prerequisites
