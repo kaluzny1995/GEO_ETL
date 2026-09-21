@@ -1,0 +1,9 @@
+{
+  "spark": {
+    "master": "spark://localhost:7078"
+  },
+  "database": {
+    "db_schema": "geo",
+    "jdbc_driver": "org.postgresql.Driver"
+  }
+}

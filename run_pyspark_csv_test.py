@@ -6,12 +6,15 @@ from pyspark.sql import SparkSession  # type: ignore[import-untyped]
 from pyspark import SparkContext  # type: ignore[import-untyped]
 from py4j.java_gateway import JavaGateway, JVMView  # type: ignore[import-untyped]
 
+from model.config import AppConfig
+
+config = AppConfig.from_json()
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, "..", "GEO_Download", "data"))
-SPARK_MASTER = "spark://localhost:7078"
 
 spark = SparkSession.builder \
-    .master(SPARK_MASTER) \
+    .master(config.spark.master) \
     .appName("pyspark_csv_test") \
     .getOrCreate()
 

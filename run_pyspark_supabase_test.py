@@ -1,32 +1,24 @@
 import findspark
 findspark.init()
 
-import json
-import os
 from pyspark.sql import SparkSession
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(SCRIPT_DIR, "supabase_config.json")
-SPARK_MASTER = "spark://localhost:7078"
+from model.config import AppConfig, SupabaseConnectionConfig
 
-with open(CONFIG_PATH) as f:
-    config = json.load(f)
+app_config = AppConfig.from_json()
+db_config = SupabaseConnectionConfig.from_json()
 
-jdbc_url = f"jdbc:postgresql://{config['host']}:{config['port']}/{config['database']}"
-properties = {
-    "user": config["username"],
-    "password": config["password"],
-    "driver": "org.postgresql.Driver",
-}
+jdbc_url = db_config.get_jdbc_url()
+properties = db_config.get_jdbc_properties(app_config.database.jdbc_driver)
 
 spark = SparkSession.builder \
-    .master(SPARK_MASTER) \
+    .master(app_config.spark.master) \
     .appName("pyspark_supabase_test") \
     .getOrCreate()
 
 print(f"Connected to:   {spark.sparkContext.master}")
 print(f"Spark version:  {spark.version}")
-print(f"Supabase host:  {config['host']}")
+print(f"Supabase host:  {db_config.host}")
 print(f"JDBC URL:       {jdbc_url}")
 print()
 
