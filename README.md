@@ -40,6 +40,8 @@ GEO_ETL/
 ├── environment.yml                   # Conda environment definition
 ├── supabase_config.json              # Supabase credentials (not in git)
 ├── run_etl.py                        # Main CLI entry point for ETL jobs
+├── run_drop_table.py                 # Drop a table from Supabase
+├── run_drop_schema.py                # Drop a schema from Supabase (if empty)
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
 │
@@ -83,6 +85,9 @@ GEO_ETL/
     │   │   └── test_supabase_config.py
     │   ├── raw/
     │   │   └── test_avalanche_org_raw.py
+    ├── scripts/
+    │   ├── test_run_drop_table.py
+    │   └── test_run_drop_schema.py
     └── util/
         ├── test_ddl_generator.py
         └── test_schema_converter.py
@@ -215,6 +220,40 @@ Expected output now includes the `geo` schema with 1 table:
 +------------------+------+
 ```
 
+### 6. Drop a table
+
+```bash
+conda activate geo_etl_311
+python run_drop_table.py --table_name <table_name>
+```
+
+Expected output:
+
+```
+Table geo.<table_name> dropped.
+```
+
+### 7. Drop a schema
+
+Only works if the schema contains no tables:
+
+```bash
+conda activate geo_etl_311
+python run_drop_schema.py --schema_name <schema_name>
+```
+
+Expected output (empty schema):
+
+```
+Schema '<schema_name>' dropped.
+```
+
+If the schema has tables:
+
+```
+Schema '<schema_name>' contains tables. Drop tables first.
+```
+
 ## Supabase Configuration
 
 Create `supabase_config.json` in the project root with your Supabase credentials:
@@ -323,6 +362,8 @@ pytest test/ -v
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig models |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
+| `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
+| `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/util/test_ddl_generator.py` | DDL generation, drop table, drop schema, schema table check |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
 

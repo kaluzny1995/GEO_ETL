@@ -1,0 +1,80 @@
+from unittest.mock import MagicMock, patch
+
+
+def _mock_app_config():
+    cfg = MagicMock()
+    cfg.spark.master = "spark://localhost:7078"
+    cfg.database.db_schema = "geo"
+    cfg.database.jdbc_driver = "org.postgresql.Driver"
+    return cfg
+
+
+def _mock_db_config():
+    cfg = MagicMock()
+    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
+    cfg.get_jdbc_properties.return_value = {
+        "user": "user",
+        "password": "pass",
+        "driver": "org.postgresql.Driver",
+    }
+    return cfg
+
+
+@patch("run_drop_schema._schema_has_tables", return_value=False)
+@patch("run_drop_schema.drop_schema")
+@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
+def test_drop_schema_when_empty(mock_app, mock_db, mock_drop, mock_has_tables):
+    import sys
+    sys.argv = ["run_drop_schema.py", "--schema_name", "my_schema"]
+
+    from run_drop_schema import main
+    main()
+
+    mock_has_tables.assert_called_once()
+    mock_drop.assert_called_once()
+
+
+@patch("run_drop_schema._schema_has_tables", return_value=True)
+@patch("run_drop_schema.drop_schema")
+@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
+def test_drop_schema_when_has_tables(mock_app, mock_db, mock_drop, mock_has_tables):
+    import sys
+    sys.argv = ["run_drop_schema.py", "--schema_name", "my_schema"]
+
+    from run_drop_schema import main
+    main()
+
+    mock_has_tables.assert_called_once()
+    mock_drop.assert_not_called()
+
+
+@patch("run_drop_schema._schema_has_tables", return_value=False)
+@patch("run_drop_schema.drop_schema")
+@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
+def test_drop_schema_prints_success(mock_app, mock_db, mock_drop, mock_has_tables, capsys):
+    import sys
+    sys.argv = ["run_drop_schema.py", "--schema_name", "my_schema"]
+
+    from run_drop_schema import main
+    main()
+
+    captured = capsys.readouterr()
+    assert "Schema 'my_schema' dropped." in captured.out
+
+
+@patch("run_drop_schema._schema_has_tables", return_value=True)
+@patch("run_drop_schema.drop_schema")
+@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
+def test_drop_schema_prints_warning(mock_app, mock_db, mock_drop, mock_has_tables, capsys):
+    import sys
+    sys.argv = ["run_drop_schema.py", "--schema_name", "my_schema"]
+
+    from run_drop_schema import main
+    main()
+
+    captured = capsys.readouterr()
+    assert "contains tables" in captured.out
