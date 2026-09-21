@@ -43,9 +43,13 @@ GEO_ETL/
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
 │
+├── factory/                          # Registry factories
+│   ├── __init__.py                   # Exports JobFactory, TableFactory
+│   ├── job_factory.py                # JobFactory: job type -> module registry
+│   └── table_factory.py             # TableFactory: table_name -> Pydantic model
+│
 ├── jobs/                             # Job modules (the "what to do" layer)
 │   ├── __init__.py                   # Registers jobs in JobFactory
-│   ├── registry.py                   # JobFactory: job type -> module registry
 │   └── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
 │
 ├── model/                            # Data models and configuration
@@ -68,15 +72,17 @@ GEO_ETL/
 │       └── postgresql-42.7.4.jar
 │
 └── test/                             # Unit tests (pytest)
+    ├── factory/
+    │   ├── test_job_factory.py
+    │   └── test_table_factory.py
     ├── jobs/
-    │   ├── test_create_table.py
-    │   └── test_job_factory.py
+    │   └── test_create_table.py
     ├── model/
     │   ├── config/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
-    │   └── raw/
-    │       └── test_avalanche_org_raw.py
+    │   ├── raw/
+    │   │   └── test_avalanche_org_raw.py
     └── util/
         ├── test_ddl_generator.py
         └── test_schema_converter.py
@@ -182,7 +188,7 @@ Table geo.<table_name> created.
 |------------|----------------|-------------|
 | `avalanche_org_raw` | `AvalancheOrgRaw` | Avalanche forecast data (15 fields) |
 
-To add a new table, create a Pydantic model in `model/raw/`, add it to `TABLE_REGISTRY` in `jobs/create_table.py`, and create a corresponding test file in `test/model/raw/`.
+To add a new table, create a Pydantic model in `model/raw/`, register it in `model/__init__.py` using `TableRegistry.register()`, and create a corresponding test file in `test/model/raw/`.
 
 ### 5. Verify table creation
 
@@ -311,8 +317,9 @@ pytest test/ -v
 
 | Test Suite | What It Tests |
 |------------|---------------|
+| `test/factory/test_job_factory.py` | JobFactory (register, create, clear) |
+| `test/factory/test_table_factory.py` | TableFactory (register, get, tables, clear) |
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
-| `test/jobs/test_job_factory.py` | Job registry pattern (register, create, clear) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig models |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |

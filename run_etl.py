@@ -7,7 +7,7 @@ from pyspark.sql import SparkSession
 
 from model.config import AppConfig
 from model.enums import JobType
-from jobs.registry import JobFactory
+from factory import JobFactory
 
 
 def main():
