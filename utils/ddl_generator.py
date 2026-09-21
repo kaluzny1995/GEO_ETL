@@ -45,16 +45,44 @@ def pydantic_to_ddl(model: type[BaseModel], table_name: str, schema: str = "raw"
     )
 
 
-def _execute_jdbc(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict) -> None:
-    """Execute DDL via direct JDBC connection (Spark's read.jdbc only supports SELECT)."""
+def _get_jdbc_connection(spark: SparkSession, jdbc_url: str, properties: dict):
+    """Open a JDBC connection via PySpark's JVM gateway."""
     jvm = spark._jvm
     DriverManager = jvm.java.sql.DriverManager
-    conn = DriverManager.getConnection(jdbc_url, properties["user"], properties["password"])
+    return DriverManager.getConnection(jdbc_url, properties["user"], properties["password"])
+
+
+def _execute_jdbc(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict) -> None:
+    """Execute DDL via direct JDBC connection (Spark's read.jdbc only supports SELECT)."""
+    conn = _get_jdbc_connection(spark, jdbc_url, properties)
     try:
         stmt = conn.createStatement()
         stmt.execute(ddl)
     finally:
         conn.close()
+
+
+def _query_jdbc(spark: SparkSession, sql: str, jdbc_url: str, properties: dict):
+    """Execute a SELECT query and return the first column of the first row."""
+    conn = _get_jdbc_connection(spark, jdbc_url, properties)
+    try:
+        stmt = conn.createStatement()
+        rs = stmt.executeQuery(sql)
+        if rs.next():
+            return rs.getObject(1)
+        return None
+    finally:
+        conn.close()
+
+
+def _schema_has_tables(spark: SparkSession, schema: str, jdbc_url: str, properties: dict) -> bool:
+    """Check if a PostgreSQL schema contains any tables."""
+    sql = (
+        f"SELECT COUNT(*) FROM information_schema.tables "
+        f"WHERE table_schema = '{schema}'"
+    )
+    count = _query_jdbc(spark, sql, jdbc_url, properties)
+    return count is not None and count > 0
 
 
 def create_schema(spark: SparkSession, schema: str, jdbc_url: str, properties: dict) -> None:
@@ -66,3 +94,16 @@ def create_schema(spark: SparkSession, schema: str, jdbc_url: str, properties: d
 def execute_ddl(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict) -> None:
     """Execute arbitrary DDL statement against the database."""
     _execute_jdbc(spark, ddl, jdbc_url, properties)
+
+
+def drop_table(spark: SparkSession, table_name: str, schema: str, jdbc_url: str, properties: dict) -> None:
+    """Drop table if it exists."""
+    ddl = f"DROP TABLE IF EXISTS {schema}.{table_name};"
+    _execute_jdbc(spark, ddl, jdbc_url, properties)
+
+
+def drop_schema(spark: SparkSession, schema: str, jdbc_url: str, properties: dict) -> None:
+    """Drop schema only if it exists and contains no tables."""
+    if not _schema_has_tables(spark, schema, jdbc_url, properties):
+        ddl = f"DROP SCHEMA IF EXISTS {schema};"
+        _execute_jdbc(spark, ddl, jdbc_url, properties)

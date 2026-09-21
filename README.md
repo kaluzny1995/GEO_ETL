@@ -316,7 +316,7 @@ pytest test/ -v
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig models |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
-| `test/util/test_ddl_generator.py` | Pydantic -> PostgreSQL DDL generation |
+| `test/util/test_ddl_generator.py` | DDL generation, drop table, drop schema, schema table check |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
 
 ## Data

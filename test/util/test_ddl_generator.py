@@ -1,7 +1,8 @@
 import pytest
 from pydantic import BaseModel
+from unittest.mock import MagicMock, patch
 
-from utils.ddl_generator import pydantic_to_ddl
+from utils.ddl_generator import pydantic_to_ddl, drop_table, drop_schema, _schema_has_tables
 
 
 class SimpleModel(BaseModel):
@@ -60,3 +61,66 @@ def test_unsupported_type_raises():
 
     with pytest.raises(TypeError, match="Unsupported type 'bytes'"):
         pydantic_to_ddl(BadModel, "test_table")
+
+
+def _mock_conn():
+    conn = MagicMock()
+    stmt = MagicMock()
+    conn.createStatement.return_value = stmt
+    return conn, stmt
+
+
+@patch("utils.ddl_generator._get_jdbc_connection")
+def test_drop_table(mock_get_conn):
+    conn, stmt = _mock_conn()
+    mock_get_conn.return_value = conn
+
+    mock_spark = MagicMock()
+    drop_table(mock_spark, "my_table", "geo", "jdbc:url", {})
+
+    stmt.execute.assert_called_once_with("DROP TABLE IF EXISTS geo.my_table;")
+    conn.close.assert_called_once()
+
+
+@patch("utils.ddl_generator._schema_has_tables", return_value=False)
+@patch("utils.ddl_generator._get_jdbc_connection")
+def test_drop_schema_when_empty(mock_get_conn, mock_has_tables):
+    conn, stmt = _mock_conn()
+    mock_get_conn.return_value = conn
+
+    mock_spark = MagicMock()
+    drop_schema(mock_spark, "geo", "jdbc:url", {})
+
+    mock_has_tables.assert_called_once()
+    stmt.execute.assert_called_once_with("DROP SCHEMA IF EXISTS geo;")
+    conn.close.assert_called_once()
+
+
+@patch("utils.ddl_generator._schema_has_tables", return_value=True)
+@patch("utils.ddl_generator._get_jdbc_connection")
+def test_drop_schema_when_has_tables(mock_get_conn, mock_has_tables):
+    mock_spark = MagicMock()
+    drop_schema(mock_spark, "geo", "jdbc:url", {})
+
+    mock_has_tables.assert_called_once()
+    mock_get_conn.assert_not_called()
+
+
+@patch("utils.ddl_generator._query_jdbc", return_value=3)
+def test_schema_has_tables_true(mock_query):
+    mock_spark = MagicMock()
+    result = _schema_has_tables(mock_spark, "geo", "jdbc:url", {})
+
+    assert result is True
+    mock_query.assert_called_once()
+    sql = mock_query.call_args[0][1]
+    assert "information_schema.tables" in sql
+    assert "geo" in sql
+
+
+@patch("utils.ddl_generator._query_jdbc", return_value=0)
+def test_schema_has_tables_false(mock_query):
+    mock_spark = MagicMock()
+    result = _schema_has_tables(mock_spark, "geo", "jdbc:url", {})
+
+    assert result is False
