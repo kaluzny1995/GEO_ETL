@@ -1,9 +1,14 @@
+import logging
+
 from model.config import AppConfig, SupabaseConnectionConfig
 from factory import TableFactory
 from utils.ddl_generator import pydantic_to_ddl, create_schema, execute_ddl
 
 
-def run(spark, table_name: str) -> str:
+def run(spark, table_name: str, logger: logging.Logger | None = None) -> str:
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
     # Get Pydantic model for this table (raises ValueError if not registered)
     model = TableFactory.get(table_name)
 
@@ -17,12 +22,17 @@ def run(spark, table_name: str) -> str:
 
     # Step 1: Create schema if it doesn't exist (e.g. "geo")
     schema = app_config.database.db_schema
+    logger.info(f"Creating schema '{schema}' if not exists...")
     create_schema(spark, schema, jdbc_url, properties)
+    logger.info(f"Schema '{schema}' ready")
 
     # Step 2: Generate CREATE TABLE DDL from Pydantic model
     ddl = pydantic_to_ddl(model, table_name, schema=schema)
+    logger.info(f"Generated DDL for {schema}.{table_name}")
 
     # Step 3: Execute DDL against Supabase
+    logger.info(f"Executing DDL against Supabase...")
     execute_ddl(spark, ddl, jdbc_url, properties)
+    logger.info(f"DDL executed successfully")
 
     return f"Table {schema}.{table_name} created."

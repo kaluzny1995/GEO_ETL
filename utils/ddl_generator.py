@@ -28,7 +28,7 @@ def _pg_type(annotation: type) -> str:
     return result
 
 
-def pydantic_to_ddl(model: type[BaseModel], table_name: str, schema: str = "raw") -> str:
+def pydantic_to_ddl(model: type[BaseModel], table_name: str, schema: str) -> str:
     """Convert Pydantic model fields to CREATE TABLE DDL statement."""
     columns = []
     for name, field_info in model.model_fields.items():

@@ -21,20 +21,20 @@ class AllOptionalModel(BaseModel):
 
 
 def test_simple_ddl():
-    ddl = pydantic_to_ddl(SimpleModel, "test_table")
+    ddl = pydantic_to_ddl(SimpleModel, "test_table", schema="raw")
     assert "CREATE TABLE IF NOT EXISTS raw.test_table" in ddl
     assert "name TEXT NOT NULL" in ddl
     assert "value TEXT NOT NULL" in ddl
 
 
 def test_optional_nullable():
-    ddl = pydantic_to_ddl(OptionalModel, "test_table")
+    ddl = pydantic_to_ddl(OptionalModel, "test_table", schema="raw")
     assert "name TEXT NOT NULL" in ddl
     assert "tag TEXT NULL" in ddl
 
 
 def test_all_optional():
-    ddl = pydantic_to_ddl(AllOptionalModel, "test_table")
+    ddl = pydantic_to_ddl(AllOptionalModel, "test_table", schema="raw")
     assert "name TEXT NULL" in ddl
     assert "tag TEXT NULL" in ddl
 
@@ -44,13 +44,13 @@ def test_custom_schema():
     assert "geo.test_table" in ddl
 
 
-def test_default_schema_is_raw():
-    ddl = pydantic_to_ddl(SimpleModel, "test_table")
-    assert "raw.test_table" in ddl
+def test_schema_is_required():
+    with pytest.raises(TypeError):
+        pydantic_to_ddl(SimpleModel, "test_table")
 
 
 def test_ddl_has_parentheses():
-    ddl = pydantic_to_ddl(SimpleModel, "test_table")
+    ddl = pydantic_to_ddl(SimpleModel, "test_table", schema="raw")
     assert ddl.startswith("CREATE TABLE IF NOT EXISTS raw.test_table (")
     assert ddl.rstrip().endswith(");")
 
@@ -60,7 +60,7 @@ def test_unsupported_type_raises():
         data: bytes
 
     with pytest.raises(TypeError, match="Unsupported type 'bytes'"):
-        pydantic_to_ddl(BadModel, "test_table")
+        pydantic_to_ddl(BadModel, "test_table", schema="raw")
 
 
 def _mock_conn():

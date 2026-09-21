@@ -78,3 +78,17 @@ class TestCreateTableRun:
         from model.raw import AvalancheOrgRaw
         TableFactory.register("avalanche_org_raw", AvalancheOrgRaw)
         assert "avalanche_org_raw" in TableFactory.tables()
+
+    @patch("jobs.create_table.TableFactory.get", return_value=DummyModel)
+    @patch("jobs.create_table.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+    @patch("jobs.create_table.AppConfig.from_json", return_value=_mock_app_config())
+    @patch("jobs.create_table.execute_ddl")
+    @patch("jobs.create_table.create_schema")
+    def test_run_logs_steps(self, mock_create_schema, mock_execute_ddl, mock_app, mock_db, mock_get, mock_spark):
+        mock_logger = MagicMock()
+        run(mock_spark, "avalanche_org_raw", logger=mock_logger)
+        mock_logger.info.assert_any_call("Creating schema 'geo' if not exists...")
+        mock_logger.info.assert_any_call("Schema 'geo' ready")
+        mock_logger.info.assert_any_call("Generated DDL for geo.avalanche_org_raw")
+        mock_logger.info.assert_any_call("Executing DDL against Supabase...")
+        mock_logger.info.assert_any_call("DDL executed successfully")

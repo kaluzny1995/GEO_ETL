@@ -1,9 +1,17 @@
 {
   "spark": {
-    "master": "spark://localhost:7078"
+    "master": "spark://localhost:7078",
+    "app_name_prefix": "geo_etl"
   },
   "database": {
     "db_schema": "geo",
     "jdbc_driver": "org.postgresql.Driver"
+  },
+  "logging": {
+    "directory": "logs",
+    "level": "INFO"
+  },
+  "data": {
+    "directory": "../GEO_Download/data"
   }
 }

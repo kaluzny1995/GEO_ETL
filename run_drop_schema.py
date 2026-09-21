@@ -1,4 +1,6 @@
 import argparse
+import datetime as dt
+import os
 
 import findspark
 findspark.init()
@@ -7,6 +9,7 @@ from pyspark.sql import SparkSession
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from utils.ddl_generator import drop_schema, _schema_has_tables
+from utils.logger import setup_logger
 
 
 def main():
@@ -19,6 +22,17 @@ def main():
     parser.add_argument("--schema_name", required=True, help="Schema name to drop")
     args = parser.parse_args()
 
+    schema_name = args.schema_name
+    log_dir = app_config.logging.directory
+    app_prefix = app_config.spark.app_name_prefix
+
+    logger = setup_logger(
+        name=f"drop_schema_{schema_name}",
+        log_file=os.path.join(log_dir, "drop_schema", f"drop_schema_{schema_name}_{dt.datetime.now().isoformat()}.log"),
+        level=app_config.logging.level_int,
+    )
+    logger.info(f"---- Drop schema job started: {schema_name} ----")
+
     # Build JDBC connection params
     jdbc_url = db_config.get_jdbc_url()
     properties = db_config.get_jdbc_properties(app_config.database.jdbc_driver)
@@ -26,19 +40,26 @@ def main():
     # Connect to Spark cluster
     spark = SparkSession.builder \
         .master(app_config.spark.master) \
-        .appName(f"geo_etl_drop_schema_{args.schema_name}") \
+        .appName(f"{app_prefix}_drop_schema_{schema_name}") \
         .getOrCreate()
 
     try:
+        logger.info(f"Connected to Spark: {spark.sparkContext.master}")
+        logger.info(f"Spark version: {spark.version}")
+
         # Check if schema has tables
-        if _schema_has_tables(spark, args.schema_name, jdbc_url, properties):
-            print(f"Schema '{args.schema_name}' contains tables. Drop tables first.")
+        if _schema_has_tables(spark, schema_name, jdbc_url, properties):
+            logger.warning(f"Schema '{schema_name}' contains tables. Drop tables first.")
         else:
             # Drop the schema
-            drop_schema(spark, args.schema_name, jdbc_url, properties)
-            print(f"Schema '{args.schema_name}' dropped.")
+            drop_schema(spark, schema_name, jdbc_url, properties)
+            logger.info(f"Schema '{schema_name}' dropped.")
+    except Exception:
+        logger.exception("Drop schema job failed")
+        raise
     finally:
         spark.stop()
+        logger.info("Spark session stopped")
 
 
 if __name__ == "__main__":

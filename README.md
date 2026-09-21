@@ -36,7 +36,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 
 ```
 GEO_ETL/
-├── config.json                       # App config (Spark master, DB schema, JDBC driver)
+├── config.json                       # App config (Spark, database, logging, data paths)
 ├── environment.yml                   # Conda environment definition
 ├── supabase_config.json              # Supabase credentials (not in git)
 ├── run_etl.py                        # Main CLI entry point for ETL jobs
@@ -57,14 +57,22 @@ GEO_ETL/
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType enum (CREATE)
 │   ├── config/
-│   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig
+│   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
 │   └── raw/
 │       └── avalanche_org_raw.py      # Pydantic model for avalanche_org_raw table
 │
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
+│   ├── logger.py                     # setup_logger() for file-based logging
 │   └── schema_converter.py           # Pydantic -> PySpark StructType schemas
+│
+├── logs/                             # Runtime log output (gitignored)
+│   ├── create_table/                 # CREATE TABLE job logs
+│   ├── drop_table/                   # Drop table job logs
+│   ├── drop_schema/                  # Drop schema job logs
+│   ├── pyspark_csv_test/             # CSV test script logs
+│   └── pyspark_supabase_test/        # Supabase test script logs
 │
 ├── spark_cluster_image/              # Docker image for Spark cluster
 │   ├── Dockerfile                    # Custom Spark image (apache/spark:3.5.5 + JARs)
@@ -90,6 +98,7 @@ GEO_ETL/
     │   └── test_run_drop_schema.py
     └── util/
         ├── test_ddl_generator.py
+        ├── test_logger.py
         └── test_schema_converter.py
 ```
 
@@ -254,6 +263,40 @@ If the schema has tables:
 Schema '<schema_name>' contains tables. Drop tables first.
 ```
 
+## Application Configuration
+
+All runtime settings are in `config.json`:
+
+```json
+{
+  "spark": {
+    "master": "spark://localhost:7078",
+    "app_name_prefix": "geo_etl"
+  },
+  "database": {
+    "db_schema": "geo",
+    "jdbc_driver": "org.postgresql.Driver"
+  },
+  "logging": {
+    "directory": "logs",
+    "level": "INFO"
+  },
+  "data": {
+    "directory": "../GEO_Download/data"
+  }
+}
+```
+
+| Section | Key | Default | Description |
+|---------|-----|---------|-------------|
+| `spark.master` | — | — | Spark cluster master URL |
+| `spark.app_name_prefix` | — | `"geo_etl"` | Prefix for Spark application names |
+| `database.db_schema` | — | — | PostgreSQL schema name |
+| `database.jdbc_driver` | — | — | JDBC driver class |
+| `logging.directory` | `"logs"` | — | Root directory for log files |
+| `logging.level` | `"INFO"` | — | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
+| `data.directory` | `"../GEO_Download/data"` | — | Relative path to CSV data source |
+
 ## Supabase Configuration
 
 Create `supabase_config.json` in the project root with your Supabase credentials:
@@ -366,6 +409,58 @@ pytest test/ -v
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/util/test_ddl_generator.py` | DDL generation, drop table, drop schema, schema table check |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
+
+## Logging
+
+Every script writes structured log files to `logs/`, organized by job type. The logging setup uses the same pattern as [GEO_E2E](../GEO_E2E) and [GEO_Download](../GEO_Download).
+
+### Log structure
+
+```
+logs/
+├── create_table/
+│   └── create_table_avalanche_org_raw_2026-09-21T10:30:00.123456.log
+├── drop_table/
+│   └── drop_table_avalanche_org_raw_2026-09-21T10:35:00.654321.log
+├── drop_schema/
+│   └── drop_schema_geo_2026-09-21T10:40:00.111222.log
+├── pyspark_csv_test/
+│   └── pyspark_csv_test_2026-09-21T10:45:00.333444.log
+└── pyspark_supabase_test/
+    └── pyspark_supabase_test_2026-09-21T10:50:00.555666.log
+```
+
+### Log format
+
+```
+2026-09-21 10:30:00,123 INFO ---- ETL job started: create_table avalanche_org_raw ----
+2026-09-21 10:30:00,124 INFO Connected to Spark: spark://localhost:7078
+2026-09-21 10:30:00,124 INFO Spark version: 3.5.5
+2026-09-21 10:30:00,125 INFO Creating schema 'geo' if not exists...
+2026-09-21 10:30:00,125 INFO Schema 'geo' ready
+2026-09-21 10:30:00,125 INFO Generated DDL for geo.avalanche_org_raw
+2026-09-21 10:30:00,125 INFO Executing DDL against Supabase...
+2026-09-21 10:30:00,125 INFO DDL executed successfully
+2026-09-21 10:30:00,125 INFO Table geo.avalanche_org_raw created.
+2026-09-21 10:30:00,126 INFO Spark session stopped
+```
+
+### Logger usage in code
+
+```python
+from utils.logger import setup_logger
+
+logger = setup_logger(
+    name="my_job",
+    log_file=f"logs/my_job/my_job_{dt.datetime.now().isoformat()}.log",
+)
+logger.info("Job started")
+logger.warning("Something looks off")
+logger.error("Something failed")
+logger.exception("Traceback for failure")  # includes stack trace
+```
+
+Each log file is timestamped and unique per execution. The `setup_logger` function auto-creates directories and prevents duplicate handlers.
 
 ## Data
 
