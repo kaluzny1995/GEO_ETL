@@ -26,6 +26,7 @@ _PYSPARK_TYPE_MAP: dict[type, type] = {
 
 
 def _resolve_type(annotation: type) -> tuple[type, bool]:
+    """Extract base type and nullable flag from Optional/Union annotations."""
     origin = get_origin(annotation)
 
     if origin is Union or isinstance(annotation, types.UnionType):
@@ -38,11 +39,13 @@ def _resolve_type(annotation: type) -> tuple[type, bool]:
 
 
 def pydantic_to_spark_schema(model: type[BaseModel]) -> StructType:
+    """Convert Pydantic model fields to PySpark StructType schema."""
     fields = []
     for name, field_info in model.model_fields.items():
         annotation = field_info.annotation
         python_type, nullable = _resolve_type(annotation)
 
+        # Enums are treated as strings in Spark
         if isinstance(python_type, type) and issubclass(python_type, enum.Enum):
             spark_type = StringType()
         else:

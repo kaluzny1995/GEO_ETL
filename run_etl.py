@@ -11,8 +11,10 @@ from jobs.registry import JobFactory
 
 
 def main():
+    # Load app config (Spark master, DB schema, JDBC driver)
     config = AppConfig.from_json()
 
+    # Parse CLI arguments (--job CREATE --table_name <name>)
     parser = argparse.ArgumentParser(description="GEO ETL runner")
     parser.add_argument(
         "--job",
@@ -24,14 +26,17 @@ def main():
     parser.add_argument("--table_name", required=True, help="Table name, e.g. avalanche_org_raw")
     args = parser.parse_args()
 
+    # Resolve job module from registry (e.g. JobType.CREATE -> create_table module)
     job_module = JobFactory.create(args.job)
 
+    # Connect to Spark cluster
     spark = SparkSession.builder \
         .master(config.spark.master) \
         .appName(f"geo_etl_{args.job.value.lower()}_{args.table_name}") \
         .getOrCreate()
 
     try:
+        # Execute the job (e.g. create table in Supabase)
         result = job_module.run(spark, args.table_name)
         print(result)
     finally:

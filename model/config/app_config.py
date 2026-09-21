@@ -10,12 +10,14 @@ CONFIG_PATH = os.path.join(PROJECT_DIR, "config.json")
 
 
 class SparkConfig(BaseModel):
+    """Spark cluster connection settings."""
     model_config = ConfigDict(frozen=True)
 
     master: str
 
 
 class DatabaseConfig(BaseModel):
+    """PostgreSQL database settings."""
     model_config = ConfigDict(frozen=True)
 
     db_schema: str
@@ -23,6 +25,7 @@ class DatabaseConfig(BaseModel):
 
 
 class AppConfig(BaseModel):
+    """Application configuration loaded from config.json."""
     model_config = ConfigDict(frozen=True)
 
     spark: SparkConfig
@@ -30,6 +33,7 @@ class AppConfig(BaseModel):
 
     @staticmethod
     def from_json(path: Optional[str] = None) -> "AppConfig":
+        """Load config from JSON file."""
         if path is None:
             path = CONFIG_PATH
         with open(path) as f:

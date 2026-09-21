@@ -7,6 +7,7 @@ from pyspark.sql import SparkSession
 
 
 def _resolve_type(annotation: type) -> type:
+    """Extract the base type from Optional/Union annotations (e.g. str | None -> str)."""
     origin = get_origin(annotation)
     if origin is Union or isinstance(annotation, types.UnionType):
         args = [a for a in get_args(annotation) if a is not type(None)]
@@ -16,6 +17,7 @@ def _resolve_type(annotation: type) -> type:
 
 
 def _pg_type(annotation: type) -> str:
+    """Map Python type to PostgreSQL type string."""
     resolved = _resolve_type(annotation)
     mapping = {
         str: "TEXT",
@@ -27,6 +29,7 @@ def _pg_type(annotation: type) -> str:
 
 
 def pydantic_to_ddl(model: type[BaseModel], table_name: str, schema: str = "raw") -> str:
+    """Convert Pydantic model fields to CREATE TABLE DDL statement."""
     columns = []
     for name, field_info in model.model_fields.items():
         annotation = field_info.annotation
@@ -43,6 +46,7 @@ def pydantic_to_ddl(model: type[BaseModel], table_name: str, schema: str = "raw"
 
 
 def _execute_jdbc(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict) -> None:
+    """Execute DDL via direct JDBC connection (Spark's read.jdbc only supports SELECT)."""
     jvm = spark._jvm
     DriverManager = jvm.java.sql.DriverManager
     conn = DriverManager.getConnection(jdbc_url, properties["user"], properties["password"])
@@ -54,9 +58,11 @@ def _execute_jdbc(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict
 
 
 def create_schema(spark: SparkSession, schema: str, jdbc_url: str, properties: dict) -> None:
+    """Create PostgreSQL schema if it doesn't exist."""
     ddl = f"CREATE SCHEMA IF NOT EXISTS {schema};"
     _execute_jdbc(spark, ddl, jdbc_url, properties)
 
 
 def execute_ddl(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict) -> None:
+    """Execute arbitrary DDL statement against the database."""
     _execute_jdbc(spark, ddl, jdbc_url, properties)

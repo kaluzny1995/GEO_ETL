@@ -10,6 +10,7 @@ SUPABASE_CONFIG_PATH = os.path.join(PROJECT_DIR, "supabase_config.json")
 
 
 class SupabaseConnectionConfig(BaseModel):
+    """Supabase PostgreSQL connection credentials."""
     model_config = ConfigDict(frozen=True)
 
     username: str
@@ -20,15 +21,18 @@ class SupabaseConnectionConfig(BaseModel):
 
     @staticmethod
     def from_json(path: Optional[str] = None) -> "SupabaseConnectionConfig":
+        """Load credentials from supabase_config.json."""
         if path is None:
             path = SUPABASE_CONFIG_PATH
         with open(path) as f:
             return SupabaseConnectionConfig(**json.load(f))
 
     def get_jdbc_url(self) -> str:
+        """Build JDBC connection URL."""
         return f"jdbc:postgresql://{self.host}:{self.port}/{self.database}"
 
     def get_jdbc_properties(self, jdbc_driver: str) -> dict:
+        """Build JDBC connection properties dict."""
         return {
             "user": self.username,
             "password": self.password,
