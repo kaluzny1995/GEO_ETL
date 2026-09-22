@@ -49,21 +49,21 @@ GEO_ETL/
 │   ├── __init__.py
 │   └── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
 │
-├── raw2final/                        # Raw-to-final transformation scripts
+├── raw2plain/                        # Raw-to-final transformation scripts
 │   ├── __init__.py
-│   └── avalanche_org_raw2final.py    # Transform raw -> typed data via PySpark
+│   └── avalanche_org_raw2plain.py    # Transform raw -> typed data via PySpark
 │
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports all factories (lazy imports)
 │   ├── job_factory.py                # JobFactory: job type -> module registry
 │   ├── table_factory.py              # TableFactory: table_name -> Pydantic model
 │   ├── upload_script_factory.py      # UploadScriptFactory: table_name -> upload function
-│   └── raw2final_script_factory.py   # Raw2FinalScriptFactory: table_name -> raw2final function
+│   └── raw2plain_script_factory.py   # Raw2PlainScriptFactory: table_name -> raw2plain function
 │
 ├── jobs/                             # Job modules (the "what to do" layer)
 │   ├── __init__.py                   # Registers jobs in JobFactory
 │   ├── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
-│   └── ingestion.py                 # INGESTION job (upload + raw2final via factories)
+│   └── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType enum (CREATE, INGESTION)
@@ -85,7 +85,7 @@ GEO_ETL/
 │   ├── drop_table/                   # Drop table job logs
 │   ├── drop_schema/                  # Drop schema job logs
 │   ├── upload/                       # Upload job logs
-│   ├── raw2final/                    # Raw2Final transform logs
+│   ├── raw2plain/                    # Raw2Plain transform logs
 │   ├── pyspark_csv_test/             # CSV test script logs
 │   └── pyspark_supabase_test/        # Supabase test script logs
 │
@@ -101,7 +101,7 @@ GEO_ETL/
     │   ├── test_job_factory.py
     │   ├── test_table_factory.py
     │   ├── test_upload_script_factory.py
-    │   └── test_raw2final_script_factory.py
+    │   └── test_raw2plain_script_factory.py
     ├── jobs/
     │   ├── test_create_table.py
     │   └── test_ingestion.py
@@ -117,8 +117,8 @@ GEO_ETL/
     │   ├── test_avalanche_org_upload.py
     │   ├── test_run_drop_table.py
     │   └── test_run_drop_schema.py
-    ├── raw2final/
-    │   └── test_avalanche_org_raw2final.py
+    ├── raw2plain/
+    │   └── test_avalanche_org_raw2plain.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_logger.py
@@ -217,7 +217,7 @@ Table geo.<table_name> created.
 1. Reads config from `config.json` (Spark master, DB schema, JDBC driver) and `supabase_config.json` (credentials)
 2. Connects to the Spark cluster
 3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model, executes it against Supabase
-4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2final script (raw → typed table) via factories
+4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories
 
 **Currently registered tables:**
 
@@ -336,13 +336,13 @@ Convert data from `avalanche_org_raw` (all TEXT) to `avalanche_org` (typed: int,
 ```python
 from pyspark.sql import SparkSession
 from model.config import AppConfig, SupabaseConnectionConfig
-from raw2final.avalanche_org_raw2final import raw2final
+from raw2plain.avalanche_org_raw2plain import raw2plain
 
 config = AppConfig.from_json()
 db_config = SupabaseConnectionConfig.from_json()
-spark = SparkSession.builder.master("spark://localhost:7078").appName("raw2final").getOrCreate()
+spark = SparkSession.builder.master("spark://localhost:7078").appName("raw2plain").getOrCreate()
 
-raw2final(spark, config, db_config)
+raw2plain(spark, config, db_config)
 spark.stop()
 ```
 
@@ -503,15 +503,15 @@ pytest test/ -v
 | `test/factory/test_job_factory.py` | JobFactory (register, create, clear) |
 | `test/factory/test_table_factory.py` | TableFactory (register, get, tables, clear) |
 | `test/factory/test_upload_script_factory.py` | UploadScriptFactory (register, get, tables, clear) |
-| `test/factory/test_raw2final_script_factory.py` | Raw2FinalScriptFactory (register, get, tables, clear) |
+| `test/factory/test_raw2plain_script_factory.py` | Raw2PlainScriptFactory (register, get, tables, clear) |
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
-| `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2final ordering, config passing, logging) |
+| `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logging) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig models |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
 | `test/scripts/test_avalanche_org_upload.py` | Upload script (historical, incremental, no files, logging) |
-| `test/raw2final/test_avalanche_org_raw2final.py` | Raw2Final transform (historical, incremental, no records, type conversion) |
+| `test/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/util/test_ddl_generator.py` | DDL generation, drop table, drop schema, schema table check |

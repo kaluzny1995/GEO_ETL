@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from factory import UploadScriptFactory, Raw2FinalScriptFactory
+from factory import UploadScriptFactory, Raw2PlainScriptFactory
 
 
 def _mock_app_config():
@@ -28,47 +28,47 @@ def _mock_db_config():
 @pytest.fixture(autouse=True)
 def _clean_factories():
     UploadScriptFactory.clear()
-    Raw2FinalScriptFactory.clear()
+    Raw2PlainScriptFactory.clear()
     yield
     UploadScriptFactory.clear()
-    Raw2FinalScriptFactory.clear()
+    Raw2PlainScriptFactory.clear()
 
 
 @patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
-def test_ingestion_runs_upload_then_raw2final(mock_app, mock_db):
+def test_ingestion_runs_upload_then_raw2plain(mock_app, mock_db):
     spark = MagicMock()
     upload_fn = MagicMock()
-    raw2final_fn = MagicMock()
+    raw2plain_fn = MagicMock()
 
     UploadScriptFactory.register("avalanche_org_raw", upload_fn)
-    Raw2FinalScriptFactory.register("avalanche_org_raw", raw2final_fn)
+    Raw2PlainScriptFactory.register("avalanche_org_raw", raw2plain_fn)
 
     from jobs.ingestion import run
     result = run(spark, "avalanche_org_raw")
 
     assert upload_fn.call_count == 1
-    assert raw2final_fn.call_count == 1
+    assert raw2plain_fn.call_count == 1
     assert upload_fn.call_args[0][0] is spark
-    assert raw2final_fn.call_args[0][0] is spark
+    assert raw2plain_fn.call_args[0][0] is spark
     assert "complete" in result
 
 
 @patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
-def test_ingestion_upload_before_raw2final(mock_app, mock_db):
+def test_ingestion_upload_before_raw2plain(mock_app, mock_db):
     spark = MagicMock()
     call_order = []
     upload_fn = MagicMock(side_effect=lambda s, c, d: call_order.append("upload"))
-    raw2final_fn = MagicMock(side_effect=lambda s, c, d: call_order.append("raw2final"))
+    raw2plain_fn = MagicMock(side_effect=lambda s, c, d: call_order.append("raw2plain"))
 
     UploadScriptFactory.register("t", upload_fn)
-    Raw2FinalScriptFactory.register("t", raw2final_fn)
+    Raw2PlainScriptFactory.register("t", raw2plain_fn)
 
     from jobs.ingestion import run
     run(spark, "t")
 
-    assert call_order == ["upload", "raw2final"]
+    assert call_order == ["upload", "raw2plain"]
 
 
 @patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
@@ -76,10 +76,10 @@ def test_ingestion_upload_before_raw2final(mock_app, mock_db):
 def test_ingestion_passes_config_and_db_config(mock_app, mock_db):
     spark = MagicMock()
     upload_fn = MagicMock()
-    raw2final_fn = MagicMock()
+    raw2plain_fn = MagicMock()
 
     UploadScriptFactory.register("t", upload_fn)
-    Raw2FinalScriptFactory.register("t", raw2final_fn)
+    Raw2PlainScriptFactory.register("t", raw2plain_fn)
 
     from jobs.ingestion import run
     run(spark, "t")
@@ -95,7 +95,7 @@ def test_ingestion_passes_config_and_db_config(mock_app, mock_db):
 def test_ingestion_logs_steps(mock_app, mock_db):
     spark = MagicMock()
     UploadScriptFactory.register("t", MagicMock())
-    Raw2FinalScriptFactory.register("t", MagicMock())
+    Raw2PlainScriptFactory.register("t", MagicMock())
 
     log = MagicMock()
     from jobs.ingestion import run
@@ -103,5 +103,5 @@ def test_ingestion_logs_steps(mock_app, mock_db):
 
     log.info.assert_any_call("Running upload for t...")
     log.info.assert_any_call("Upload for t complete")
-    log.info.assert_any_call("Running raw2final for t...")
-    log.info.assert_any_call("Raw2Final for t complete")
+    log.info.assert_any_call("Running raw2plain for t...")
+    log.info.assert_any_call("Raw2Plain for t complete")

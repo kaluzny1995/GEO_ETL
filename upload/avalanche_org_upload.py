@@ -7,8 +7,6 @@ findspark.init()
 
 from pyspark.sql import SparkSession
 
-import model  # noqa: F401 — registers tables
-import jobs  # noqa: F401 — registers jobs
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.raw import AvalancheOrgRaw
 from utils.schema_converter import pydantic_to_spark_schema

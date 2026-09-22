@@ -1,18 +1,18 @@
-class Raw2FinalScriptFactory:
-    """Registry mapping table names to their raw2final functions."""
+class Raw2PlainScriptFactory:
+    """Registry mapping table names to their raw2plain functions."""
     _registry: dict[str, callable] = {}
 
     @classmethod
-    def register(cls, table_name: str, raw2final_fn: callable) -> None:
-        """Register a table name with its raw2final function."""
-        cls._registry[table_name] = raw2final_fn
+    def register(cls, table_name: str, raw2plain_fn: callable) -> None:
+        """Register a table name with its raw2plain function."""
+        cls._registry[table_name] = raw2plain_fn
 
     @classmethod
     def get(cls, table_name: str) -> callable:
-        """Get raw2final function for a table name."""
+        """Get raw2plain function for a table name."""
         if table_name not in cls._registry:
             raise ValueError(
-                f"No raw2final script for '{table_name}'. "
+                f"No raw2plain script for '{table_name}'. "
                 f"Available: {list(cls._registry.keys())}"
             )
         return cls._registry[table_name]
