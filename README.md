@@ -45,6 +45,10 @@ GEO_ETL/
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
 │
+├── upload/                           # Data upload scripts
+│   ├── __init__.py
+│   └── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
+│
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports JobFactory, TableFactory
 │   ├── job_factory.py                # JobFactory: job type -> module registry
@@ -73,6 +77,7 @@ GEO_ETL/
 │   ├── create_table/                 # CREATE TABLE job logs
 │   ├── drop_table/                   # Drop table job logs
 │   ├── drop_schema/                  # Drop schema job logs
+│   ├── upload/                       # Upload job logs
 │   ├── pyspark_csv_test/             # CSV test script logs
 │   └── pyspark_supabase_test/        # Supabase test script logs
 │
@@ -98,6 +103,7 @@ GEO_ETL/
     │   └── raw/
     │       └── test_avalanche_org_raw.py
     ├── scripts/
+    │   ├── test_avalanche_org_upload.py
     │   ├── test_run_drop_table.py
     │   └── test_run_drop_schema.py
     └── util/
@@ -268,6 +274,48 @@ If the schema has tables:
 Schema '<schema_name>' contains tables. Drop tables first.
 ```
 
+### 8. Upload data to Supabase
+
+Upload CSV files from GEO_Download to a Supabase table:
+
+```python
+from pyspark.sql import SparkSession
+from model.config import AppConfig, SupabaseConnectionConfig
+from upload.avalanche_org_upload import upload
+
+config = AppConfig.from_json()
+db_config = SupabaseConnectionConfig.from_json()
+spark = SparkSession.builder.master("spark://localhost:7078").appName("upload").getOrCreate()
+
+upload(spark, config, db_config)
+spark.stop()
+```
+
+**Load type is determined automatically:**
+
+| Condition | Load Type | Behavior |
+|-----------|-----------|----------|
+| Table is empty | `HISTORICAL` | Uploads all CSV files |
+| Table has data | `INCREMENTAL` | Uploads only CSVs with `file_date` newer than the latest in the table |
+
+Expected output:
+
+```
+---- Upload started: avalanche_org_raw (HISTORICAL) ----
+Data directory: /path/to/GEO_Download/data/Avalanche_ORG
+HISTORICAL: reading all 19 CSV files
+Total records to upload: 1523
+Writing to geo.avalanche_org_raw...
+Upload complete: 1523 records written to geo.avalanche_org_raw
+Spark session stopped
+```
+
+If no new files are found (INCREMENTAL and table is up to date):
+
+```
+No files to upload. Done.
+```
+
 ## Application Configuration
 
 All runtime settings are in `config.json`:
@@ -411,6 +459,7 @@ pytest test/ -v
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
+| `test/scripts/test_avalanche_org_upload.py` | Upload script (historical, incremental, no files, logging) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/util/test_ddl_generator.py` | DDL generation, drop table, drop schema, schema table check |
@@ -430,6 +479,8 @@ logs/
 │   └── drop_table_avalanche_org_raw_2026-09-21T10:35:00.654321.log
 ├── drop_schema/
 │   └── drop_schema_geo_2026-09-21T10:40:00.111222.log
+├── upload/
+│   └── upload_avalanche_org_raw_2026-09-21T10:42:00.777888.log
 ├── pyspark_csv_test/
 │   └── pyspark_csv_test_2026-09-21T10:45:00.333444.log
 └── pyspark_supabase_test/
