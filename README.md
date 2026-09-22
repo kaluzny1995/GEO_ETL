@@ -59,8 +59,10 @@ GEO_ETL/
 │   ├── config/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
-│   └── raw/
-│       └── avalanche_org_raw.py      # Pydantic model for avalanche_org_raw table
+│   ├── raw/
+│   │   └── avalanche_org_raw.py      # AvalancheOrgRaw — all-TEXT raw model
+│   └── plain/
+│       └── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
@@ -91,8 +93,10 @@ GEO_ETL/
     │   ├── config/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
-    │   ├── raw/
-    │   │   └── test_avalanche_org_raw.py
+    │   ├── plain/
+    │   │   └── test_avalanche_org.py
+    │   └── raw/
+    │       └── test_avalanche_org_raw.py
     ├── scripts/
     │   ├── test_run_drop_table.py
     │   └── test_run_drop_schema.py
@@ -179,7 +183,7 @@ The `run_etl.py` CLI creates tables in Supabase by generating DDL from Pydantic 
 
 ```bash
 conda activate geo_etl_311
-python run_etl.py --job CREATE --table_name <table_name>
+python run_etl.py CREATE <table_name>
 ```
 
 Expected output:
@@ -198,11 +202,12 @@ Table geo.<table_name> created.
 
 **Currently registered tables:**
 
-| Table Name | Pydantic Model | Description |
-|------------|----------------|-------------|
-| `avalanche_org_raw` | `AvalancheOrgRaw` | Avalanche forecast data (15 fields) |
+| Table Name | Pydantic Model | Location | Description |
+|------------|----------------|----------|-------------|
+| `avalanche_org_raw` | `AvalancheOrgRaw` | `model/raw/` | Avalanche forecast data — all fields as TEXT (15 fields) |
+| `avalanche_org` | `AvalancheOrg` | `model/plain/` | Avalanche forecast data — typed fields (int, bool, datetime, date) |
 
-To add a new table, create a Pydantic model in `model/raw/`, register it in `model/__init__.py` using `TableRegistry.register()`, and create a corresponding test file in `test/model/raw/`.
+To add a new table, create a Pydantic model in `model/raw/` (all-TEXT) or `model/plain/` (typed), register it in `model/__init__.py` using `TableFactory.register()`, and create a corresponding test file.
 
 ### 5. Verify table creation
 
@@ -233,7 +238,7 @@ Expected output now includes the `geo` schema with 1 table:
 
 ```bash
 conda activate geo_etl_311
-python run_drop_table.py --table_name <table_name>
+python run_drop_table.py <table_name>
 ```
 
 Expected output:
@@ -248,7 +253,7 @@ Only works if the schema contains no tables:
 
 ```bash
 conda activate geo_etl_311
-python run_drop_schema.py --schema_name <schema_name>
+python run_drop_schema.py <schema_name>
 ```
 
 Expected output (empty schema):
@@ -405,6 +410,7 @@ pytest test/ -v
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig models |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
+| `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/util/test_ddl_generator.py` | DDL generation, drop table, drop schema, schema table check |

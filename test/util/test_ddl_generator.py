@@ -1,3 +1,5 @@
+import datetime as dt
+
 import pytest
 from pydantic import BaseModel
 from unittest.mock import MagicMock, patch
@@ -61,6 +63,64 @@ def test_unsupported_type_raises():
 
     with pytest.raises(TypeError, match="Unsupported type 'bytes'"):
         pydantic_to_ddl(BadModel, "test_table", schema="raw")
+
+
+def test_int_type():
+    class IntModel(BaseModel):
+        count: int
+
+    ddl = pydantic_to_ddl(IntModel, "test_table", schema="raw")
+    assert "count INTEGER NOT NULL" in ddl
+
+
+def test_float_type():
+    class FloatModel(BaseModel):
+        score: float
+
+    ddl = pydantic_to_ddl(FloatModel, "test_table", schema="raw")
+    assert "score DOUBLE PRECISION NOT NULL" in ddl
+
+
+def test_bool_type():
+    class BoolModel(BaseModel):
+        active: bool
+
+    ddl = pydantic_to_ddl(BoolModel, "test_table", schema="raw")
+    assert "active BOOLEAN NOT NULL" in ddl
+
+
+def test_datetime_type():
+    class DtModel(BaseModel):
+        created_at: dt.datetime
+
+    ddl = pydantic_to_ddl(DtModel, "test_table", schema="raw")
+    assert "created_at TIMESTAMP NOT NULL" in ddl
+
+
+def test_date_type():
+    class DateModel(BaseModel):
+        birth_date: dt.date
+
+    ddl = pydantic_to_ddl(DateModel, "test_table", schema="raw")
+    assert "birth_date DATE NOT NULL" in ddl
+
+
+def test_mixed_types():
+    class MixedModel(BaseModel):
+        id: int
+        name: str
+        active: bool
+        score: float
+        created_at: dt.datetime
+        birth_date: dt.date
+
+    ddl = pydantic_to_ddl(MixedModel, "test_table", schema="raw")
+    assert "id INTEGER NOT NULL" in ddl
+    assert "name TEXT NOT NULL" in ddl
+    assert "active BOOLEAN NOT NULL" in ddl
+    assert "score DOUBLE PRECISION NOT NULL" in ddl
+    assert "created_at TIMESTAMP NOT NULL" in ddl
+    assert "birth_date DATE NOT NULL" in ddl
 
 
 def _mock_conn():

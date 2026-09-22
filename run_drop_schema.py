@@ -17,9 +17,9 @@ def main():
     app_config = AppConfig.from_json()
     db_config = SupabaseConnectionConfig.from_json()
 
-    # Parse CLI arguments
+    # Parse CLI arguments (positional: schema_name)
     parser = argparse.ArgumentParser(description="Drop a schema from Supabase (only if empty)")
-    parser.add_argument("--schema_name", required=True, help="Schema name to drop")
+    parser.add_argument("schema_name", help="Schema name to drop")
     args = parser.parse_args()
 
     schema_name = args.schema_name

@@ -7,6 +7,8 @@ findspark.init()
 
 from pyspark.sql import SparkSession
 
+import model  # noqa: F401 — registers tables via model/__init__.py
+import jobs  # noqa: F401 — registers jobs via jobs/__init__.py
 from model.config import AppConfig
 from model.enums import JobType
 from factory import JobFactory
@@ -17,16 +19,15 @@ def main():
     # Load app config (Spark master, DB schema, JDBC driver)
     config = AppConfig.from_json()
 
-    # Parse CLI arguments (--job CREATE --table_name <name>)
+    # Parse CLI arguments (positional: job table_name)
     parser = argparse.ArgumentParser(description="GEO ETL runner")
     parser.add_argument(
-        "--job",
+        "job",
         type=lambda v: JobType(v.upper()),
         choices=list(JobType),
-        required=True,
         help=f"Job type: {[j.value for j in JobType]}",
     )
-    parser.add_argument("--table_name", required=True, help="Table name, e.g. avalanche_org_raw")
+    parser.add_argument("table_name", help="Table name, e.g. avalanche_org_raw")
     args = parser.parse_args()
 
     job_name = args.job.value.lower()

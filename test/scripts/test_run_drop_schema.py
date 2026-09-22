@@ -31,7 +31,7 @@ def _mock_db_config():
 @patch("run_drop_schema.setup_logger")
 def test_drop_schema_when_empty(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):
     import sys
-    sys.argv = ["run_drop_schema.py", "--schema_name", "my_schema"]
+    sys.argv = ["run_drop_schema.py", "my_schema"]
 
     from run_drop_schema import main
     main()
@@ -48,7 +48,7 @@ def test_drop_schema_when_empty(mock_logger, mock_app, mock_db, mock_drop, mock_
 @patch("run_drop_schema.setup_logger")
 def test_drop_schema_when_has_tables(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):
     import sys
-    sys.argv = ["run_drop_schema.py", "--schema_name", "my_schema"]
+    sys.argv = ["run_drop_schema.py", "my_schema"]
 
     from run_drop_schema import main
     main()
@@ -65,7 +65,7 @@ def test_drop_schema_when_has_tables(mock_logger, mock_app, mock_db, mock_drop, 
 @patch("run_drop_schema.setup_logger")
 def test_drop_schema_logs_success(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):
     import sys
-    sys.argv = ["run_drop_schema.py", "--schema_name", "my_schema"]
+    sys.argv = ["run_drop_schema.py", "my_schema"]
 
     mock_log = MagicMock()
     mock_logger.return_value = mock_log
@@ -84,7 +84,7 @@ def test_drop_schema_logs_success(mock_logger, mock_app, mock_db, mock_drop, moc
 @patch("run_drop_schema.setup_logger")
 def test_drop_schema_logs_warning(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):
     import sys
-    sys.argv = ["run_drop_schema.py", "--schema_name", "my_schema"]
+    sys.argv = ["run_drop_schema.py", "my_schema"]
 
     mock_log = MagicMock()
     mock_logger.return_value = mock_log

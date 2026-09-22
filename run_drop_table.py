@@ -17,9 +17,9 @@ def main():
     app_config = AppConfig.from_json()
     db_config = SupabaseConnectionConfig.from_json()
 
-    # Parse CLI arguments
+    # Parse CLI arguments (positional: table_name)
     parser = argparse.ArgumentParser(description="Drop a table from Supabase")
-    parser.add_argument("--table_name", required=True, help="Table name to drop")
+    parser.add_argument("table_name", help="Table name to drop")
     args = parser.parse_args()
 
     table_name = args.table_name

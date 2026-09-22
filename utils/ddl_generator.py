@@ -1,3 +1,4 @@
+import datetime as dt
 import types
 from typing import Union, get_args, get_origin
 
@@ -21,6 +22,11 @@ def _pg_type(annotation: type) -> str:
     resolved = _resolve_type(annotation)
     mapping = {
         str: "TEXT",
+        int: "INTEGER",
+        float: "DOUBLE PRECISION",
+        bool: "BOOLEAN",
+        dt.datetime: "TIMESTAMP",
+        dt.date: "DATE",
     }
     result = mapping.get(resolved)
     if result is None:
