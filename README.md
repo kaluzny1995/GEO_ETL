@@ -49,6 +49,10 @@ GEO_ETL/
 │   ├── __init__.py
 │   └── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
 │
+├── raw2final/                        # Raw-to-final transformation scripts
+│   ├── __init__.py
+│   └── avalanche_org_raw2final.py    # Transform raw -> typed data via PySpark
+│
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports JobFactory, TableFactory
 │   ├── job_factory.py                # JobFactory: job type -> module registry
@@ -78,6 +82,7 @@ GEO_ETL/
 │   ├── drop_table/                   # Drop table job logs
 │   ├── drop_schema/                  # Drop schema job logs
 │   ├── upload/                       # Upload job logs
+│   ├── raw2final/                    # Raw2Final transform logs
 │   ├── pyspark_csv_test/             # CSV test script logs
 │   └── pyspark_supabase_test/        # Supabase test script logs
 │
@@ -106,6 +111,8 @@ GEO_ETL/
     │   ├── test_avalanche_org_upload.py
     │   ├── test_run_drop_table.py
     │   └── test_run_drop_schema.py
+    ├── raw2final/
+    │   └── test_avalanche_org_raw2final.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_logger.py
@@ -316,6 +323,41 @@ If no new files are found (INCREMENTAL and table is up to date):
 No files to upload. Done.
 ```
 
+### 9. Transform raw data to final types
+
+Convert data from `avalanche_org_raw` (all TEXT) to `avalanche_org` (typed: int, bool, datetime, date):
+
+```python
+from pyspark.sql import SparkSession
+from model.config import AppConfig, SupabaseConnectionConfig
+from raw2final.avalanche_org_raw2final import raw2final
+
+config = AppConfig.from_json()
+db_config = SupabaseConnectionConfig.from_json()
+spark = SparkSession.builder.master("spark://localhost:7078").appName("raw2final").getOrCreate()
+
+raw2final(spark, config, db_config)
+spark.stop()
+```
+
+**Load type is determined automatically:**
+
+| Condition | Load Type | Behavior |
+|-----------|-----------|----------|
+| Final table is empty | `HISTORICAL` | Processes all raw data |
+| Final table has data | `INCREMENTAL` | Processes only raw rows with `file_date` > max in final |
+
+**Type conversions applied:**
+
+| Column | Raw Type | Final Type |
+|--------|----------|------------|
+| `zone_id` | TEXT | INTEGER |
+| `danger_level` | TEXT | INTEGER |
+| `off_season` | TEXT | BOOLEAN |
+| `forecast_start` | TEXT | TIMESTAMP |
+| `forecast_end` | TEXT | TIMESTAMP |
+| `date` | TEXT | DATE |
+
 ## Application Configuration
 
 All runtime settings are in `config.json`:
@@ -460,6 +502,7 @@ pytest test/ -v
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
 | `test/scripts/test_avalanche_org_upload.py` | Upload script (historical, incremental, no files, logging) |
+| `test/raw2final/test_avalanche_org_raw2final.py` | Raw2Final transform (historical, incremental, no records, type conversion) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/util/test_ddl_generator.py` | DDL generation, drop table, drop schema, schema table check |
