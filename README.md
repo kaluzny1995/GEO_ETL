@@ -16,7 +16,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 - **Custom Spark image** — based on `apache/spark:3.5.5` with Hadoop AWS + PostgreSQL JARs
 - **Local PySpark client** — scripts run on the host, connecting to the cluster remotely
 - **Model-driven schema** — Pydantic models define table structures; DDL and PySpark schemas are generated automatically
-- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, etc.) via a job registry
+- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, etc.) via a job registry
 
 ## Tech Stack
 
@@ -54,16 +54,19 @@ GEO_ETL/
 │   └── avalanche_org_raw2final.py    # Transform raw -> typed data via PySpark
 │
 ├── factory/                          # Registry factories
-│   ├── __init__.py                   # Exports JobFactory, TableFactory
+│   ├── __init__.py                   # Exports all factories (lazy imports)
 │   ├── job_factory.py                # JobFactory: job type -> module registry
-│   └── table_factory.py             # TableFactory: table_name -> Pydantic model
+│   ├── table_factory.py              # TableFactory: table_name -> Pydantic model
+│   ├── upload_script_factory.py      # UploadScriptFactory: table_name -> upload function
+│   └── raw2final_script_factory.py   # Raw2FinalScriptFactory: table_name -> raw2final function
 │
 ├── jobs/                             # Job modules (the "what to do" layer)
 │   ├── __init__.py                   # Registers jobs in JobFactory
-│   └── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
+│   ├── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
+│   └── ingestion.py                 # INGESTION job (upload + raw2final via factories)
 │
 ├── model/                            # Data models and configuration
-│   ├── enums.py                      # JobType enum (CREATE)
+│   ├── enums.py                      # JobType enum (CREATE, INGESTION)
 │   ├── config/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
@@ -96,9 +99,12 @@ GEO_ETL/
 └── test/                             # Unit tests (pytest)
     ├── factory/
     │   ├── test_job_factory.py
-    │   └── test_table_factory.py
+    │   ├── test_table_factory.py
+    │   ├── test_upload_script_factory.py
+    │   └── test_raw2final_script_factory.py
     ├── jobs/
-    │   └── test_create_table.py
+    │   ├── test_create_table.py
+    │   └── test_ingestion.py
     ├── model/
     │   ├── config/
     │   │   ├── test_config.py
@@ -197,6 +203,7 @@ The `run_etl.py` CLI creates tables in Supabase by generating DDL from Pydantic 
 ```bash
 conda activate geo_etl_311
 python run_etl.py CREATE <table_name>
+python run_etl.py INGESTION <table_name>
 ```
 
 Expected output:
@@ -209,9 +216,8 @@ Table geo.<table_name> created.
 
 1. Reads config from `config.json` (Spark master, DB schema, JDBC driver) and `supabase_config.json` (credentials)
 2. Connects to the Spark cluster
-3. Creates the `geo` schema if it doesn't exist
-4. Generates `CREATE TABLE` DDL from the Pydantic model registered for `<table_name>`
-5. Executes the DDL against Supabase via JDBC
+3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model, executes it against Supabase
+4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2final script (raw → typed table) via factories
 
 **Currently registered tables:**
 
@@ -496,7 +502,10 @@ pytest test/ -v
 |------------|---------------|
 | `test/factory/test_job_factory.py` | JobFactory (register, create, clear) |
 | `test/factory/test_table_factory.py` | TableFactory (register, get, tables, clear) |
+| `test/factory/test_upload_script_factory.py` | UploadScriptFactory (register, get, tables, clear) |
+| `test/factory/test_raw2final_script_factory.py` | Raw2FinalScriptFactory (register, get, tables, clear) |
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
+| `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2final ordering, config passing, logging) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig models |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
