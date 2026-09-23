@@ -700,7 +700,8 @@ Downloaded CSV files from [GEO_Download](../GEO_Download) are the input. Current
 | NIFC | `geo.nifc_fire_raw` | `geo.nifc_fire` | 128 | HISTORICAL |
 | OpenMeteo_Flood | `geo.openmeteo_flood_raw` | `geo.openmeteo_flood` | 4,884 | HISTORICAL |
 | USGS_Earthquake | `geo.usgs_earthquake_raw` | `geo.usgs_earthquake` | 7,084 | HISTORICAL |
-| USGS_NWIS | — | — | — | — |
+| USGS_Volcano | `geo.usgs_volcano_raw` | `geo.usgs_volcano` | 24 | HISTORICAL |
+| USGS_NWIS | `geo.usgs_nwis_raw` | `geo.usgs_nwis` | 36 | HISTORICAL |
 | USGS_Volcano | — | — | — | — |
 
 ## Related Projects
