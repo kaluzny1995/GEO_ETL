@@ -42,6 +42,7 @@ GEO_ETL/
 ├── run_etl.py                        # Main CLI entry point for ETL jobs
 ├── run_drop_table.py                 # Drop a table from Supabase
 ├── run_drop_schema.py                # Drop a schema from Supabase (if empty)
+├── run_delete_last_filedate_data.py  # Delete latest file_date from raw + plain tables
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
 │
@@ -123,7 +124,8 @@ GEO_ETL/
     ├── scripts/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
-    │   └── test_run_drop_schema.py
+    │   ├── test_run_drop_schema.py
+    │   └── test_run_delete_last_filedate_data.py
     ├── upload/
     │   ├── test_avalanche_org_upload.py
     │   └── test_eonet_event_upload.py
@@ -298,7 +300,27 @@ If the schema has tables:
 Schema '<schema_name>' contains tables. Drop tables first.
 ```
 
-### 8. Upload data to Supabase
+### 8. Delete latest file_date data
+
+Delete all rows with the most recent `file_date` from both raw and plain tables. Useful for re-running INCREMENTAL tests:
+
+```bash
+conda activate geo_etl_311
+python run_delete_last_filedate_data.py <raw_table_name>
+```
+
+The script derives the plain table name automatically by stripping the `_raw` suffix (e.g. `avalanche_org_raw` → `avalanche_org`).
+
+Expected output:
+
+```
+Latest file_date: 2026-09-22
+Deleted 166 rows from geo.avalanche_org
+Deleted 166 rows from geo.avalanche_org_raw
+Delete complete: file_date=2026-09-22, raw=166, plain=166
+```
+
+### 9. Upload data to Supabase
 
 Upload CSV files from GEO_Download to a Supabase table:
 
@@ -543,6 +565,7 @@ pytest test/ -v
 | `test/raw2plain/test_eonet_event_raw2plain.py` | EONET Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
+| `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date, table derivation, skip on empty, error handling) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
 | `test/util/test_logger.py` | Logger setup, duplicate handlers, nested directories |
@@ -565,6 +588,8 @@ logs/
 │   └── drop_table_avalanche_org_raw_2026-09-21T10:35:00.654321.log
 ├── drop_schema/
 │   └── drop_schema_geo_2026-09-21T10:40:00.111222.log
+├── delete_last_filedate/
+│   └── delete_last_filedate_avalanche_org_raw_2026-09-21T10:42:00.777888.log
 ├── upload/                          # standalone only
 │   └── upload_avalanche_org_raw_2026-09-21T10:42:00.777888.log
 ├── raw2plain/                       # standalone only
