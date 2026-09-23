@@ -156,3 +156,27 @@ def test_convert_selects_15_columns():
     input_df.select.assert_called_once()
     select_args = input_df.select.call_args[0]
     assert len(select_args) == 15
+
+
+@patch("raw2plain.avalanche_org_raw2plain.F", _mock_F())
+@patch("raw2plain.avalanche_org_raw2plain.setup_logger")
+def test_uses_passed_logger(mock_logger):
+    spark, raw_df, plain_df = _mock_spark(max_file_date=None)
+    passed_logger = MagicMock()
+
+    from raw2plain.avalanche_org_raw2plain import raw2plain
+    raw2plain(spark, _mock_app_config(), _mock_db_config(), logger=passed_logger)
+
+    mock_logger.assert_not_called()
+    passed_logger.info.assert_any_call("---- Raw2Final started: avalanche_org_raw → avalanche_org ----")
+
+
+@patch("raw2plain.avalanche_org_raw2plain.F", _mock_F())
+@patch("raw2plain.avalanche_org_raw2plain.setup_logger")
+def test_creates_own_logger_when_none(mock_logger):
+    spark, raw_df, plain_df = _mock_spark(max_file_date=None)
+
+    from raw2plain.avalanche_org_raw2plain import raw2plain
+    raw2plain(spark, _mock_app_config(), _mock_db_config(), logger=None)
+
+    mock_logger.assert_called_once()

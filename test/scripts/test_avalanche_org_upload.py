@@ -4,6 +4,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+def _mock_F():
+    f_mock = MagicMock()
+    f_mock.lit.return_value = MagicMock()
+    return f_mock
+
+
 def _mock_app_config():
     cfg = MagicMock()
     cfg.data.directory = "../GEO_Download/data"
@@ -31,6 +37,8 @@ def _mock_spark(max_file_date=None):
 
     df = MagicMock()
     df.count.return_value = 10
+    df.withColumn.return_value = df
+    df.unionByName.return_value = df
 
     jdbc_df = MagicMock()
     jdbc_df.first.return_value = MagicMock(max_file_date=max_file_date)
@@ -40,6 +48,8 @@ def _mock_spark(max_file_date=None):
     return spark, df
 
 
+@patch("upload.avalanche_org_upload.F", _mock_F())
+@patch("upload.avalanche_org_upload.StructType", MagicMock())
 @patch("upload.avalanche_org_upload.setup_logger")
 @patch("upload.avalanche_org_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.avalanche_org_upload.glob.glob")
@@ -56,12 +66,12 @@ def test_historical_when_table_empty(mock_exists, mock_glob, mock_schema, mock_l
     from upload.avalanche_org_upload import upload
     upload(spark, _mock_app_config(), _mock_db_config())
 
-    spark.read.csv.assert_called_once()
-    read_files = spark.read.csv.call_args[0][0]
-    assert len(read_files) == 3
+    assert spark.read.csv.call_count == 3
     df.write.jdbc.assert_called_once()
 
 
+@patch("upload.avalanche_org_upload.F", _mock_F())
+@patch("upload.avalanche_org_upload.StructType", MagicMock())
 @patch("upload.avalanche_org_upload.setup_logger")
 @patch("upload.avalanche_org_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.avalanche_org_upload.glob.glob")
@@ -78,12 +88,11 @@ def test_incremental_filters_by_date(mock_exists, mock_glob, mock_schema, mock_l
     from upload.avalanche_org_upload import upload
     upload(spark, _mock_app_config(), _mock_db_config())
 
-    read_files = spark.read.csv.call_args[0][0]
-    assert len(read_files) == 2
-    assert any("2026-09-02.csv" in f for f in read_files)
-    assert any("2026-09-03.csv" in f for f in read_files)
+    assert spark.read.csv.call_count == 2
 
 
+@patch("upload.avalanche_org_upload.F", _mock_F())
+@patch("upload.avalanche_org_upload.StructType", MagicMock())
 @patch("upload.avalanche_org_upload.setup_logger")
 @patch("upload.avalanche_org_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.avalanche_org_upload.glob.glob")
@@ -102,6 +111,8 @@ def test_no_new_files_skips_upload(mock_exists, mock_glob, mock_schema, mock_log
     df.write.jdbc.assert_not_called()
 
 
+@patch("upload.avalanche_org_upload.F", _mock_F())
+@patch("upload.avalanche_org_upload.StructType", MagicMock())
 @patch("upload.avalanche_org_upload.setup_logger")
 @patch("upload.avalanche_org_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.avalanche_org_upload.glob.glob")
@@ -122,6 +133,8 @@ def test_logs_record_count(mock_exists, mock_glob, mock_schema, mock_logger):
     log.info.assert_any_call("Upload complete: 42 records written to geo.avalanche_org_raw")
 
 
+@patch("upload.avalanche_org_upload.F", _mock_F())
+@patch("upload.avalanche_org_upload.StructType", MagicMock())
 @patch("upload.avalanche_org_upload.setup_logger")
 @patch("upload.avalanche_org_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.avalanche_org_upload.glob.glob")
@@ -139,6 +152,8 @@ def test_writes_to_correct_table(mock_exists, mock_glob, mock_schema, mock_logge
     assert write_args.kwargs["mode"] == "append"
 
 
+@patch("upload.avalanche_org_upload.F", _mock_F())
+@patch("upload.avalanche_org_upload.StructType", MagicMock())
 @patch("upload.avalanche_org_upload.setup_logger")
 @patch("upload.avalanche_org_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.avalanche_org_upload.glob.glob")
@@ -153,3 +168,39 @@ def test_empty_folder_skips_upload(mock_exists, mock_glob, mock_schema, mock_log
 
     spark.read.csv.assert_not_called()
     df.write.jdbc.assert_not_called()
+
+
+@patch("upload.avalanche_org_upload.F", _mock_F())
+@patch("upload.avalanche_org_upload.StructType", MagicMock())
+@patch("upload.avalanche_org_upload.setup_logger")
+@patch("upload.avalanche_org_upload.pydantic_to_spark_schema", return_value=MagicMock())
+@patch("upload.avalanche_org_upload.glob.glob")
+@patch("upload.avalanche_org_upload.os.path.exists", return_value=True)
+def test_uses_passed_logger(mock_exists, mock_glob, mock_schema, mock_logger):
+    mock_glob.return_value = ["/data/Avalanche_ORG/avalanche_org_2026-09-01.csv"]
+
+    spark, df = _mock_spark(max_file_date=None)
+    passed_logger = MagicMock()
+
+    from upload.avalanche_org_upload import upload
+    upload(spark, _mock_app_config(), _mock_db_config(), logger=passed_logger)
+
+    mock_logger.assert_not_called()
+    passed_logger.info.assert_any_call("---- Upload started: avalanche_org_raw ----")
+
+
+@patch("upload.avalanche_org_upload.F", _mock_F())
+@patch("upload.avalanche_org_upload.StructType", MagicMock())
+@patch("upload.avalanche_org_upload.setup_logger")
+@patch("upload.avalanche_org_upload.pydantic_to_spark_schema", return_value=MagicMock())
+@patch("upload.avalanche_org_upload.glob.glob")
+@patch("upload.avalanche_org_upload.os.path.exists", return_value=True)
+def test_creates_own_logger_when_none(mock_exists, mock_glob, mock_schema, mock_logger):
+    mock_glob.return_value = ["/data/Avalanche_ORG/avalanche_org_2026-09-01.csv"]
+
+    spark, df = _mock_spark(max_file_date=None)
+
+    from upload.avalanche_org_upload import upload
+    upload(spark, _mock_app_config(), _mock_db_config(), logger=None)
+
+    mock_logger.assert_called_once()

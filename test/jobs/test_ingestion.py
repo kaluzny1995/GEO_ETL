@@ -59,8 +59,8 @@ def test_ingestion_runs_upload_then_raw2plain(mock_app, mock_db):
 def test_ingestion_upload_before_raw2plain(mock_app, mock_db):
     spark = MagicMock()
     call_order = []
-    upload_fn = MagicMock(side_effect=lambda s, c, d: call_order.append("upload"))
-    raw2plain_fn = MagicMock(side_effect=lambda s, c, d: call_order.append("raw2plain"))
+    upload_fn = MagicMock(side_effect=lambda s, c, d, **kw: call_order.append("upload"))
+    raw2plain_fn = MagicMock(side_effect=lambda s, c, d, **kw: call_order.append("raw2plain"))
 
     UploadScriptFactory.register("t", upload_fn)
     Raw2PlainScriptFactory.register("t", raw2plain_fn)
@@ -88,6 +88,24 @@ def test_ingestion_passes_config_and_db_config(mock_app, mock_db):
     db_cfg = upload_fn.call_args[0][2]
     assert app_cfg is mock_app.return_value
     assert db_cfg is mock_db.return_value
+
+
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+def test_ingestion_passes_logger_to_upload_and_raw2plain(mock_app, mock_db):
+    spark = MagicMock()
+    upload_fn = MagicMock()
+    raw2plain_fn = MagicMock()
+
+    UploadScriptFactory.register("t", upload_fn)
+    Raw2PlainScriptFactory.register("t", raw2plain_fn)
+
+    log = MagicMock()
+    from jobs.ingestion import run
+    run(spark, "t", logger=log)
+
+    assert upload_fn.call_args.kwargs["logger"] is log
+    assert raw2plain_fn.call_args.kwargs["logger"] is log
 
 
 @patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())

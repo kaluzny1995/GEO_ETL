@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 import os
 
 import findspark
@@ -48,7 +49,7 @@ def _convert(df):
     )
 
 
-def raw2plain(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig):
+def raw2plain(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None):
     """Transform data from avalanche_org_raw to avalanche_org.
 
     Automatically determines load type:
@@ -59,14 +60,15 @@ def raw2plain(spark: SparkSession, config: AppConfig, db_config: SupabaseConnect
     jdbc_url = db_config.get_jdbc_url()
     properties = db_config.get_jdbc_properties(config.database.jdbc_driver)
 
-    logger = setup_logger(
-        name=f"raw2plain_{PLAIN_TABLE}",
-        log_file=os.path.join(
-            config.logging.directory, "raw2plain",
-            f"raw2plain_{PLAIN_TABLE}_{dt.datetime.now().isoformat()}.log",
-        ),
-        level=config.logging.level_int,
-    )
+    if logger is None:
+        logger = setup_logger(
+            name=f"raw2plain_{PLAIN_TABLE}",
+            log_file=os.path.join(
+                config.logging.directory, "raw2plain",
+                f"raw2plain_{PLAIN_TABLE}_{dt.datetime.now().isoformat()}.log",
+            ),
+            level=config.logging.level_int,
+        )
     logger.info(f"---- Raw2Final started: {RAW_TABLE} → {PLAIN_TABLE} ----")
 
     max_file_date = _get_max_file_date(spark, jdbc_url, properties, schema)

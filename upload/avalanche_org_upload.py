@@ -1,11 +1,13 @@
 import datetime as dt
 import glob
+import logging
 import os
 
 import findspark
 findspark.init()
 
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, functions as F
+from pyspark.sql.types import StructType
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.raw import AvalancheOrgRaw
@@ -37,7 +39,7 @@ def _parse_file_date(filepath: str) -> dt.date | None:
         return None
 
 
-def upload(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig):
+def upload(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None):
     """Load Avalanche_ORG CSVs and upload to Supabase.
 
     Automatically determines load type:
@@ -48,17 +50,19 @@ def upload(spark: SparkSession, config: AppConfig, db_config: SupabaseConnection
     jdbc_url = db_config.get_jdbc_url()
     properties = db_config.get_jdbc_properties(config.database.jdbc_driver)
 
-    logger = setup_logger(
-        name=f"upload_{TABLE_NAME}",
-        log_file=os.path.join(
-            config.logging.directory, "upload",
-            f"upload_{TABLE_NAME}_{dt.datetime.now().isoformat()}.log",
-        ),
-        level=config.logging.level_int,
-    )
+    if logger is None:
+        logger = setup_logger(
+            name=f"upload_{TABLE_NAME}",
+            log_file=os.path.join(
+                config.logging.directory, "upload",
+                f"upload_{TABLE_NAME}_{dt.datetime.now().isoformat()}.log",
+            ),
+            level=config.logging.level_int,
+        )
     logger.info(f"---- Upload started: {TABLE_NAME} ----")
 
-    data_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), config.data.directory))
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    data_dir = os.path.normpath(os.path.join(project_root, config.data.directory))
     avalanche_dir = os.path.join(data_dir, "Avalanche_ORG")
     logger.info(f"Data directory: {avalanche_dir}")
 
@@ -80,8 +84,23 @@ def upload(spark: SparkSession, config: AppConfig, db_config: SupabaseConnection
         logger.info("No files to upload. Done.")
         return
 
-    spark_schema = pydantic_to_spark_schema(AvalancheOrgRaw)
-    df = spark.read.csv(csv_files, header=True, schema=spark_schema)
+    # Read each CSV individually and add file_date from filename
+    frames = []
+    for csv_path in csv_files:
+        file_date = _parse_file_date(csv_path)
+        file_date_str = file_date.isoformat() if file_date else None
+        csv_schema = pydantic_to_spark_schema(AvalancheOrgRaw)
+        # Remove file_date from schema since CSV doesn't have it
+        fields_without_file_date = [f for f in csv_schema.fields if f.name != "file_date"]
+        partial_schema = StructType(fields_without_file_date)
+        partial_df = spark.read.csv(csv_path, header=True, schema=partial_schema)
+        partial_df = partial_df.withColumn("file_date", F.lit(file_date_str))
+        frames.append(partial_df)
+
+    df = frames[0] if len(frames) == 1 else frames[0].unionByName(frames[1])
+    for frame in frames[2:]:
+        df = df.unionByName(frame)
+
     record_count = df.count()
     logger.info(f"Total records to upload: {record_count}")
 

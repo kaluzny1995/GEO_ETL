@@ -311,6 +311,12 @@ spark.stop()
 | Table is empty | `HISTORICAL` | Uploads all CSV files |
 | Table has data | `INCREMENTAL` | Uploads only CSVs with `file_date` newer than the latest in the table |
 
+When called from the INGESTION job, a logger is passed so all logs go to the same file:
+
+```python
+upload(spark, config, db_config, logger=my_logger)
+```
+
 Expected output:
 
 ```
@@ -352,6 +358,12 @@ spark.stop()
 |-----------|-----------|----------|
 | Final table is empty | `HISTORICAL` | Processes all raw data |
 | Final table has data | `INCREMENTAL` | Processes only raw rows with `file_date` > max in final |
+
+When called from the INGESTION job, a logger is passed so all logs go to the same file:
+
+```python
+raw2plain(spark, config, db_config, logger=my_logger)
+```
 
 **Type conversions applied:**
 
@@ -505,13 +517,13 @@ pytest test/ -v
 | `test/factory/test_upload_script_factory.py` | UploadScriptFactory (register, get, tables, clear) |
 | `test/factory/test_raw2plain_script_factory.py` | Raw2PlainScriptFactory (register, get, tables, clear) |
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
-| `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logging) |
+| `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logger passing, logging) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig models |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
-| `test/scripts/test_avalanche_org_upload.py` | Upload script (historical, incremental, no files, logging) |
-| `test/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/scripts/test_avalanche_org_upload.py` | Upload script (historical, incremental, no files, logging, logger param) |
+| `test/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/util/test_ddl_generator.py` | DDL generation, drop table, drop schema, schema table check |
@@ -521,18 +533,24 @@ pytest test/ -v
 
 Every script writes structured log files to `logs/`, organized by job type. The logging setup uses the same pattern as [GEO_E2E](../GEO_E2E) and [GEO_Download](../GEO_Download).
 
+When called via the INGESTION job, `upload()` and `raw2plain()` receive the ingestion logger, so all logs are consolidated into a single ingestion log file. When called standalone, they create their own separate log files.
+
 ### Log structure
 
 ```
 logs/
+├── ingestion/
+│   └── ingestion_avalanche_org_raw_2026-09-21T10:42:00.777888.log
 ├── create_table/
 │   └── create_table_avalanche_org_raw_2026-09-21T10:30:00.123456.log
 ├── drop_table/
 │   └── drop_table_avalanche_org_raw_2026-09-21T10:35:00.654321.log
 ├── drop_schema/
 │   └── drop_schema_geo_2026-09-21T10:40:00.111222.log
-├── upload/
+├── upload/                          # standalone only
 │   └── upload_avalanche_org_raw_2026-09-21T10:42:00.777888.log
+├── raw2plain/                       # standalone only
+│   └── raw2plain_avalanche_org_2026-09-21T10:45:00.333444.log
 ├── pyspark_csv_test/
 │   └── pyspark_csv_test_2026-09-21T10:45:00.333444.log
 └── pyspark_supabase_test/
