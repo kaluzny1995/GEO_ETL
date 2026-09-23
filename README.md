@@ -49,12 +49,14 @@ GEO_ETL/
 ├── upload/                           # Data upload scripts
 │   ├── __init__.py
 │   ├── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
-│   └── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
+│   ├── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
+│   └── gdacs_event_upload.py         # Upload GDACS CSVs -> Supabase via JDBC
 │
 ├── raw2plain/                        # Raw-to-final transformation scripts
 │   ├── __init__.py
 │   ├── avalanche_org_raw2plain.py    # Transform Avalanche_ORG raw -> typed data
-│   └── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
+│   ├── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
+│   └── gdacs_event_raw2plain.py      # Transform GDACS raw -> typed data
 │
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports all factories (lazy imports)
@@ -75,10 +77,12 @@ GEO_ETL/
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
 │   ├── raw/
 │   │   ├── avalanche_org_raw.py      # AvalancheOrgRaw — all-TEXT raw model
-│   │   └── eonet_event_raw.py        # EonetEventRaw — all-TEXT raw model
+│   │   ├── eonet_event_raw.py        # EonetEventRaw — all-TEXT raw model
+│   │   └── gdacs_event_raw.py        # GdacsEventRaw — all-TEXT raw model
 │   └── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
-│       └── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
+│       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
+│       └── gdacs_event.py            # GdacsEvent — typed model (float, int, datetime, bool)
 │
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
@@ -117,10 +121,12 @@ GEO_ETL/
     │   │   └── test_supabase_config.py
     │   ├── plain/
     │   │   ├── test_avalanche_org.py
-    │   │   └── test_eonet_event.py
+    │   │   ├── test_eonet_event.py
+    │   │   └── test_gdacs_event.py
     │   └── raw/
     │       ├── test_avalanche_org_raw.py
-    │       └── test_eonet_event_raw.py
+    │       ├── test_eonet_event_raw.py
+    │       └── test_gdacs_event_raw.py
     ├── scripts/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
@@ -128,10 +134,12 @@ GEO_ETL/
     │   └── test_run_delete_last_filedate_data.py
     ├── upload/
     │   ├── test_avalanche_org_upload.py
-    │   └── test_eonet_event_upload.py
+    │   ├── test_eonet_event_upload.py
+    │   └── test_gdacs_event_upload.py
     ├── raw2plain/
     │   ├── test_avalanche_org_raw2plain.py
-    │   └── test_eonet_event_raw2plain.py
+    │   ├── test_eonet_event_raw2plain.py
+    │   └── test_gdacs_event_raw2plain.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_logger.py
@@ -556,13 +564,17 @@ pytest test/ -v
 | `test/model/test_enums.py` | JobType enum (values, membership, from_value, invalid value) |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
 | `test/model/raw/test_eonet_event_raw.py` | EonetEventRaw model validation + Spark schema |
+| `test/model/raw/test_gdacs_event_raw.py` | GdacsEventRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
 | `test/model/plain/test_eonet_event.py` | EonetEvent model validation + Spark schema + DDL types |
+| `test/model/plain/test_gdacs_event.py` | GdacsEvent model validation + Spark schema + DDL types |
 | `test/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
 | `test/upload/test_eonet_event_upload.py` | EONET upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
+| `test/upload/test_gdacs_event_upload.py` | GDACS upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
 | `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch, Spark session lifecycle, logger passing, error handling) |
 | `test/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
 | `test/raw2plain/test_eonet_event_raw2plain.py` | EONET Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
+| `test/raw2plain/test_gdacs_event_raw2plain.py` | GDACS Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date, table derivation, skip on empty, error handling) |
@@ -636,17 +648,17 @@ Each log file is timestamped and unique per execution. The `setup_logger` functi
 
 Downloaded CSV files from [GEO_Download](../GEO_Download) are the input. Current sources:
 
-| Source | Description |
-|--------|-------------|
-| Avalanche_ORG | Avalanche data |
-| EONET | NASA natural events |
-| GDACS | Global disasters |
-| IBTrACS | Tropical cyclone best-track |
-| NIFC | US wildland fires |
-| OpenMeteo_Flood | River discharge data |
-| USGS_Earthquake | Seismic events |
-| USGS_NWIS | US streamflow |
-| USGS_Volcano | US volcano alerts |
+| Source | Raw Table | Final Table | Records | Load Type |
+|--------|-----------|-------------|---------|-----------|
+| Avalanche_ORG | `geo.avalanche_org_raw` | `geo.avalanche_org` | 3,485 | HISTORICAL |
+| EONET | `geo.eonet_event_raw` | `geo.eonet_event` | 109 | HISTORICAL |
+| GDACS | `geo.gdacs_event_raw` | `geo.gdacs_event` | 8,031 | HISTORICAL |
+| IBTrACS | — | — | — | — |
+| NIFC | — | — | — | — |
+| OpenMeteo_Flood | — | — | — | — |
+| USGS_Earthquake | — | — | — | — |
+| USGS_NWIS | — | — | — | — |
+| USGS_Volcano | — | — | — | — |
 
 ## Related Projects
 

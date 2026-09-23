@@ -19,5 +19,11 @@ def _register():
     UploadScriptFactory.register("eonet_event_raw", eonet_event_upload)
     Raw2PlainScriptFactory.register("eonet_event_raw", eonet_event_raw2plain)
 
+    from upload.gdacs_event_upload import upload as gdacs_event_upload
+    from raw2plain.gdacs_event_raw2plain import raw2plain as gdacs_event_raw2plain
+
+    UploadScriptFactory.register("gdacs_event_raw", gdacs_event_upload)
+    Raw2PlainScriptFactory.register("gdacs_event_raw", gdacs_event_raw2plain)
+
 
 _register()
