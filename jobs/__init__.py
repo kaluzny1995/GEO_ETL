@@ -43,5 +43,11 @@ def _register():
     UploadScriptFactory.register("openmeteo_flood_raw", openmeteo_flood_upload)
     Raw2PlainScriptFactory.register("openmeteo_flood_raw", openmeteo_flood_raw2plain)
 
+    from upload.usgs_earthquake_upload import upload as usgs_earthquake_upload
+    from raw2plain.usgs_earthquake_raw2plain import raw2plain as usgs_earthquake_raw2plain
+
+    UploadScriptFactory.register("usgs_earthquake_raw", usgs_earthquake_upload)
+    Raw2PlainScriptFactory.register("usgs_earthquake_raw", usgs_earthquake_raw2plain)
+
 
 _register()

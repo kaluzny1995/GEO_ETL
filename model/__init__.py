@@ -1,12 +1,13 @@
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import JobType
-from model.raw import AvalancheOrgRaw, EonetEventRaw, GdacsEventRaw, IbtacsCycloneRaw, NifcFireRaw, OpenMeteoFloodRaw
+from model.raw import AvalancheOrgRaw, EonetEventRaw, GdacsEventRaw, IbtacsCycloneRaw, NifcFireRaw, OpenMeteoFloodRaw, UsgsEarthquakeRaw
 from model.plain.avalanche_org import AvalancheOrg
 from model.plain.eonet_event import EonetEvent
 from model.plain.gdacs_event import GdacsEvent
 from model.plain.ibtracs_cyclone import IbtacsCyclone
 from model.plain.nifc_fire import NifcFire
 from model.plain.openmeteo_flood import OpenMeteoFlood
+from model.plain.usgs_earthquake import UsgsEarthquake
 
 
 def _register_tables():
@@ -23,6 +24,8 @@ def _register_tables():
     TableFactory.register("nifc_fire", NifcFire)
     TableFactory.register("openmeteo_flood_raw", OpenMeteoFloodRaw)
     TableFactory.register("openmeteo_flood", OpenMeteoFlood)
+    TableFactory.register("usgs_earthquake_raw", UsgsEarthquakeRaw)
+    TableFactory.register("usgs_earthquake", UsgsEarthquake)
 
 
 _register_tables()
@@ -30,4 +33,5 @@ _register_tables()
 __all__ = ["AppConfig", "SupabaseConnectionConfig", "JobType",
            "AvalancheOrgRaw", "AvalancheOrg", "EonetEventRaw", "EonetEvent",
            "GdacsEventRaw", "GdacsEvent", "IbtacsCycloneRaw", "IbtacsCyclone",
-           "NifcFireRaw", "NifcFire", "OpenMeteoFloodRaw", "OpenMeteoFlood"]
+           "NifcFireRaw", "NifcFire", "OpenMeteoFloodRaw", "OpenMeteoFlood",
+           "UsgsEarthquakeRaw", "UsgsEarthquake"]
