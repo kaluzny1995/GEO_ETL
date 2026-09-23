@@ -1,9 +1,10 @@
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import JobType
-from model.raw import AvalancheOrgRaw, EonetEventRaw, GdacsEventRaw
+from model.raw import AvalancheOrgRaw, EonetEventRaw, GdacsEventRaw, IbtacsCycloneRaw
 from model.plain.avalanche_org import AvalancheOrg
 from model.plain.eonet_event import EonetEvent
 from model.plain.gdacs_event import GdacsEvent
+from model.plain.ibtracs_cyclone import IbtacsCyclone
 
 
 def _register_tables():
@@ -14,10 +15,12 @@ def _register_tables():
     TableFactory.register("eonet_event", EonetEvent)
     TableFactory.register("gdacs_event_raw", GdacsEventRaw)
     TableFactory.register("gdacs_event", GdacsEvent)
+    TableFactory.register("ibtracs_cyclone_raw", IbtacsCycloneRaw)
+    TableFactory.register("ibtracs_cyclone", IbtacsCyclone)
 
 
 _register_tables()
 
 __all__ = ["AppConfig", "SupabaseConnectionConfig", "JobType",
            "AvalancheOrgRaw", "AvalancheOrg", "EonetEventRaw", "EonetEvent",
-           "GdacsEventRaw", "GdacsEvent"]
+           "GdacsEventRaw", "GdacsEvent", "IbtacsCycloneRaw", "IbtacsCyclone"]

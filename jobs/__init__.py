@@ -25,5 +25,11 @@ def _register():
     UploadScriptFactory.register("gdacs_event_raw", gdacs_event_upload)
     Raw2PlainScriptFactory.register("gdacs_event_raw", gdacs_event_raw2plain)
 
+    from upload.ibtracs_cyclone_upload import upload as ibtracs_cyclone_upload
+    from raw2plain.ibtracs_cyclone_raw2plain import raw2plain as ibtracs_cyclone_raw2plain
+
+    UploadScriptFactory.register("ibtracs_cyclone_raw", ibtracs_cyclone_upload)
+    Raw2PlainScriptFactory.register("ibtracs_cyclone_raw", ibtracs_cyclone_raw2plain)
+
 
 _register()
