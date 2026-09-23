@@ -52,7 +52,8 @@ GEO_ETL/
 │   ├── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
 │   ├── gdacs_event_upload.py         # Upload GDACS CSVs -> Supabase via JDBC
 │   ├── ibtracs_cyclone_upload.py     # Upload IBTrACS CSVs -> Supabase via JDBC
-│   └── nifc_fire_upload.py           # Upload NIFC CSVs -> Supabase via JDBC
+│   ├── nifc_fire_upload.py           # Upload NIFC CSVs -> Supabase via JDBC
+│   └── openmeteo_flood_upload.py     # Upload OpenMeteo_Flood CSVs -> Supabase via JDBC
 │
 ├── raw2plain/                        # Raw-to-final transformation scripts
 │   ├── __init__.py
@@ -60,7 +61,8 @@ GEO_ETL/
 │   ├── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
 │   ├── gdacs_event_raw2plain.py      # Transform GDACS raw -> typed data
 │   ├── ibtracs_cyclone_raw2plain.py  # Transform IBTrACS raw -> typed data
-│   └── nifc_fire_raw2plain.py        # Transform NIFC raw -> typed data
+│   ├── nifc_fire_raw2plain.py        # Transform NIFC raw -> typed data
+│   └── openmeteo_flood_raw2plain.py  # Transform OpenMeteo_Flood raw -> typed data
 │
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports all factories (lazy imports)
@@ -84,13 +86,15 @@ GEO_ETL/
 │   │   ├── eonet_event_raw.py        # EonetEventRaw — all-TEXT raw model
 │   │   ├── gdacs_event_raw.py        # GdacsEventRaw — all-TEXT raw model
 │   │   ├── ibtracs_cyclone_raw.py    # IbtacsCycloneRaw — all-TEXT raw model
-│   │   └── nifc_fire_raw.py          # NifcFireRaw — all-TEXT raw model
+│   │   ├── nifc_fire_raw.py          # NifcFireRaw — all-TEXT raw model
+│   │   └── openmeteo_flood_raw.py    # OpenMeteoFloodRaw — all-TEXT raw model
 │   └── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
 │       ├── gdacs_event.py            # GdacsEvent — typed model (float, int, datetime, bool)
 │       ├── ibtracs_cyclone.py        # IbtacsCyclone — typed model (float, int, datetime)
-│       └── nifc_fire.py              # NifcFire — typed model (float, int, datetime)
+│       ├── nifc_fire.py              # NifcFire — typed model (float, int, datetime)
+│       └── openmeteo_flood.py        # OpenMeteoFlood — typed model (float, date)
 │
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
@@ -132,13 +136,15 @@ GEO_ETL/
     │   │   ├── test_eonet_event.py
     │   │   ├── test_gdacs_event.py
     │   │   ├── test_ibtracs_cyclone.py
-    │   │   └── test_nifc_fire.py
+    │   │   ├── test_nifc_fire.py
+    │   │   └── test_openmeteo_flood.py
     │   └── raw/
     │       ├── test_avalanche_org_raw.py
     │       ├── test_eonet_event_raw.py
     │       ├── test_gdacs_event_raw.py
     │       ├── test_ibtracs_cyclone_raw.py
-    │       └── test_nifc_fire_raw.py
+    │       ├── test_nifc_fire_raw.py
+    │       └── test_openmeteo_flood_raw.py
     ├── scripts/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
@@ -149,13 +155,15 @@ GEO_ETL/
     │   ├── test_eonet_event_upload.py
     │   ├── test_gdacs_event_upload.py
     │   ├── test_ibtracs_cyclone_upload.py
-    │   └── test_nifc_fire_upload.py
+    │   ├── test_nifc_fire_upload.py
+    │   └── test_openmeteo_flood_upload.py
     ├── raw2plain/
     │   ├── test_avalanche_org_raw2plain.py
     │   ├── test_eonet_event_raw2plain.py
     │   ├── test_gdacs_event_raw2plain.py
     │   ├── test_ibtracs_cyclone_raw2plain.py
-    │   └── test_nifc_fire_raw2plain.py
+    │   ├── test_nifc_fire_raw2plain.py
+    │   └── test_openmeteo_flood_raw2plain.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_logger.py
@@ -392,6 +400,12 @@ When no new files are found (INCREMENTAL and table is up to date), the script ra
 logger.warning("No new files to upload for avalanche_org_raw")
 ValueError: No new files to upload for avalanche_org_raw
 ```
+
+#### Incremental test workflow
+
+1. Run HISTORICAL ingestion to load all data
+2. Delete latest `file_date` from both raw + plain tables using `run_delete_last_filedate_data.py`
+3. Run INGESTION again — script detects missing files and re-loads the deleted data
 
 ### 9. Transform raw data to final types
 
@@ -676,7 +690,7 @@ Downloaded CSV files from [GEO_Download](../GEO_Download) are the input. Current
 | GDACS | `geo.gdacs_event_raw` | `geo.gdacs_event` | 8,031 | HISTORICAL |
 | IBTrACS | `geo.ibtracs_cyclone_raw` | `geo.ibtracs_cyclone` | 424 | HISTORICAL |
 | NIFC | `geo.nifc_fire_raw` | `geo.nifc_fire` | 128 | HISTORICAL |
-| OpenMeteo_Flood | — | — | — | — |
+| OpenMeteo_Flood | `geo.openmeteo_flood_raw` | `geo.openmeteo_flood` | 4,884 | HISTORICAL |
 | USGS_Earthquake | — | — | — | — |
 | USGS_NWIS | — | — | — | — |
 | USGS_Volcano | — | — | — | — |

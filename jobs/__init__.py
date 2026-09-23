@@ -37,5 +37,11 @@ def _register():
     UploadScriptFactory.register("nifc_fire_raw", nifc_fire_upload)
     Raw2PlainScriptFactory.register("nifc_fire_raw", nifc_fire_raw2plain)
 
+    from upload.openmeteo_flood_upload import upload as openmeteo_flood_upload
+    from raw2plain.openmeteo_flood_raw2plain import raw2plain as openmeteo_flood_raw2plain
+
+    UploadScriptFactory.register("openmeteo_flood_raw", openmeteo_flood_upload)
+    Raw2PlainScriptFactory.register("openmeteo_flood_raw", openmeteo_flood_raw2plain)
+
 
 _register()
