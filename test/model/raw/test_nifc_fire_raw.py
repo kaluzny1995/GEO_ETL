@@ -1,0 +1,64 @@
+import pytest
+from pydantic import ValidationError
+
+from model.raw.nifc_fire_raw import NifcFireRaw
+from utils.schema_converter import pydantic_to_spark_schema
+from pyspark.sql.types import StringType
+
+VALID_ROW = {
+    "incident_name": "Silvertip",
+    "irwin_id": "{C4138756-16B2-412F-B32B-4DB4520DE5BC}",
+    "fire_number": "",
+    "acres": "",
+    "percent_contained": "",
+    "fire_type": "",
+    "fire_type_label": "",
+    "jurisdiction": "",
+    "jurisdiction_label": "",
+    "state": "",
+    "po_method": "",
+    "latitude": "47.84370529048297",
+    "longitude": "-113.24066952697544",
+    "poly_date": "1788305461000",
+    "created_on": "1784928492297",
+    "modified_on": "1789662976887",
+    "file_date": "2026-09-01",
+}
+
+
+class TestNifcFireRawValid:
+    def test_valid_row(self):
+        model = NifcFireRaw(**VALID_ROW)
+        assert model.incident_name == "Silvertip"
+        assert model.irwin_id == "{C4138756-16B2-412F-B32B-4DB4520DE5BC}"
+        assert model.file_date == "2026-09-01"
+
+    def test_optional_fields_none(self):
+        row = {k: None for k in VALID_ROW}
+        row["file_date"] = "2026-09-01"
+        model = NifcFireRaw(**row)
+        assert model.incident_name is None
+        assert model.latitude is None
+
+    def test_all_16_fields_accepted(self):
+        model = NifcFireRaw(**VALID_ROW)
+        for name in VALID_ROW:
+            assert getattr(model, name) == VALID_ROW[name]
+
+
+class TestNifcFireRawMissing:
+    def test_missing_file_date_raises(self):
+        row = {k: v for k, v in VALID_ROW.items() if k != "file_date"}
+        with pytest.raises(ValidationError):
+            NifcFireRaw(**row)
+
+
+class TestNifcFireRawSparkSchema:
+    def test_schema_field_count(self):
+        schema = pydantic_to_spark_schema(NifcFireRaw)
+        assert len(schema.fields) == 17
+
+    def test_all_fields_are_string_type(self):
+        schema = pydantic_to_spark_schema(NifcFireRaw)
+        for field in schema.fields:
+            assert isinstance(field.dataType, StringType), f"{field.name} is not StringType"

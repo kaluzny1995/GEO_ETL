@@ -31,5 +31,11 @@ def _register():
     UploadScriptFactory.register("ibtracs_cyclone_raw", ibtracs_cyclone_upload)
     Raw2PlainScriptFactory.register("ibtracs_cyclone_raw", ibtracs_cyclone_raw2plain)
 
+    from upload.nifc_fire_upload import upload as nifc_fire_upload
+    from raw2plain.nifc_fire_raw2plain import raw2plain as nifc_fire_raw2plain
+
+    UploadScriptFactory.register("nifc_fire_raw", nifc_fire_upload)
+    Raw2PlainScriptFactory.register("nifc_fire_raw", nifc_fire_raw2plain)
+
 
 _register()
