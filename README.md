@@ -47,11 +47,13 @@ GEO_ETL/
 │
 ├── upload/                           # Data upload scripts
 │   ├── __init__.py
-│   └── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
+│   ├── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
+│   └── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
 │
 ├── raw2plain/                        # Raw-to-final transformation scripts
 │   ├── __init__.py
-│   └── avalanche_org_raw2plain.py    # Transform raw -> typed data via PySpark
+│   ├── avalanche_org_raw2plain.py    # Transform Avalanche_ORG raw -> typed data
+│   └── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
 │
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports all factories (lazy imports)
@@ -71,9 +73,11 @@ GEO_ETL/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
 │   ├── raw/
-│   │   └── avalanche_org_raw.py      # AvalancheOrgRaw — all-TEXT raw model
+│   │   ├── avalanche_org_raw.py      # AvalancheOrgRaw — all-TEXT raw model
+│   │   └── eonet_event_raw.py        # EonetEventRaw — all-TEXT raw model
 │   └── plain/
-│       └── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
+│       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
+│       └── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
 │
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
@@ -111,17 +115,21 @@ GEO_ETL/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
     │   ├── plain/
-    │   │   └── test_avalanche_org.py
+    │   │   ├── test_avalanche_org.py
+    │   │   └── test_eonet_event.py
     │   └── raw/
-    │       └── test_avalanche_org_raw.py
+    │       ├── test_avalanche_org_raw.py
+    │       └── test_eonet_event_raw.py
     ├── scripts/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
     │   └── test_run_drop_schema.py
     ├── upload/
-    │   └── test_avalanche_org_upload.py
+    │   ├── test_avalanche_org_upload.py
+    │   └── test_eonet_event_upload.py
     ├── raw2plain/
-    │   └── test_avalanche_org_raw2plain.py
+    │   ├── test_avalanche_org_raw2plain.py
+    │   └── test_eonet_event_raw2plain.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_logger.py
@@ -525,10 +533,14 @@ pytest test/ -v
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/test_enums.py` | JobType enum (values, membership, from_value, invalid value) |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
+| `test/model/raw/test_eonet_event_raw.py` | EonetEventRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
+| `test/model/plain/test_eonet_event.py` | EonetEvent model validation + Spark schema + DDL types |
 | `test/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
+| `test/upload/test_eonet_event_upload.py` | EONET upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
 | `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch, Spark session lifecycle, logger passing, error handling) |
 | `test/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
+| `test/raw2plain/test_eonet_event_raw2plain.py` | EONET Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
