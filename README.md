@@ -106,6 +106,7 @@ GEO_ETL/
     │   ├── test_create_table.py
     │   └── test_ingestion.py
     ├── model/
+    │   ├── test_enums.py
     │   ├── config/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
@@ -114,9 +115,11 @@ GEO_ETL/
     │   └── raw/
     │       └── test_avalanche_org_raw.py
     ├── scripts/
-    │   ├── test_avalanche_org_upload.py
+    │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
     │   └── test_run_drop_schema.py
+    ├── upload/
+    │   └── test_avalanche_org_upload.py
     ├── raw2plain/
     │   └── test_avalanche_org_raw2plain.py
     └── util/
@@ -520,14 +523,17 @@ pytest test/ -v
 | `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logger passing, logging) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig models |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
+| `test/model/test_enums.py` | JobType enum (values, membership, from_value, invalid value) |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
-| `test/scripts/test_avalanche_org_upload.py` | Upload script (historical, incremental, no files, logging, logger param) |
+| `test/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
+| `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch, Spark session lifecycle, logger passing, error handling) |
 | `test/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
-| `test/util/test_ddl_generator.py` | DDL generation, drop table, drop schema, schema table check |
+| `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
+| `test/util/test_logger.py` | Logger setup, duplicate handlers, nested directories |
 
 ## Logging
 

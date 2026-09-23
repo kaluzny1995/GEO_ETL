@@ -4,7 +4,7 @@ import pytest
 from pydantic import BaseModel
 from unittest.mock import MagicMock, patch
 
-from utils.ddl_generator import pydantic_to_ddl, drop_table, drop_schema, _schema_has_tables
+from utils.ddl_generator import pydantic_to_ddl, drop_table, drop_schema, _schema_has_tables, create_schema, execute_ddl
 
 
 class SimpleModel(BaseModel):
@@ -184,3 +184,27 @@ def test_schema_has_tables_false(mock_query):
     result = _schema_has_tables(mock_spark, "geo", "jdbc:url", {})
 
     assert result is False
+
+
+@patch("utils.ddl_generator._get_jdbc_connection")
+def test_create_schema(mock_get_conn):
+    conn, stmt = _mock_conn()
+    mock_get_conn.return_value = conn
+
+    mock_spark = MagicMock()
+    create_schema(mock_spark, "geo", "jdbc:url", {"user": "u", "password": "p"})
+
+    stmt.execute.assert_called_once_with("CREATE SCHEMA IF NOT EXISTS geo;")
+    conn.close.assert_called_once()
+
+
+@patch("utils.ddl_generator._get_jdbc_connection")
+def test_execute_ddl(mock_get_conn):
+    conn, stmt = _mock_conn()
+    mock_get_conn.return_value = conn
+
+    mock_spark = MagicMock()
+    execute_ddl(mock_spark, "CREATE TABLE t (id INT);", "jdbc:url", {"user": "u", "password": "p"})
+
+    stmt.execute.assert_called_once_with("CREATE TABLE t (id INT);")
+    conn.close.assert_called_once()
