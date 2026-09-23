@@ -378,10 +378,11 @@ Upload complete: 1523 records written to geo.avalanche_org_raw
 Spark session stopped
 ```
 
-If no new files are found (INCREMENTAL and table is up to date):
+When no new files are found (INCREMENTAL and table is up to date), the script raises an error:
 
 ```
-No files to upload. Done.
+logger.warning("No new files to upload for avalanche_org_raw")
+ValueError: No new files to upload for avalanche_org_raw
 ```
 
 ### 9. Transform raw data to final types

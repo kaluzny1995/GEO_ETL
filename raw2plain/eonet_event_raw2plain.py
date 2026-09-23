@@ -89,8 +89,8 @@ def raw2plain(spark: SparkSession, config: AppConfig, db_config: SupabaseConnect
     logger.info(f"Records to process: {record_count}")
 
     if record_count == 0:
-        logger.info("No new records. Done.")
-        return
+        logger.warning(f"No new records to process for {PLAIN_TABLE}")
+        raise ValueError(f"No new records to process for {PLAIN_TABLE}")
 
     plain_df = _convert(raw_df)
     logger.info(f"Writing to {schema}.{PLAIN_TABLE}...")

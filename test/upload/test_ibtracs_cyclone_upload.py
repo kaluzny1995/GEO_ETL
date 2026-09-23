@@ -141,16 +141,14 @@ def test_incremental_filters_by_date(mock_exists, mock_glob, mock_schema, mock_l
 @patch("upload.ibtracs_cyclone_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.ibtracs_cyclone_upload.glob.glob")
 @patch("upload.ibtracs_cyclone_upload.os.path.exists", return_value=True)
-def test_no_new_files_skips_upload(mock_exists, mock_glob, mock_schema, mock_logger):
+def test_no_new_files_raises_error(mock_exists, mock_glob, mock_schema, mock_logger):
     mock_glob.return_value = ["/data/IBTrACS/ibtracs_cyclones_2026-09-01.csv"]
 
     spark, df = _mock_spark(max_file_date=dt.date(2026, 9, 1))
 
     from upload.ibtracs_cyclone_upload import upload
-    upload(spark, _mock_app_config(), _mock_db_config())
-
-    spark.read.csv.assert_not_called()
-    df.write.jdbc.assert_not_called()
+    with pytest.raises(ValueError, match="No new files to upload"):
+        upload(spark, _mock_app_config(), _mock_db_config())
 
 
 @patch("upload.ibtracs_cyclone_upload.F", _mock_F())
@@ -178,16 +176,14 @@ def test_writes_to_correct_table(mock_exists, mock_glob, mock_schema, mock_logge
 @patch("upload.ibtracs_cyclone_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.ibtracs_cyclone_upload.glob.glob")
 @patch("upload.ibtracs_cyclone_upload.os.path.exists", return_value=True)
-def test_empty_folder_skips_upload(mock_exists, mock_glob, mock_schema, mock_logger):
+def test_empty_folder_raises_error(mock_exists, mock_glob, mock_schema, mock_logger):
     mock_glob.return_value = []
 
     spark, df = _mock_spark(max_file_date=None)
 
     from upload.ibtracs_cyclone_upload import upload
-    upload(spark, _mock_app_config(), _mock_db_config())
-
-    spark.read.csv.assert_not_called()
-    df.write.jdbc.assert_not_called()
+    with pytest.raises(ValueError, match="No new files to upload"):
+        upload(spark, _mock_app_config(), _mock_db_config())
 
 
 @patch("upload.ibtracs_cyclone_upload.F", _mock_F())

@@ -152,26 +152,6 @@ def test_incremental_filters_by_date(mock_exists, mock_glob, mock_schema, mock_l
 @patch("upload.eonet_event_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.eonet_event_upload.glob.glob")
 @patch("upload.eonet_event_upload.os.path.exists", return_value=True)
-def test_no_new_files_skips_upload(mock_exists, mock_glob, mock_schema, mock_logger):
-    mock_glob.return_value = [
-        "/data/EONET/eonet_events_2026-09-01.csv",
-    ]
-
-    spark, df = _mock_spark(max_file_date=dt.date(2026, 9, 1))
-
-    from upload.eonet_event_upload import upload
-    upload(spark, _mock_app_config(), _mock_db_config())
-
-    spark.read.csv.assert_not_called()
-    df.write.jdbc.assert_not_called()
-
-
-@patch("upload.eonet_event_upload.F", _mock_F())
-@patch("upload.eonet_event_upload.StructType", MagicMock())
-@patch("upload.eonet_event_upload.setup_logger")
-@patch("upload.eonet_event_upload.pydantic_to_spark_schema", return_value=MagicMock())
-@patch("upload.eonet_event_upload.glob.glob")
-@patch("upload.eonet_event_upload.os.path.exists", return_value=True)
 def test_logs_record_count(mock_exists, mock_glob, mock_schema, mock_logger):
     mock_glob.return_value = ["/data/EONET/eonet_events_2026-09-01.csv"]
 
@@ -213,16 +193,14 @@ def test_writes_to_correct_table(mock_exists, mock_glob, mock_schema, mock_logge
 @patch("upload.eonet_event_upload.pydantic_to_spark_schema", return_value=MagicMock())
 @patch("upload.eonet_event_upload.glob.glob")
 @patch("upload.eonet_event_upload.os.path.exists", return_value=True)
-def test_empty_folder_skips_upload(mock_exists, mock_glob, mock_schema, mock_logger):
-    mock_glob.return_value = []
+def test_no_new_files_raises_error(mock_exists, mock_glob, mock_schema, mock_logger):
+    mock_glob.return_value = ["/data/EONET/eonet_events_2026-09-01.csv"]
 
-    spark, df = _mock_spark(max_file_date=None)
+    spark, df = _mock_spark(max_file_date=dt.date(2026, 9, 1))
 
     from upload.eonet_event_upload import upload
-    upload(spark, _mock_app_config(), _mock_db_config())
-
-    spark.read.csv.assert_not_called()
-    df.write.jdbc.assert_not_called()
+    with pytest.raises(ValueError, match="No new files to upload"):
+        upload(spark, _mock_app_config(), _mock_db_config())
 
 
 @patch("upload.eonet_event_upload.F", _mock_F())

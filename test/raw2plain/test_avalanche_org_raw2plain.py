@@ -91,14 +91,13 @@ def test_incremental_filters_by_file_date(mock_logger):
 
 @patch("raw2plain.avalanche_org_raw2plain.F", _mock_F())
 @patch("raw2plain.avalanche_org_raw2plain.setup_logger")
-def test_no_records_skips_write(mock_logger):
+def test_no_records_raises_error(mock_logger):
     spark, raw_df, plain_df = _mock_spark(max_file_date=None)
     raw_df.count.return_value = 0
 
     from raw2plain.avalanche_org_raw2plain import raw2plain
-    raw2plain(spark, _mock_app_config(), _mock_db_config())
-
-    plain_df.write.jdbc.assert_not_called()
+    with pytest.raises(ValueError, match="No new records to process"):
+        raw2plain(spark, _mock_app_config(), _mock_db_config())
 
 
 @patch("raw2plain.avalanche_org_raw2plain.F", _mock_F())

@@ -81,8 +81,8 @@ def upload(spark: SparkSession, config: AppConfig, db_config: SupabaseConnection
         logger.info(f"{len(csv_files)} new files to upload")
 
     if not csv_files:
-        logger.info("No files to upload. Done.")
-        return
+        logger.warning(f"No new files to upload for {TABLE_NAME}")
+        raise ValueError(f"No new files to upload for {TABLE_NAME}")
 
     # Read each CSV individually and add file_date from filename
     frames = []
