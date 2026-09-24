@@ -52,14 +52,11 @@ def raw2plain(spark: SparkSession, config: AppConfig, db_config: SupabaseConnect
             properties=properties,
         ).filter(F.col("file_date") > F.lit(max_file_date.isoformat()))
 
-    record_count = raw_df.count()
-    logger.info(f"Records to process: {record_count}")
-
-    if record_count == 0:
+    if not raw_df.head(1):
         logger.warning(f"No new records to process for {plain_table}")
         raise ValueError(f"No new records to process for {plain_table}")
 
     plain_df = convert_fn(raw_df)
     logger.info(f"Writing to {schema}.{plain_table}...")
     plain_df.write.jdbc(url=jdbc_url, table=f"{schema}.{plain_table}", mode="append", properties=properties)
-    logger.info(f"Raw2Plain complete: {record_count} records written to {schema}.{plain_table}")
+    logger.info(f"Raw2Plain complete: written to {schema}.{plain_table}")

@@ -72,25 +72,19 @@ def upload(spark: SparkSession, config: AppConfig, db_config: SupabaseConnection
         logger.warning(f"No new files to upload for {table_name}")
         raise ValueError(f"No new files to upload for {table_name}")
 
-    frames = []
+    csv_schema = pydantic_to_spark_schema(raw_model_cls)
+    fields_without_file_date = [f for f in csv_schema.fields if f.name != "file_date"]
+    partial_schema = StructType(fields_without_file_date)
+
+    df = None
     for csv_path in csv_files:
         file_date = parse_file_date(csv_path)
         file_date_str = file_date.isoformat() if file_date else None
-        csv_schema = pydantic_to_spark_schema(raw_model_cls)
-        fields_without_file_date = [f for f in csv_schema.fields if f.name != "file_date"]
-        partial_schema = StructType(fields_without_file_date)
         partial_df = spark.read.csv(csv_path, header=True, schema=partial_schema)
         partial_df = partial_df.withColumn("file_date", F.lit(file_date_str))
-        frames.append(partial_df)
-
-    df = frames[0] if len(frames) == 1 else frames[0].unionByName(frames[1])
-    for frame in frames[2:]:
-        df = df.unionByName(frame)
-
-    record_count = df.count()
-    logger.info(f"Total records to upload: {record_count}")
+        df = partial_df if df is None else df.unionByName(partial_df)
 
     full_table = f"{schema}.{table_name}"
     logger.info(f"Writing to {full_table}...")
     df.write.jdbc(url=jdbc_url, table=full_table, mode="append", properties=properties)
-    logger.info(f"Upload complete: {record_count} records written to {full_table}")
+    logger.info(f"Upload complete: {len(csv_files)} files written to {full_table}")

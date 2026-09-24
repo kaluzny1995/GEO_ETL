@@ -40,7 +40,7 @@ def test_incremental_filters_by_file_date(mock_logger):
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_col_methods=["__truediv__"], extra_f_methods=["to_timestamp"]))
 def test_no_records_raises_error(mock_logger):
     spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
-    raw_df.count.return_value = 0
+    raw_df.head.return_value = []
 
     from raw2plain.nifc_fire_raw2plain import raw2plain
     with pytest.raises(ValueError, match="No new records to process"):
@@ -69,8 +69,7 @@ def test_logs_record_count(mock_logger):
     from raw2plain.nifc_fire_raw2plain import raw2plain
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
-    mock_logger.return_value.info.assert_any_call("Records to process: 42")
-    mock_logger.return_value.info.assert_any_call("Raw2Plain complete: 42 records written to geo.nifc_fire")
+    mock_logger.return_value.info.assert_any_call("Raw2Plain complete: written to geo.nifc_fire")
 
 
 @patch(f"{MODULE}.setup_logger")

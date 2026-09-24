@@ -138,8 +138,7 @@ def test_logs_record_count(mock_exists, mock_glob, mock_schema, mock_logger):
     from upload.avalanche_org_upload import upload
     upload(spark, mock_app_config_upload(), mock_db_config())
 
-    log.info.assert_any_call("Total records to upload: 42")
-    log.info.assert_any_call("Upload complete: 42 records written to geo.avalanche_org_raw")
+    log.info.assert_any_call("Upload complete: 1 files written to geo.avalanche_org_raw")
 
 
 @patch(f"{MODULE}.F", mock_F_upload())

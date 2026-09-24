@@ -415,9 +415,8 @@ Expected output:
 ---- Upload started: avalanche_org_raw (HISTORICAL) ----
 Data directory: /path/to/GEO_Download/data/Avalanche_ORG
 HISTORICAL: reading all 19 CSV files
-Total records to upload: 1523
 Writing to geo.avalanche_org_raw...
-Upload complete: 1523 records written to geo.avalanche_org_raw
+Upload complete: 19 files written to geo.avalanche_org_raw
 Spark session stopped
 ```
 
@@ -721,6 +720,23 @@ Downloaded CSV files from [GEO_Download](../GEO_Download) are the input. Current
 | USGS_Earthquake | `geo.usgs_earthquake_raw` | `geo.usgs_earthquake` | 7,084 | HISTORICAL |
 | USGS_Volcano | `geo.usgs_volcano_raw` | `geo.usgs_volcano` | 24 | HISTORICAL |
 | USGS_NWIS | `geo.usgs_nwis_raw` | `geo.usgs_nwis` | 36 | HISTORICAL |
+
+## Memory Optimization
+
+The upload and raw2plain pipelines are optimized for memory efficiency:
+
+### Upload (`utils/upload_utils.py`)
+- **No pre-count**: Removed `df.count()` before write — avoids forcing full DataFrame materialization just for a log message
+- **Incremental union**: Builds the union chain without storing intermediates in a list, allowing GC to collect frames as they're merged
+- **Schema hoisted**: `pydantic_to_spark_schema()` called once outside the CSV loop instead of per-file
+
+### Raw2Plain (`utils/raw2plain_utils.py`)
+- **Lightweight empty check**: `raw_df.head(1)` instead of `raw_df.count()` — avoids full table scan just to check if data exists
+
+### Design Decisions
+- Upload and raw2plain each read from JDBC once (no double scans)
+- Pydantic models are lightweight at import time (~KB each); eager loading is acceptable
+- `findspark.init()` is idempotent; called at module import for simplicity
 
 ## Related Projects
 
