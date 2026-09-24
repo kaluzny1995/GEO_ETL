@@ -284,14 +284,38 @@ The `run_etl.py` CLI creates tables in Supabase by generating DDL from Pydantic 
 
 ```bash
 conda activate geo_etl_311
-python run_etl.py CREATE <table_name>
-python run_etl.py INGESTION <table_name>
+
+# Create raw + plain tables for a data source
+python run_etl.py CREATE avalanche_org
+
+# Run full ingestion pipeline (upload CSVs → raw table → typed plain table)
+python run_etl.py INGESTION avalanche_org
 ```
 
-Expected output:
+**All registered tables:**
 
-```
-Table geo.<table_name> created.
+```bash
+# Create tables
+python run_etl.py CREATE avalanche_org
+python run_etl.py CREATE eonet_event
+python run_etl.py CREATE gdacs_event
+python run_etl.py CREATE ibtracs_cyclone
+python run_etl.py CREATE nifc_fire
+python run_etl.py CREATE openmeteo_flood
+python run_etl.py CREATE usgs_earthquake
+python run_etl.py CREATE usgs_nwis
+python run_etl.py CREATE usgs_volcano
+
+# Ingest data (upload + transform)
+python run_etl.py INGESTION avalanche_org
+python run_etl.py INGESTION eonet_event
+python run_etl.py INGESTION gdacs_event
+python run_etl.py INGESTION ibtracs_cyclone
+python run_etl.py INGESTION nifc_fire
+python run_etl.py INGESTION openmeteo_flood
+python run_etl.py INGESTION usgs_earthquake
+python run_etl.py INGESTION usgs_nwis
+python run_etl.py INGESTION usgs_volcano
 ```
 
 **How it works:**
@@ -300,6 +324,8 @@ Table geo.<table_name> created.
 2. Connects to the Spark cluster
 3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model, executes it against Supabase
 4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories
+
+> **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org`, not `avalanche_org_raw`.
 
 **Currently registered tables:**
 
@@ -391,8 +417,17 @@ Delete all rows with the most recent `file_date` from both raw and plain tables.
 
 ```bash
 conda activate geo_etl_311
-python run_delete_last_filedate_data.py <raw_table_name>
+
+# Delete latest file_date for a single data source
+python run_delete_last_filedate_data.py avalanche_org
+
+# Delete latest file_date for all data sources
+for t in avalanche_org eonet_event gdacs_event ibtracs_cyclone nifc_fire openmeteo_flood usgs_earthquake usgs_nwis usgs_volcano; do
+    python run_delete_last_filedate_data.py "$t"
+done
 ```
+
+> **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org`, not `avalanche_org_raw`.
 
 The script derives the plain table name automatically by stripping the `_raw` suffix (e.g. `avalanche_org_raw` → `avalanche_org`).
 
@@ -703,7 +738,7 @@ When called via the INGESTION job, `upload()` and `raw2plain()` receive the inge
 ```
 logs/
 ├── ingestion/
-│   └── ingestion_avalanche_org_raw_2026-09-21T10:42:00.777888.log
+│   └── ingestion_avalanche_org_2026-09-21T10:42:00.777888.log
 ├── create_table/
 │   └── create_table_avalanche_org_raw_2026-09-21T10:30:00.123456.log
 ├── drop_table/

@@ -32,7 +32,7 @@ def _mock_db_config():
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_deletes_from_both_tables(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
-    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org_raw"]
+    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org"]
 
     conn_mock = MagicMock()
     mock_conn.return_value = conn_mock
@@ -58,7 +58,7 @@ def test_deletes_from_both_tables(mock_logger, mock_app, mock_db, mock_max_date,
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_derives_plain_table_name(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
-    sys.argv = ["run_delete_last_filedate_data.py", "eonet_event_raw"]
+    sys.argv = ["run_delete_last_filedate_data.py", "eonet_event"]
 
     conn_mock = MagicMock()
     mock_conn.return_value = conn_mock
@@ -81,7 +81,7 @@ def test_derives_plain_table_name(mock_logger, mock_app, mock_db, mock_max_date,
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
-    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org_raw"]
+    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org"]
 
     from run_delete_last_filedate_data import main
     main()
@@ -97,7 +97,7 @@ def test_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_date, mock_
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_logs_delete_info(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
-    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org_raw"]
+    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org"]
 
     conn_mock = MagicMock()
     mock_conn.return_value = conn_mock
@@ -119,7 +119,7 @@ def test_logs_delete_info(mock_logger, mock_app, mock_db, mock_max_date, mock_co
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_stops_spark_after_completion(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
-    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org_raw"]
+    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org"]
 
     conn_mock = MagicMock()
     mock_conn.return_value = conn_mock
@@ -139,7 +139,7 @@ def test_stops_spark_after_completion(mock_logger, mock_app, mock_db, mock_max_d
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_stops_spark_on_exception(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
-    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org_raw"]
+    sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org"]
 
     conn_mock = MagicMock()
     conn_mock.createStatement.return_value.executeUpdate.side_effect = RuntimeError("db error")

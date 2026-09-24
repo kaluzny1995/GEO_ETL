@@ -66,6 +66,54 @@ class _StderrCapture:
         return []
 
 
+def _merge_logs_by_timestamp(main_log: str, extra_lines: list[str], memory_log: str) -> None:
+    """Rewrite *main_log* with lines from Python, Spark stderr, and memory merged by timestamp.
+
+    Both Python's ``logging`` and Java's ``StageMemoryListener`` use the
+    ``YYYY-MM-DD HH:MM:SS`` format (Python adds milliseconds after a comma,
+    Java does not).  This function reads the existing *main_log*, appends
+    *extra_lines* (Spark stderr captured via fd redirect), reads the
+    *memory_log*, parses timestamps, and rewrites *main_log* in chronological
+    order.  The *memory_log* file is deleted afterward.
+    """
+    import re
+
+    def _parse_ts(line: str) -> str:
+        m = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
+        return m.group(1) if m else ""
+
+    # Collect all (timestamp_key, full_line) pairs
+    entries: list[tuple[str, str]] = []
+
+    # Lines already in main_log
+    with open(main_log) as f:
+        for line in f:
+            entries.append((_parse_ts(line), line))
+
+    # Spark stderr lines — prefix and add
+    for line in extra_lines:
+        stripped = line.rstrip()
+        if stripped:
+            full_line = f"[spark] {stripped}"
+            entries.append((_parse_ts(stripped), full_line))
+
+    # Memory log lines
+    if os.path.exists(memory_log):
+        with open(memory_log) as f:
+            for line in f:
+                stripped = line.rstrip()
+                if stripped:
+                    entries.append((_parse_ts(stripped), stripped))
+        os.remove(memory_log)
+
+    # Stable sort by timestamp (preserves original order for equal timestamps)
+    entries.sort(key=lambda e: e[0])
+
+    with open(main_log, "w") as f:
+        for _, line in entries:
+            f.write(line + "\n")
+
+
 def main() -> None:
     """Parse CLI arguments, connect to Spark, and execute the requested ETL job."""
     # Load app config (Spark master, DB schema, JDBC driver)
@@ -79,13 +127,16 @@ def main() -> None:
         choices=list(JobType),
         help=f"Job type: {[j.value for j in JobType]}",
     )
-    parser.add_argument("table_name", help="Table name, e.g. avalanche_org_raw")
+    parser.add_argument("table_name", help="Table name, e.g. avalanche_org (raw suffix added automatically for ingestion)")
     args = parser.parse_args()
 
     job_name = args.job.value.lower()
     table_name = args.table_name
     log_dir = config.logging.directory
     app_prefix = config.spark.app_name_prefix
+
+    # For ingestion, auto-append _raw suffix for internal factory lookups
+    raw_table_name = table_name + "_raw" if job_name == "ingestion" and not table_name.endswith("_raw") else table_name
 
     logger = setup_logger(
         name=f"etl_{job_name}_{table_name}",
@@ -110,14 +161,13 @@ def main() -> None:
     # Register stage-level memory logger
     memory_log = os.path.join(log_dir, "memory", f"stage_memory_{dt.datetime.now():%Y%m%d_%H%M%S}.log")
     register_memory_logger(spark, memory_log)
-    logger.info(f"Stage memory logging to: {memory_log}")
 
     try:
         logger.info(f"Connected to Spark: {spark.sparkContext.master}")
         logger.info(f"Spark version: {spark.version}")
 
         # Execute the job (e.g. create table in Supabase)
-        result = job_module.run(spark, table_name, logger=logger)
+        result = job_module.run(spark, raw_table_name, logger=logger)
         logger.info(result)
     except Exception:
         logger.exception("ETL job failed")
@@ -126,14 +176,17 @@ def main() -> None:
         spark.stop()
         logger.info("Spark session stopped")
 
-        # Restore stderr and write captured Spark logs to the Python log
+        # Restore stderr and collect captured Spark logs
         spark_lines = stderr_capture.stop_and_read()
-        if spark_lines:
-            logger.info("---- Spark internal logs ----")
-            for line in spark_lines:
-                stripped = line.rstrip()
-                if stripped:
-                    logger.info(f"[spark] {stripped}")
+
+        # Find the main log file (the last handler's filename)
+        main_log = None
+        for h in logger.handlers:
+            if hasattr(h, "baseFilename"):
+                main_log = h.baseFilename
+
+        if main_log and (spark_lines or os.path.exists(memory_log)):
+            _merge_logs_by_timestamp(main_log, spark_lines, memory_log)
 
 
 if __name__ == "__main__":

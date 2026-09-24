@@ -36,7 +36,7 @@ def test_main_dispatches_ingestion_job(mock_logger, mock_create, mock_config, mo
     mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
 
     import sys
-    with patch.object(sys, "argv", ["run_etl.py", "INGESTION", "avalanche_org_raw"]):
+    with patch.object(sys, "argv", ["run_etl.py", "INGESTION", "avalanche_org"]):
         from run_etl import main
         main()
 
@@ -136,3 +136,52 @@ def test_main_invalid_job_type_exits(mock_logger, mock_create, mock_config, mock
         from run_etl import main
         with pytest.raises(SystemExit):
             main()
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_ingestion_log_uses_name_without_raw(mock_logger, mock_create, mock_config, mock_spark):
+    mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
+
+    import sys
+    with patch.object(sys, "argv", ["run_etl.py", "INGESTION", "avalanche_org"]):
+        from run_etl import main
+        main()
+
+    log_file_arg = mock_logger.call_args.kwargs.get("log_file") or mock_logger.call_args[0][1]
+    assert "avalanche_org" in log_file_arg
+    assert "avalanche_org_raw" not in log_file_arg
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_ingestion_passes_raw_name_to_job(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+    with patch.object(sys, "argv", ["run_etl.py", "INGESTION", "avalanche_org"]):
+        from run_etl import main
+        main()
+
+    assert job_mock.run.call_args[0][1] == "avalanche_org_raw"
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_create_log_keeps_raw_suffix(mock_logger, mock_create, mock_config, mock_spark):
+    mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
+
+    import sys
+    with patch.object(sys, "argv", ["run_etl.py", "CREATE", "avalanche_org_raw"]):
+        from run_etl import main
+        main()
+
+    log_file_arg = mock_logger.call_args.kwargs.get("log_file") or mock_logger.call_args[0][1]
+    assert "avalanche_org_raw" in log_file_arg

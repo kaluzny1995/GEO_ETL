@@ -4,7 +4,7 @@ Useful for re-running INCREMENTAL ingestion tests.
 
 Usage::
 
-    python run_delete_last_filedate_data.py <raw_table_name>
+    python run_delete_last_filedate_data.py <table_name>
 """
 
 import argparse
@@ -91,12 +91,12 @@ def main() -> None:
     db_config = SupabaseConnectionConfig.from_json()
 
     parser = argparse.ArgumentParser(description="Delete data for the latest file_date from raw and plain tables")
-    parser.add_argument("table_name", help="Raw table name (e.g. avalanche_org_raw)")
+    parser.add_argument("table_name", help="Table name (e.g. avalanche_org — _raw suffix added automatically)")
     args = parser.parse_args()
 
-    raw_table = args.table_name
+    raw_table = args.table_name if args.table_name.endswith("_raw") else args.table_name + "_raw"
     # Derive plain table name by stripping _raw suffix
-    plain_table = raw_table.removesuffix("_raw") if raw_table.endswith("_raw") else raw_table
+    plain_table = raw_table.removesuffix("_raw")
 
     log_dir = app_config.logging.directory
     app_prefix = app_config.spark.app_name_prefix
