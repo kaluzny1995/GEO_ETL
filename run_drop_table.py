@@ -1,3 +1,10 @@
+"""Drop a table from Supabase.
+
+Usage::
+
+    python run_drop_table.py <table_name>
+"""
+
 import argparse
 import datetime as dt
 import os
@@ -12,7 +19,8 @@ from utils.ddl_generator import drop_table
 from utils.logger import setup_logger
 
 
-def main():
+def main() -> None:
+    """Parse CLI arguments, connect to Spark, and drop the specified table."""
     # Load configs
     app_config = AppConfig.from_json()
     db_config = SupabaseConnectionConfig.from_json()

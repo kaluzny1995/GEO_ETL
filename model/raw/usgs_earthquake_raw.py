@@ -3,6 +3,7 @@ from typing import Optional
 
 
 class UsgsEarthquakeRaw(BaseModel):
+    """Raw USGS earthquake event data — all fields as TEXT."""
     time: Optional[str] = None
     latitude: Optional[str] = None
     longitude: Optional[str] = None

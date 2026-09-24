@@ -5,6 +5,7 @@ from typing import Optional
 
 
 class UsgsVolcano(BaseModel):
+    """Typed USGS volcanic activity data (int, timestamp)."""
     model_config = ConfigDict(json_schema_extra={})
 
     volcano_name: Optional[str] = None

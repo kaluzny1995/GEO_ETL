@@ -5,6 +5,7 @@ from typing import Optional
 
 
 class UsgsNwis(BaseModel):
+    """Typed USGS NWIS stream gauge data (date, float, double)."""
     model_config = ConfigDict(json_schema_extra={})
 
     site_id: Optional[str] = None

@@ -3,6 +3,7 @@ from typing import Optional
 
 
 class UsgsVolcanoRaw(BaseModel):
+    """Raw USGS volcanic activity data — all fields as TEXT."""
     volcano_name: Optional[str] = None
     vnum: Optional[str] = None
     observatory: Optional[str] = None

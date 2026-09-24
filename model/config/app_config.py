@@ -1,3 +1,5 @@
+"""Application configuration models loaded from ``config.json``."""
+
 import json
 import logging
 import os
@@ -19,7 +21,12 @@ LOG_LEVEL_MAP = {
 
 
 class SparkConfig(BaseModel):
-    """Spark cluster connection settings."""
+    """Spark cluster connection settings.
+
+    Attributes:
+        master: Spark master URL (e.g. ``"spark://localhost:7078"``).
+        app_name_prefix: Prefix for Spark application names.
+    """
     model_config = ConfigDict(frozen=True)
 
     master: str
@@ -27,7 +34,12 @@ class SparkConfig(BaseModel):
 
 
 class DatabaseConfig(BaseModel):
-    """PostgreSQL database settings."""
+    """PostgreSQL database settings.
+
+    Attributes:
+        db_schema: Target schema name (e.g. ``"geo"``).
+        jdbc_driver: Fully qualified JDBC driver class name.
+    """
     model_config = ConfigDict(frozen=True)
 
     db_schema: str
@@ -35,7 +47,12 @@ class DatabaseConfig(BaseModel):
 
 
 class LoggingConfig(BaseModel):
-    """Logging settings."""
+    """Logging settings.
+
+    Attributes:
+        directory: Root directory for log files.
+        level: Log level name (``"DEBUG"``, ``"INFO"``, ``"WARNING"``, etc.).
+    """
     model_config = ConfigDict(frozen=True)
 
     directory: str = "logs"
@@ -43,18 +60,31 @@ class LoggingConfig(BaseModel):
 
     @property
     def level_int(self) -> int:
+        """Return the log level as a :mod:`logging` integer constant."""
         return LOG_LEVEL_MAP.get(self.level.upper(), logging.INFO)
 
 
 class DataConfig(BaseModel):
-    """Data source settings."""
+    """Data source settings.
+
+    Attributes:
+        directory: Relative path to the CSV data directory
+            (e.g. ``"../GEO_Download/data"``).
+    """
     model_config = ConfigDict(frozen=True)
 
     directory: str = "../GEO_Download/data"
 
 
 class AppConfig(BaseModel):
-    """Application configuration loaded from config.json."""
+    """Top-level application configuration loaded from ``config.json``.
+
+    Attributes:
+        spark: Spark cluster settings.
+        database: Database connection settings.
+        logging: Logging configuration.
+        data: Data source paths.
+    """
     model_config = ConfigDict(frozen=True)
 
     spark: SparkConfig
@@ -64,7 +94,15 @@ class AppConfig(BaseModel):
 
     @staticmethod
     def from_json(path: Optional[str] = None) -> "AppConfig":
-        """Load config from JSON file."""
+        """Load configuration from a JSON file.
+
+        Args:
+            path: Path to the JSON config file. Defaults to ``config.json``
+                in the project root.
+
+        Returns:
+            A frozen :class:`AppConfig` instance.
+        """
         if path is None:
             path = CONFIG_PATH
         with open(path) as f:

@@ -5,6 +5,7 @@ from typing import Optional
 
 
 class NifcFire(BaseModel):
+    """Typed NIFC wildfire data (float, int, datetime)."""
     model_config = ConfigDict(json_schema_extra={})
 
     incident_name: Optional[str] = None

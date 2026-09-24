@@ -1,3 +1,12 @@
+"""Delete the latest file_date from both raw and plain tables.
+
+Useful for re-running INCREMENTAL ingestion tests.
+
+Usage::
+
+    python run_delete_last_filedate_data.py <raw_table_name>
+"""
+
 import argparse
 import datetime as dt
 import os
@@ -12,9 +21,27 @@ from utils.ddl_generator import _get_jdbc_connection
 from utils.logger import setup_logger
 
 
-def _delete_file_date(spark, jdbc_url: str, properties: dict, schema: str, table_name: str, file_date: str) -> int:
-    """Delete all rows with the given file_date from a table. Returns count of deleted rows."""
-    # Count before
+def _delete_file_date(
+    spark: SparkSession,
+    jdbc_url: str,
+    properties: dict[str, str],
+    schema: str,
+    table_name: str,
+    file_date: str,
+) -> int:
+    """Delete all rows matching *file_date* and return the deleted count.
+
+    Args:
+        spark: Active Spark session.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+        schema: PostgreSQL schema name.
+        table_name: Target table name.
+        file_date: The ``file_date`` value to delete (``"YYYY-MM-DD"``).
+
+    Returns:
+        Number of rows deleted.
+    """
     count_sql = f"(SELECT COUNT(*) AS cnt FROM {schema}.{table_name} WHERE file_date = '{file_date}') AS t"
     before = spark.read.jdbc(url=jdbc_url, table=count_sql, properties=properties).first().cnt
 
@@ -28,8 +55,26 @@ def _delete_file_date(spark, jdbc_url: str, properties: dict, schema: str, table
     return before
 
 
-def _get_max_file_date(spark, jdbc_url: str, properties: dict, schema: str, table_name: str) -> str | None:
-    """Query the table for the most recent file_date value."""
+def _get_max_file_date(
+    spark: SparkSession,
+    jdbc_url: str,
+    properties: dict[str, str],
+    schema: str,
+    table_name: str,
+) -> str | None:
+    """Return the most recent ``file_date`` as an ISO string, or ``None``.
+
+    Args:
+        spark: Active Spark session.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+        schema: PostgreSQL schema name.
+        table_name: Target table name.
+
+    Returns:
+        The maximum ``file_date`` in ``"YYYY-MM-DD"`` format, or ``None``
+        if the table is empty.
+    """
     subquery = f"(SELECT MAX(TO_DATE(file_date, 'YYYY-MM-DD')) AS max_file_date FROM {schema}.{table_name}) AS t"
     try:
         row = spark.read.jdbc(url=jdbc_url, table=subquery, properties=properties).first()
@@ -40,7 +85,8 @@ def _get_max_file_date(spark, jdbc_url: str, properties: dict, schema: str, tabl
     return None
 
 
-def main():
+def main() -> None:
+    """Parse CLI arguments, connect to Spark, and delete the latest file_date."""
     app_config = AppConfig.from_json()
     db_config = SupabaseConnectionConfig.from_json()
 

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 
 class EonetEvent(BaseModel):
+    """Typed NASA EONET event data (float, int, datetime, date)."""
     event_id: str
     event_name: str
     category_id: str

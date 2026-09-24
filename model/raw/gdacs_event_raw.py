@@ -2,6 +2,7 @@ from pydantic import BaseModel
 
 
 class GdacsEventRaw(BaseModel):
+    """Raw GDACS disaster event data — all fields as TEXT."""
     event_type: str
     event_id: str
     event_name: str

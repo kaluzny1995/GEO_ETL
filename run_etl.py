@@ -1,3 +1,11 @@
+"""Main CLI entry point for GEO_ETL jobs.
+
+Usage::
+
+    python run_etl.py CREATE <table_name>
+    python run_etl.py INGESTION <table_name>
+"""
+
 import argparse
 import datetime as dt
 import os
@@ -15,7 +23,8 @@ from factory import JobFactory
 from utils.logger import setup_logger
 
 
-def main():
+def main() -> None:
+    """Parse CLI arguments, connect to Spark, and execute the requested ETL job."""
     # Load app config (Spark master, DB schema, JDBC driver)
     config = AppConfig.from_json()
 

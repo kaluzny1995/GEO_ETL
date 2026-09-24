@@ -1,3 +1,10 @@
+"""Drop a schema from Supabase (only if it contains no tables).
+
+Usage::
+
+    python run_drop_schema.py <schema_name>
+"""
+
 import argparse
 import datetime as dt
 import os
@@ -12,7 +19,8 @@ from utils.ddl_generator import drop_schema, _schema_has_tables
 from utils.logger import setup_logger
 
 
-def main():
+def main() -> None:
+    """Parse CLI arguments, connect to Spark, and drop the specified schema."""
     # Load configs
     app_config = AppConfig.from_json()
     db_config = SupabaseConnectionConfig.from_json()

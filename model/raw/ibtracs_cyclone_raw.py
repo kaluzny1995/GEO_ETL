@@ -3,6 +3,7 @@ from typing import Optional
 
 
 class IbtacsCycloneRaw(BaseModel):
+    """Raw IBTrACS tropical cyclone track data — all fields as TEXT."""
     SID: str
     SEASON: Optional[str] = None
     NUMBER: Optional[str] = None

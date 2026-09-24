@@ -1,10 +1,28 @@
+"""INGESTION job: uploads CSV data then transforms raw → plain tables."""
+
 import logging
+
+from pyspark.sql import SparkSession
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from factory import UploadScriptFactory, Raw2PlainScriptFactory
 
 
-def run(spark, table_name: str, logger: logging.Logger | None = None) -> str:
+def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = None) -> str:
+    """Execute the full ingestion pipeline for a single table.
+
+    Steps:
+        1. Upload CSV files from disk to the raw JDBC table.
+        2. Transform raw rows into typed columns and write to the plain table.
+
+    Args:
+        spark: Active Spark session.
+        table_name: Raw table name (e.g. ``"avalanche_org_raw"``).
+        logger: Optional logger; defaults to a module-level logger.
+
+    Returns:
+        A human-readable completion message.
+    """
     if logger is None:
         logger = logging.getLogger(__name__)
 

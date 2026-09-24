@@ -1,13 +1,19 @@
+"""Shared upload logic for CSV-to-Supabase ingestion.
+
+Provides helpers for parsing file dates, querying the latest loaded date,
+and a template ``upload()`` function used by all per-dataset upload scripts.
+"""
+
 import datetime as dt
 import glob
 import logging
 import os
-
 import findspark
 findspark.init()
 
 from pyspark.sql import SparkSession, functions as F
 from pyspark.sql.types import StructType
+from pydantic import BaseModel
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from utils.schema_converter import pydantic_to_spark_schema
@@ -15,6 +21,17 @@ from utils.logger import setup_logger
 
 
 def parse_file_date(filepath: str) -> dt.date | None:
+    """Extract a ``YYYY-MM-DD`` date from a CSV filename.
+
+    The date is expected to appear after the last underscore in the stem,
+    e.g. ``avalanche_org_2026-09-20.csv`` → ``2026-09-20``.
+
+    Args:
+        filepath: Absolute or relative path to the CSV file.
+
+    Returns:
+        The parsed :class:`datetime.date`, or ``None`` if parsing fails.
+    """
     try:
         date_str = os.path.basename(filepath).rstrip(".csv").rsplit("_", 1)[-1]
         return dt.datetime.strptime(date_str, "%Y-%m-%d").date()
@@ -22,7 +39,26 @@ def parse_file_date(filepath: str) -> dt.date | None:
         return None
 
 
-def get_max_file_date(spark, jdbc_url: str, properties: dict, schema: str, table_name: str) -> dt.date | None:
+def get_max_file_date(
+    spark: SparkSession,
+    jdbc_url: str,
+    properties: dict[str, str],
+    schema: str,
+    table_name: str,
+) -> dt.date | None:
+    """Return the most recent ``file_date`` value in *table_name*.
+
+    Args:
+        spark: Active Spark session.
+        jdbc_url: JDBC connection URL for the target database.
+        properties: JDBC connection properties (e.g. ``user``, ``password``).
+        schema: PostgreSQL schema name (e.g. ``"geo"``).
+        table_name: Fully qualified table name without schema prefix.
+
+    Returns:
+        The maximum :class:`datetime.date`, or ``None`` when the table is empty
+        or does not exist.
+    """
     subquery = f"(SELECT MAX(TO_DATE(file_date, 'YYYY-MM-DD')) AS max_file_date FROM {schema}.{table_name}) AS t"
     try:
         row = spark.read.jdbc(url=jdbc_url, table=subquery, properties=properties).first()
@@ -33,8 +69,34 @@ def get_max_file_date(spark, jdbc_url: str, properties: dict, schema: str, table
     return None
 
 
-def upload(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig,
-           table_name: str, raw_model_cls, dataset_folder: str, logger: logging.Logger | None = None):
+def upload(
+    spark: SparkSession,
+    config: AppConfig,
+    db_config: SupabaseConnectionConfig,
+    table_name: str,
+    raw_model_cls: type[BaseModel],
+    dataset_folder: str,
+    logger: logging.Logger | None = None,
+) -> None:
+    """Upload CSV files to a Supabase table via JDBC.
+
+    Automatically detects whether to run a **HISTORICAL** load (all files)
+    or an **INCREMENTAL** load (only files newer than the latest
+    ``file_date`` already in the table).
+
+    Args:
+        spark: Active Spark session.
+        config: Application configuration (Spark, DB, logging, data paths).
+        db_config: Supabase connection credentials.
+        table_name: Target raw table name (e.g. ``"avalanche_org_raw"``).
+        raw_model_cls: Pydantic model class defining the raw table schema.
+        dataset_folder: Subdirectory under the configured data path containing
+            the CSV files (e.g. ``"Avalanche_ORG"``).
+        logger: Optional logger; when ``None`` a file-based logger is created.
+
+    Raises:
+        ValueError: If no new CSV files are found for incremental loading.
+    """
     schema = config.database.db_schema
     jdbc_url = db_config.get_jdbc_url()
     properties = db_config.get_jdbc_properties(config.database.jdbc_driver)

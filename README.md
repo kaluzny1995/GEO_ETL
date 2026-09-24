@@ -116,11 +116,13 @@ GEO_ETL/
 │   └── upload_utils.py               # Shared upload logic (DRY: parse_file_date, get_max_file_date, upload template)
 │
 ├── logs/                             # Runtime log output (gitignored)
+│   ├── ingestion/                    # INGESTION job logs
 │   ├── create_table/                 # CREATE TABLE job logs
 │   ├── drop_table/                   # Drop table job logs
 │   ├── drop_schema/                  # Drop schema job logs
-│   ├── upload/                       # Upload job logs
-│   ├── raw2plain/                    # Raw2Plain transform logs
+│   ├── delete_last_filedate/         # Delete last file_date job logs
+│   ├── upload/                       # Standalone upload job logs
+│   ├── raw2plain/                    # Standalone raw2plain transform logs
 │   ├── pyspark_csv_test/             # CSV test script logs
 │   └── pyspark_supabase_test/        # Supabase test script logs
 │
@@ -295,8 +297,24 @@ Table geo.<table_name> created.
 
 | Table Name | Pydantic Model | Location | Description |
 |------------|----------------|----------|-------------|
-| `avalanche_org_raw` | `AvalancheOrgRaw` | `model/raw/` | Avalanche forecast data — all fields as TEXT (15 fields) |
-| `avalanche_org` | `AvalancheOrg` | `model/plain/` | Avalanche forecast data — typed fields (int, bool, datetime, date) |
+| `avalanche_org_raw` | `AvalancheOrgRaw` | `model/raw/` | Avalanche forecast data — all fields as TEXT |
+| `avalanche_org` | `AvalancheOrg` | `model/plain/` | Avalanche forecast data — typed (int, bool, datetime, date) |
+| `eonet_event_raw` | `EonetEventRaw` | `model/raw/` | NASA EONET event data — all fields as TEXT |
+| `eonet_event` | `EonetEvent` | `model/plain/` | NASA EONET event data — typed (float, int, datetime, date) |
+| `gdacs_event_raw` | `GdacsEventRaw` | `model/raw/` | GDACS disaster event data — all fields as TEXT |
+| `gdacs_event` | `GdacsEvent` | `model/plain/` | GDACS disaster event data — typed (float, int, datetime, bool) |
+| `ibtracs_cyclone_raw` | `IbtacsCycloneRaw` | `model/raw/` | IBTrACS cyclone track data — all fields as TEXT |
+| `ibtracs_cyclone` | `IbtacsCyclone` | `model/plain/` | IBTrACS cyclone track data — typed (float, int, datetime) |
+| `nifc_fire_raw` | `NifcFireRaw` | `model/raw/` | NIFC wildfire incident data — all fields as TEXT |
+| `nifc_fire` | `NifcFire` | `model/plain/` | NIFC wildfire data — typed (float, int, datetime) |
+| `openmeteo_flood_raw` | `OpenMeteoFloodRaw` | `model/raw/` | OpenMeteo flood monitoring data — all fields as TEXT |
+| `openmeteo_flood` | `OpenMeteoFlood` | `model/plain/` | OpenMeteo flood data — typed (float, date) |
+| `usgs_earthquake_raw` | `UsgsEarthquakeRaw` | `model/raw/` | USGS earthquake event data — all fields as TEXT |
+| `usgs_earthquake` | `UsgsEarthquake` | `model/plain/` | USGS earthquake data — typed (float, int, datetime) |
+| `usgs_nwis_raw` | `UsgsNwisRaw` | `model/raw/` | USGS NWIS stream gauge data — all fields as TEXT |
+| `usgs_nwis` | `UsgsNwis` | `model/plain/` | USGS NWIS stream gauge data — typed (date, float, double) |
+| `usgs_volcano_raw` | `UsgsVolcanoRaw` | `model/raw/` | USGS volcanic activity data — all fields as TEXT |
+| `usgs_volcano` | `UsgsVolcano` | `model/plain/` | USGS volcanic activity data — typed (int, timestamp) |
 
 To add a new table, create a Pydantic model in `model/raw/` (all-TEXT) or `model/plain/` (typed), register it in `model/__init__.py` using `TableFactory.register()`, and create a corresponding test file.
 
@@ -307,7 +325,7 @@ conda activate geo_etl_311
 python run_pyspark_supabase_test.py
 ```
 
-Expected output now includes the `geo` schema with 1 table:
+Expected output now includes the `geo` schema with 18 tables:
 
 ```
 +------------------+------+
@@ -315,7 +333,7 @@ Expected output now includes the `geo` schema with 1 table:
 +------------------+------+
 |auth              |27    |
 |extensions        |2     |
-|geo               |1     |
+|geo               |18    |
 |information_schema|69    |
 |public            |2     |
 |realtime          |3     |
@@ -392,7 +410,7 @@ config = AppConfig.from_json()
 db_config = SupabaseConnectionConfig.from_json()
 spark = SparkSession.builder.master("spark://localhost:7078").appName("upload").getOrCreate()
 
-upload(spark, config, db_config)
+upload(spark, config, db_config, "avalanche_org_raw", AvalancheOrgRaw, "Avalanche_ORG")
 spark.stop()
 ```
 
@@ -433,7 +451,7 @@ ValueError: No new files to upload for avalanche_org_raw
 2. Delete latest `file_date` from both raw + plain tables using `run_delete_last_filedate_data.py`
 3. Run INGESTION again — script detects missing files and re-loads the deleted data
 
-### 9. Transform raw data to final types
+### 10. Transform raw data to final types
 
 Convert data from `avalanche_org_raw` (all TEXT) to `avalanche_org` (typed: int, bool, datetime, date):
 
@@ -446,7 +464,7 @@ config = AppConfig.from_json()
 db_config = SupabaseConnectionConfig.from_json()
 spark = SparkSession.builder.master("spark://localhost:7078").appName("raw2plain").getOrCreate()
 
-raw2plain(spark, config, db_config)
+raw2plain(spark, config, db_config, "avalanche_org_raw", "avalanche_org", convert_fn)
 spark.stop()
 ```
 
@@ -544,7 +562,7 @@ JDBC URL:       jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postg
 +------------------+------+
 |auth              |27    |
 |extensions        |2     |
-|geo               |1     |
+|geo               |18    |
 |information_schema|69    |
 |public            |2     |
 |realtime          |3     |
@@ -616,29 +634,49 @@ pytest test/ -v
 | `test/factory/test_raw2plain_script_factory.py` | Raw2PlainScriptFactory (register, get, tables, clear) |
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
 | `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logger passing, logging) |
-| `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig models |
-| `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/test_enums.py` | JobType enum (values, membership, from_value, invalid value) |
+| `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig models |
+| `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/raw/test_avalanche_org_raw.py` | AvalancheOrgRaw model validation + Spark schema |
 | `test/model/raw/test_eonet_event_raw.py` | EonetEventRaw model validation + Spark schema |
 | `test/model/raw/test_gdacs_event_raw.py` | GdacsEventRaw model validation + Spark schema |
 | `test/model/raw/test_ibtracs_cyclone_raw.py` | IbtacsCycloneRaw model validation + Spark schema |
+| `test/model/raw/test_nifc_fire_raw.py` | NifcFireRaw model validation + Spark schema |
+| `test/model/raw/test_openmeteo_flood_raw.py` | OpenMeteoFloodRaw model validation + Spark schema |
+| `test/model/raw/test_usgs_earthquake_raw.py` | UsgsEarthquakeRaw model validation + Spark schema |
+| `test/model/raw/test_usgs_nwis_raw.py` | UsgsNwisRaw model validation + Spark schema |
+| `test/model/raw/test_usgs_volcano_raw.py` | UsgsVolcanoRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
 | `test/model/plain/test_eonet_event.py` | EonetEvent model validation + Spark schema + DDL types |
 | `test/model/plain/test_gdacs_event.py` | GdacsEvent model validation + Spark schema + DDL types |
 | `test/model/plain/test_ibtracs_cyclone.py` | IbtacsCyclone model validation + Spark schema + DDL types |
-| `test/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
-| `test/upload/test_eonet_event_upload.py` | EONET upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
-| `test/upload/test_gdacs_event_upload.py` | GDACS upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
-| `test/upload/test_ibtracs_cyclone_upload.py` | IBTrACS upload script (helpers + upload function: historical, incremental, no files, logging, logger param) |
+| `test/model/plain/test_nifc_fire.py` | NifcFire model validation + Spark schema + DDL types |
+| `test/model/plain/test_openmeteo_flood.py` | OpenMeteoFlood model validation + Spark schema + DDL types |
+| `test/model/plain/test_usgs_earthquake.py` | UsgsEarthquake model validation + Spark schema + DDL types |
+| `test/model/plain/test_usgs_nwis.py` | UsgsNwis model validation + Spark schema + DDL types |
+| `test/model/plain/test_usgs_volcano.py` | UsgsVolcano model validation + Spark schema + DDL types |
+| `test/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/upload/test_eonet_event_upload.py` | EONET upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/upload/test_gdacs_event_upload.py` | GDACS upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/upload/test_ibtracs_cyclone_upload.py` | IBTrACS upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/upload/test_nifc_fire_upload.py` | NIFC upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/upload/test_openmeteo_flood_upload.py` | OpenMeteo upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/upload/test_usgs_earthquake_upload.py` | USGS Earthquake upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/upload/test_usgs_nwis_upload.py` | USGS NWIS upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/upload/test_usgs_volcano_upload.py` | USGS Volcano upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/raw2plain/test_eonet_event_raw2plain.py` | EONET Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/raw2plain/test_gdacs_event_raw2plain.py` | GDACS Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/raw2plain/test_ibtracs_cyclone_raw2plain.py` | IBTrACS Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/raw2plain/test_nifc_fire_raw2plain.py` | NIFC Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/raw2plain/test_openmeteo_flood_raw2plain.py` | OpenMeteo Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/raw2plain/test_usgs_earthquake_raw2plain.py` | USGS Earthquake Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/raw2plain/test_usgs_nwis_raw2plain.py` | USGS NWIS Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/raw2plain/test_usgs_volcano_raw2plain.py` | USGS Volcano Raw2Plain transform (historical, incremental, no records, type conversion) |
 | `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch, Spark session lifecycle, logger passing, error handling) |
-| `test/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
-| `test/raw2plain/test_eonet_event_raw2plain.py` | EONET Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
-| `test/raw2plain/test_gdacs_event_raw2plain.py` | GDACS Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
-| `test/raw2plain/test_ibtracs_cyclone_raw2plain.py` | IBTrACS Raw2Plain transform (historical, incremental, no records, type conversion, logger param) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
-| `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date, table derivation, skip on empty, error handling) |
+| `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date, table derivation, skip on empty) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
 | `test/util/test_logger.py` | Logger setup, duplicate handlers, nested directories |

@@ -1,11 +1,30 @@
+"""CREATE TABLE job: generates DDL from Pydantic models and executes it."""
+
 import logging
+
+from pyspark.sql import SparkSession
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from factory import TableFactory
 from utils.ddl_generator import pydantic_to_ddl, create_schema, execute_ddl
 
 
-def run(spark, table_name: str, logger: logging.Logger | None = None) -> str:
+def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = None) -> str:
+    """Create a table in Supabase from its Pydantic model definition.
+
+    Steps:
+        1. Create the target schema if it does not exist.
+        2. Generate ``CREATE TABLE IF NOT EXISTS`` DDL from the model.
+        3. Execute the DDL against the database.
+
+    Args:
+        spark: Active Spark session.
+        table_name: Table name to create (e.g. ``"avalanche_org_raw"``).
+        logger: Optional logger; defaults to a module-level logger.
+
+    Returns:
+        A human-readable completion message.
+    """
     if logger is None:
         logger = logging.getLogger(__name__)
 

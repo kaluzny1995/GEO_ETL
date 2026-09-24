@@ -1,3 +1,4 @@
+"""Upload NIFC fire CSV files to Supabase."""
 import logging
 
 from pyspark.sql import SparkSession
@@ -19,4 +20,15 @@ def _get_max_file_date(spark, jdbc_url, properties, schema):
 
 
 def upload(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None):
+    """Upload CSV files for this data source to Supabase.
+
+    Delegates to :func:`utils.upload_utils.upload` with the dataset-specific
+    table name, Pydantic model, and folder name.
+
+    Args:
+        spark: Active Spark session.
+        config: Application configuration.
+        db_config: Supabase connection credentials.
+        logger: Optional logger for consolidated logging.
+    """
     _upload(spark, config, db_config, TABLE_NAME, NifcFireRaw, "NIFC", logger)

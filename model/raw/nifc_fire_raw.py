@@ -3,6 +3,7 @@ from typing import Optional
 
 
 class NifcFireRaw(BaseModel):
+    """Raw NIFC wildfire incident data — all fields as TEXT."""
     incident_name: Optional[str] = None
     irwin_id: Optional[str] = None
     fire_number: Optional[str] = None

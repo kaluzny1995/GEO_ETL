@@ -5,6 +5,7 @@ from typing import Optional
 
 
 class IbtacsCyclone(BaseModel):
+    """Typed IBTrACS cyclone track data (float, int, datetime)."""
     model_config = ConfigDict(json_schema_extra={})
 
     sid: str

@@ -5,6 +5,7 @@ from typing import Optional
 
 
 class UsgsEarthquake(BaseModel):
+    """Typed USGS earthquake data (float, int, datetime)."""
     model_config = ConfigDict(json_schema_extra={})
 
     time: Optional[dt.datetime] = None

@@ -1,4 +1,22 @@
-def __getattr__(name):
+"""Lazy-loading re-exports for factory classes.
+
+Avoids circular imports between ``model/`` and ``factory/`` by deferring
+actual imports until attribute access time.
+"""
+
+
+def __getattr__(name: str):
+    """Lazily import a factory class by name.
+
+    Args:
+        name: Attribute name (e.g. ``"JobFactory"``).
+
+    Returns:
+        The requested factory class.
+
+    Raises:
+        AttributeError: If *name* is not a known factory class.
+    """
     if name == "JobFactory":
         from factory.job_factory import JobFactory
         return JobFactory

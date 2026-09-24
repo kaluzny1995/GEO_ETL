@@ -5,6 +5,7 @@ from typing import Optional
 
 
 class OpenMeteoFlood(BaseModel):
+    """Typed OpenMeteo flood data (float, date)."""
     model_config = ConfigDict(json_schema_extra={})
 
     river_name: Optional[str] = None

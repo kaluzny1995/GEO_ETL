@@ -1,17 +1,44 @@
+"""Shared raw-to-plain transformation logic for all data sources.
+
+Provides a template ``raw2plain()`` function that reads from a raw JDBC
+table, applies a dataset-specific ``convert_fn``, and writes typed results
+to the corresponding plain table.
+"""
+
 import datetime as dt
 import logging
 import os
+from collections.abc import Callable
 
 import findspark
 findspark.init()
 
-from pyspark.sql import SparkSession, functions as F
+from pyspark.sql import DataFrame, SparkSession, functions as F
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from utils.logger import setup_logger
 
 
-def get_max_file_date(spark, jdbc_url: str, properties: dict, schema: str, table_name: str) -> dt.date | None:
+def get_max_file_date(
+    spark: SparkSession,
+    jdbc_url: str,
+    properties: dict[str, str],
+    schema: str,
+    table_name: str,
+) -> dt.date | None:
+    """Return the most recent ``file_date`` value in *table_name*.
+
+    Args:
+        spark: Active Spark session.
+        jdbc_url: JDBC connection URL for the target database.
+        properties: JDBC connection properties (e.g. ``user``, ``password``).
+        schema: PostgreSQL schema name (e.g. ``"geo"``).
+        table_name: Target table name (without schema prefix).
+
+    Returns:
+        The maximum :class:`datetime.date`, or ``None`` when the table is empty
+        or does not exist.
+    """
     subquery = f"(SELECT MAX(TO_DATE(file_date, 'YYYY-MM-DD')) AS max_file_date FROM {schema}.{table_name}) AS t"
     try:
         row = spark.read.jdbc(url=jdbc_url, table=subquery, properties=properties).first()
@@ -22,8 +49,34 @@ def get_max_file_date(spark, jdbc_url: str, properties: dict, schema: str, table
     return None
 
 
-def raw2plain(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig,
-              raw_table: str, plain_table: str, convert_fn, logger: logging.Logger | None = None):
+def raw2plain(
+    spark: SparkSession,
+    config: AppConfig,
+    db_config: SupabaseConnectionConfig,
+    raw_table: str,
+    plain_table: str,
+    convert_fn: Callable[[DataFrame], DataFrame],
+    logger: logging.Logger | None = None,
+) -> None:
+    """Read new rows from a raw table, convert them, and write to a plain table.
+
+    Automatically detects whether to run a **HISTORICAL** load (all raw data)
+    or an **INCREMENTAL** load (only rows with ``file_date`` newer than the
+    latest in the plain table).
+
+    Args:
+        spark: Active Spark session.
+        config: Application configuration (Spark, DB, logging, data paths).
+        db_config: Supabase connection credentials.
+        raw_table: Source raw table name (e.g. ``"avalanche_org_raw"``).
+        plain_table: Target plain table name (e.g. ``"avalanche_org"``).
+        convert_fn: Dataset-specific function that accepts a raw
+            :class:`~pyspark.sql.DataFrame` and returns a typed DataFrame.
+        logger: Optional logger; when ``None`` a file-based logger is created.
+
+    Raises:
+        ValueError: If no new records are found for incremental processing.
+    """
     schema = config.database.db_schema
     jdbc_url = db_config.get_jdbc_url()
     properties = db_config.get_jdbc_properties(config.database.jdbc_driver)

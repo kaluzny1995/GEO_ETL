@@ -1,3 +1,9 @@
+"""DDL generation and JDBC execution utilities.
+
+Converts Pydantic models to PostgreSQL ``CREATE TABLE`` statements and
+provides helpers for schema/table management via direct JDBC connections.
+"""
+
 import datetime as dt
 import types
 from typing import Union, get_args, get_origin
@@ -8,7 +14,15 @@ from pyspark.sql import SparkSession
 
 
 def _resolve_type(annotation: type) -> type:
-    """Extract the base type from Optional/Union annotations (e.g. str | None -> str)."""
+    """Extract the base type from Optional/Union annotations.
+
+    Args:
+        annotation: A Python type annotation, possibly wrapped in
+            ``Optional`` or ``Union[..., None]``.
+
+    Returns:
+        The unwrapped inner type (e.g. ``str | None`` → ``str``).
+    """
     origin = get_origin(annotation)
     if origin is Union or isinstance(annotation, types.UnionType):
         args = [a for a in get_args(annotation) if a is not type(None)]
@@ -18,7 +32,17 @@ def _resolve_type(annotation: type) -> type:
 
 
 def _pg_type(annotation: type) -> str:
-    """Map Python type to PostgreSQL type string."""
+    """Map a Python type to its PostgreSQL column type string.
+
+    Args:
+        annotation: A resolved Python type (e.g. ``str``, ``int``, ``float``).
+
+    Returns:
+        The corresponding PostgreSQL type name.
+
+    Raises:
+        TypeError: If the annotation maps to an unsupported PostgreSQL type.
+    """
     resolved = _resolve_type(annotation)
     mapping = {
         str: "TEXT",
@@ -35,7 +59,16 @@ def _pg_type(annotation: type) -> str:
 
 
 def pydantic_to_ddl(model: type[BaseModel], table_name: str, schema: str) -> str:
-    """Convert Pydantic model fields to CREATE TABLE DDL statement."""
+    """Convert a Pydantic model to a ``CREATE TABLE IF NOT EXISTS`` DDL statement.
+
+    Args:
+        model: Pydantic model class whose fields define the table columns.
+        table_name: Target table name (without schema prefix).
+        schema: PostgreSQL schema name (e.g. ``"geo"``).
+
+    Returns:
+        A complete DDL string ready for JDBC execution.
+    """
     columns = []
     for name, field_info in model.model_fields.items():
         annotation = field_info.annotation
@@ -51,15 +84,31 @@ def pydantic_to_ddl(model: type[BaseModel], table_name: str, schema: str) -> str
     )
 
 
-def _get_jdbc_connection(spark: SparkSession, jdbc_url: str, properties: dict):
-    """Open a JDBC connection via PySpark's JVM gateway."""
+def _get_jdbc_connection(spark: SparkSession, jdbc_url: str, properties: dict[str, str]):
+    """Open a raw JDBC connection via PySpark's JVM gateway.
+
+    Args:
+        spark: Active Spark session.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC properties must include ``user`` and ``password``.
+
+    Returns:
+        A ``java.sql.Connection`` instance.
+    """
     jvm = spark._jvm
     DriverManager = jvm.java.sql.DriverManager
     return DriverManager.getConnection(jdbc_url, properties["user"], properties["password"])
 
 
-def _execute_jdbc(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict) -> None:
-    """Execute DDL via direct JDBC connection (Spark's read.jdbc only supports SELECT)."""
+def _execute_jdbc(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict[str, str]) -> None:
+    """Execute a DDL statement via direct JDBC connection.
+
+    Args:
+        spark: Active Spark session.
+        ddl: The DDL statement to execute.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+    """
     conn = _get_jdbc_connection(spark, jdbc_url, properties)
     try:
         stmt = conn.createStatement()
@@ -68,8 +117,19 @@ def _execute_jdbc(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict
         conn.close()
 
 
-def _query_jdbc(spark: SparkSession, sql: str, jdbc_url: str, properties: dict):
-    """Execute a SELECT query and return the first column of the first row."""
+def _query_jdbc(spark: SparkSession, sql: str, jdbc_url: str, properties: dict[str, str]):
+    """Execute a SELECT query and return the first column of the first row.
+
+    Args:
+        spark: Active Spark session.
+        sql: The SELECT query to execute.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+
+    Returns:
+        The value of the first column in the first result row, or ``None``
+        if the query returns no rows.
+    """
     conn = _get_jdbc_connection(spark, jdbc_url, properties)
     try:
         stmt = conn.createStatement()
@@ -81,8 +141,18 @@ def _query_jdbc(spark: SparkSession, sql: str, jdbc_url: str, properties: dict):
         conn.close()
 
 
-def _schema_has_tables(spark: SparkSession, schema: str, jdbc_url: str, properties: dict) -> bool:
-    """Check if a PostgreSQL schema contains any tables."""
+def _schema_has_tables(spark: SparkSession, schema: str, jdbc_url: str, properties: dict[str, str]) -> bool:
+    """Check whether a PostgreSQL schema contains any tables.
+
+    Args:
+        spark: Active Spark session.
+        schema: Schema name to check.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+
+    Returns:
+        ``True`` if the schema has at least one table, ``False`` otherwise.
+    """
     sql = (
         f"SELECT COUNT(*) FROM information_schema.tables "
         f"WHERE table_schema = '{schema}'"
@@ -91,25 +161,54 @@ def _schema_has_tables(spark: SparkSession, schema: str, jdbc_url: str, properti
     return count is not None and count > 0
 
 
-def create_schema(spark: SparkSession, schema: str, jdbc_url: str, properties: dict) -> None:
-    """Create PostgreSQL schema if it doesn't exist."""
+def create_schema(spark: SparkSession, schema: str, jdbc_url: str, properties: dict[str, str]) -> None:
+    """Create a PostgreSQL schema if it does not already exist.
+
+    Args:
+        spark: Active Spark session.
+        schema: Schema name to create.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+    """
     ddl = f"CREATE SCHEMA IF NOT EXISTS {schema};"
     _execute_jdbc(spark, ddl, jdbc_url, properties)
 
 
-def execute_ddl(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict) -> None:
-    """Execute arbitrary DDL statement against the database."""
+def execute_ddl(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict[str, str]) -> None:
+    """Execute an arbitrary DDL statement against the database.
+
+    Args:
+        spark: Active Spark session.
+        ddl: The DDL statement to execute.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+    """
     _execute_jdbc(spark, ddl, jdbc_url, properties)
 
 
-def drop_table(spark: SparkSession, table_name: str, schema: str, jdbc_url: str, properties: dict) -> None:
-    """Drop table if it exists."""
+def drop_table(spark: SparkSession, table_name: str, schema: str, jdbc_url: str, properties: dict[str, str]) -> None:
+    """Drop a table if it exists.
+
+    Args:
+        spark: Active Spark session.
+        table_name: Table name to drop (without schema prefix).
+        schema: PostgreSQL schema name.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+    """
     ddl = f"DROP TABLE IF EXISTS {schema}.{table_name};"
     _execute_jdbc(spark, ddl, jdbc_url, properties)
 
 
-def drop_schema(spark: SparkSession, schema: str, jdbc_url: str, properties: dict) -> None:
-    """Drop schema only if it exists and contains no tables."""
+def drop_schema(spark: SparkSession, schema: str, jdbc_url: str, properties: dict[str, str]) -> None:
+    """Drop a schema only if it exists and contains no tables.
+
+    Args:
+        spark: Active Spark session.
+        schema: Schema name to drop.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+    """
     if not _schema_has_tables(spark, schema, jdbc_url, properties):
         ddl = f"DROP SCHEMA IF EXISTS {schema};"
         _execute_jdbc(spark, ddl, jdbc_url, properties)
