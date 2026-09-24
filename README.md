@@ -46,7 +46,7 @@ GEO_ETL/
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
 │
-├── upload/                           # Data upload scripts
+├── upload/                           # Data upload scripts (thin wrappers around utils/upload_utils.py)
 │   ├── __init__.py
 │   ├── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
 │   ├── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
@@ -54,9 +54,11 @@ GEO_ETL/
 │   ├── ibtracs_cyclone_upload.py     # Upload IBTrACS CSVs -> Supabase via JDBC
 │   ├── nifc_fire_upload.py           # Upload NIFC CSVs -> Supabase via JDBC
 │   ├── openmeteo_flood_upload.py     # Upload OpenMeteo_Flood CSVs -> Supabase via JDBC
-│   └── usgs_earthquake_upload.py     # Upload USGS_Earthquake CSVs -> Supabase via JDBC
+│   ├── usgs_earthquake_upload.py     # Upload USGS_Earthquake CSVs -> Supabase via JDBC
+│   ├── usgs_nwis_upload.py           # Upload USGS_NWIS CSVs -> Supabase via JDBC
+│   └── usgs_volcano_upload.py        # Upload USGS_Volcano CSVs -> Supabase via JDBC
 │
-├── raw2plain/                        # Raw-to-final transformation scripts
+├── raw2plain/                        # Raw-to-final transformation scripts (thin wrappers around utils/raw2plain_utils.py)
 │   ├── __init__.py
 │   ├── avalanche_org_raw2plain.py    # Transform Avalanche_ORG raw -> typed data
 │   ├── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
@@ -64,7 +66,9 @@ GEO_ETL/
 │   ├── ibtracs_cyclone_raw2plain.py  # Transform IBTrACS raw -> typed data
 │   ├── nifc_fire_raw2plain.py        # Transform NIFC raw -> typed data
 │   ├── openmeteo_flood_raw2plain.py  # Transform OpenMeteo_Flood raw -> typed data
-│   └── usgs_earthquake_raw2plain.py  # Transform USGS_Earthquake raw -> typed data
+│   ├── usgs_earthquake_raw2plain.py  # Transform USGS_Earthquake raw -> typed data
+│   ├── usgs_nwis_raw2plain.py        # Transform USGS_NWIS raw -> typed data
+│   └── usgs_volcano_raw2plain.py     # Transform USGS_Volcano raw -> typed data
 │
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports all factories (lazy imports)
@@ -90,7 +94,9 @@ GEO_ETL/
 │   │   ├── ibtracs_cyclone_raw.py    # IbtacsCycloneRaw — all-TEXT raw model
 │   │   ├── nifc_fire_raw.py          # NifcFireRaw — all-TEXT raw model
 │   │   ├── openmeteo_flood_raw.py    # OpenMeteoFloodRaw — all-TEXT raw model
-│   │   └── usgs_earthquake_raw.py    # UsgsEarthquakeRaw — all-TEXT raw model
+│   │   ├── usgs_earthquake_raw.py    # UsgsEarthquakeRaw — all-TEXT raw model
+│   │   ├── usgs_nwis_raw.py          # UsgsNwisRaw — all-TEXT raw model
+│   │   └── usgs_volcano_raw.py       # UsgsVolcanoRaw — all-TEXT raw model
 │   └── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
@@ -98,12 +104,16 @@ GEO_ETL/
 │       ├── ibtracs_cyclone.py        # IbtacsCyclone — typed model (float, int, datetime)
 │       ├── nifc_fire.py              # NifcFire — typed model (float, int, datetime)
 │       ├── openmeteo_flood.py        # OpenMeteoFlood — typed model (float, date)
-│       └── usgs_earthquake.py        # UsgsEarthquake — typed model (float, int, datetime)
+│       ├── usgs_earthquake.py        # UsgsEarthquake — typed model (float, int, datetime)
+│       ├── usgs_nwis.py              # UsgsNwis — typed model (date, float, double)
+│       └── usgs_volcano.py           # UsgsVolcano — typed model (int, timestamp)
 │
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
 │   ├── logger.py                     # setup_logger() for file-based logging
-│   └── schema_converter.py           # Pydantic -> PySpark StructType schemas
+│   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
+│   ├── schema_converter.py           # Pydantic -> PySpark StructType schemas
+│   └── upload_utils.py               # Shared upload logic (DRY: parse_file_date, get_max_file_date, upload template)
 │
 ├── logs/                             # Runtime log output (gitignored)
 │   ├── create_table/                 # CREATE TABLE job logs
@@ -122,6 +132,7 @@ GEO_ETL/
 │       └── postgresql-42.7.4.jar
 │
 └── test/                             # Unit tests (pytest)
+    ├── conftest.py                   # Shared test fixtures (mock_F, mock_app_config, mock_db_config, mock_spark)
     ├── factory/
     │   ├── test_job_factory.py
     │   ├── test_table_factory.py
@@ -142,7 +153,9 @@ GEO_ETL/
     │   │   ├── test_ibtracs_cyclone.py
     │   │   ├── test_nifc_fire.py
     │   │   ├── test_openmeteo_flood.py
-    │   │   └── test_usgs_earthquake.py
+    │   │   ├── test_usgs_earthquake.py
+    │   │   ├── test_usgs_nwis.py
+    │   │   └── test_usgs_volcano.py
     │   └── raw/
     │       ├── test_avalanche_org_raw.py
     │       ├── test_eonet_event_raw.py
@@ -150,7 +163,9 @@ GEO_ETL/
     │       ├── test_ibtracs_cyclone_raw.py
     │       ├── test_nifc_fire_raw.py
     │       ├── test_openmeteo_flood_raw.py
-    │       └── test_usgs_earthquake_raw.py
+    │       ├── test_usgs_earthquake_raw.py
+    │       ├── test_usgs_nwis_raw.py
+    │       └── test_usgs_volcano_raw.py
     ├── scripts/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
@@ -163,7 +178,9 @@ GEO_ETL/
     │   ├── test_ibtracs_cyclone_upload.py
     │   ├── test_nifc_fire_upload.py
     │   ├── test_openmeteo_flood_upload.py
-    │   └── test_usgs_earthquake_upload.py
+    │   ├── test_usgs_earthquake_upload.py
+    │   ├── test_usgs_nwis_upload.py
+    │   └── test_usgs_volcano_upload.py
     ├── raw2plain/
     │   ├── test_avalanche_org_raw2plain.py
     │   ├── test_eonet_event_raw2plain.py
@@ -171,7 +188,9 @@ GEO_ETL/
     │   ├── test_ibtracs_cyclone_raw2plain.py
     │   ├── test_nifc_fire_raw2plain.py
     │   ├── test_openmeteo_flood_raw2plain.py
-    │   └── test_usgs_earthquake_raw2plain.py
+    │   ├── test_usgs_earthquake_raw2plain.py
+    │   ├── test_usgs_nwis_raw2plain.py
+    │   └── test_usgs_volcano_raw2plain.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_logger.py
@@ -702,7 +721,6 @@ Downloaded CSV files from [GEO_Download](../GEO_Download) are the input. Current
 | USGS_Earthquake | `geo.usgs_earthquake_raw` | `geo.usgs_earthquake` | 7,084 | HISTORICAL |
 | USGS_Volcano | `geo.usgs_volcano_raw` | `geo.usgs_volcano` | 24 | HISTORICAL |
 | USGS_NWIS | `geo.usgs_nwis_raw` | `geo.usgs_nwis` | 36 | HISTORICAL |
-| USGS_Volcano | — | — | — | — |
 
 ## Related Projects
 
