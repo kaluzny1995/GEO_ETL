@@ -94,8 +94,9 @@ def upload(
             the CSV files (e.g. ``"Avalanche_ORG"``).
         logger: Optional logger; when ``None`` a file-based logger is created.
 
-    Raises:
-        ValueError: If no new CSV files are found for incremental loading.
+    Returns:
+        ``None``. If no new CSV files exist for an incremental load, a warning
+        is logged and nothing is written (the table is already up to date).
     """
     schema = config.database.db_schema
     jdbc_url = db_config.get_jdbc_url()
@@ -131,8 +132,8 @@ def upload(
         logger.info(f"{len(csv_files)} new files to upload")
 
     if not csv_files:
-        logger.warning(f"No new files to upload for {table_name}")
-        raise ValueError(f"No new files to upload for {table_name}")
+        logger.warning(f"No new files to upload for {table_name} — nothing to do, table is up to date")
+        return
 
     csv_schema = pydantic_to_spark_schema(raw_model_cls)
     fields_without_file_date = [f for f in csv_schema.fields if f.name != "file_date"]

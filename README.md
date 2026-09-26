@@ -481,12 +481,15 @@ Upload complete: 19 files written to geo.avalanche_org_raw
 Spark session stopped
 ```
 
-When no new files are found (INCREMENTAL and table is up to date), the script raises an error:
+When no new files are found (INCREMENTAL and table is up to date), a warning is logged and nothing is written — the script finishes successfully:
 
 ```
-logger.warning("No new files to upload for avalanche_org_raw")
-ValueError: No new files to upload for avalanche_org_raw
+logger.warning("No new files to upload for avalanche_org_raw — nothing to do, table is up to date")
 ```
+
+The same applies to `raw2plain`: if there are no new raw rows, it logs
+`No new records to process for avalanche_org_raw — nothing to do, table is up to date`
+and returns without writing.
 
 #### Incremental test workflow
 

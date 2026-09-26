@@ -74,8 +74,9 @@ def raw2plain(
             :class:`~pyspark.sql.DataFrame` and returns a typed DataFrame.
         logger: Optional logger; when ``None`` a file-based logger is created.
 
-    Raises:
-        ValueError: If no new records are found for incremental processing.
+    Returns:
+        ``None``. If no new raw rows exist for an incremental load, a warning
+        is logged and nothing is written (the table is already up to date).
     """
     schema = config.database.db_schema
     jdbc_url = db_config.get_jdbc_url()
@@ -106,8 +107,8 @@ def raw2plain(
         ).filter(F.col("file_date") > F.lit(max_file_date.isoformat()))
 
     if not raw_df.head(1):
-        logger.warning(f"No new records to process for {plain_table}")
-        raise ValueError(f"No new records to process for {plain_table}")
+        logger.warning(f"No new records to process for {plain_table} — nothing to do, table is up to date")
+        return
 
     plain_df = convert_fn(raw_df)
     logger.info(f"Writing to {schema}.{plain_table}...")

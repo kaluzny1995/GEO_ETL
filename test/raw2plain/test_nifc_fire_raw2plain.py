@@ -1,7 +1,6 @@
 import datetime as dt
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from test.conftest import (
     mock_app_config_raw2plain,
@@ -38,13 +37,15 @@ def test_incremental_filters_by_file_date(mock_logger):
 
 @patch(f"{MODULE}.setup_logger")
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_col_methods=["__truediv__"], extra_f_methods=["to_timestamp"]))
-def test_no_records_raises_error(mock_logger):
+def test_no_records_skips_transform(mock_logger):
     spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
     raw_df.head.return_value = []
 
     from raw2plain.nifc_fire_raw2plain import raw2plain
-    with pytest.raises(ValueError, match="No new records to process"):
-        raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+    raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+
+    plain_df.write.jdbc.assert_not_called()
+    assert "No new records to process" in mock_logger.return_value.warning.call_args[0][0]
 
 
 @patch(f"{MODULE}.setup_logger")
