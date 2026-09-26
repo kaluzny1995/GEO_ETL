@@ -27,12 +27,29 @@ python run_etl.py INGESTION avalanche_org
 
 ## CREATE TABLE job
 
-`jobs/create_table.py`:
+`jobs/create_table.py` — schema + table DDL generated from the Pydantic models:
 
-1. Creates the target schema (`geo` by default) if it does not exist.
-2. Looks up the Pydantic model for the table in `TableFactory`.
-3. Generates `CREATE TABLE` DDL from the model (`utils/ddl_generator.py`) — the raw model produces all-TEXT columns, the plain model produces typed columns.
-4. Executes the DDL against Supabase over JDBC.
+```mermaid
+flowchart TD
+    CLI["CLI<br/>python run_etl.py CREATE avalanche_org"] -->|JobFactory| JOB["jobs/create_table.py"]
+    JOB --> MODEL["TableFactory.get<br/>Pydantic model (raw or plain)"]
+    JOB --> CFG["AppConfig + SupabaseConnectionConfig<br/>build jdbc_url / properties"]
+    CFG --> SCHEMA["create_schema<br/>CREATE SCHEMA IF NOT EXISTS geo"]
+    MODEL --> DDL["pydantic_to_ddl<br/>CREATE TABLE IF NOT EXISTS ..."]
+    SCHEMA --> DDL
+    DDL --> EXEC["execute_ddl over JDBC"]
+    CFG --> EXEC
+    EXEC --> DB[("geo.avalanche_org_raw<br/>geo.avalanche_org")]
+```
+
+How the data flows:
+
+1. `run_etl.py` parses the CLI args and resolves `JobType.CREATE` → `jobs/create_table.py` through `JobFactory` (see [Job registry and dispatch](#job-registry-and-dispatch)).
+2. `TableFactory.get(table_name)` returns the Pydantic model registered for the table — raw models produce all-TEXT columns, plain models produce typed columns. Unknown tables raise `ValueError`.
+3. `AppConfig.from_json()` and `SupabaseConnectionConfig.from_json()` build the JDBC URL and properties used by every database call below.
+4. `create_schema` creates the target schema (`geo` by default) if it does not exist.
+5. `pydantic_to_ddl` (`utils/ddl_generator.py`) turns the model into a `CREATE TABLE IF NOT EXISTS` statement.
+6. `execute_ddl` runs that statement against Supabase over JDBC — the table is ready for the [INGESTION job](#ingestion-job).
 
 Spark schemas are derived from the same models via `utils/schema_converter.py` (Pydantic → `StructType`), so DDL, Spark schema and validation always agree.
 
@@ -46,12 +63,47 @@ INFO Table geo.avalanche_org_raw created.
 
 ## INGESTION job
 
-`jobs/ingestion.py` runs the two pipelines in order via the factories:
+`jobs/ingestion.py` runs the two pipelines in order via the factories — CSVs land in the raw table, typed rows in the plain table:
 
-1. **Upload** — `UploadScriptFactory` picks the upload script for the table; CSVs from `data.directory` are written to the raw table.
-2. **Raw2Plain** — `Raw2PlainScriptFactory` picks the transform; typed rows are written to the plain table.
+```mermaid
+flowchart TD
+    CLI["CLI<br/>python run_etl.py INGESTION avalanche_org"] -->|JobFactory, _raw suffix| JOB["jobs/ingestion.py"]
+    JOB --> FU["UploadScriptFactory.get<br/>upload(spark, config, db_config, logger)"]
+    JOB --> FT["Raw2PlainScriptFactory.get<br/>raw2plain(spark, config, db_config, logger)"]
 
-Both steps receive the same config objects and the ingestion logger, so everything lands in one `logs/ingestion/ingestion_<table>_<timestamp>.log`. If either step reports no new data, the job finishes successfully without writing.
+    subgraph UP["Step 1 — Upload (ingestion/upload/ + utils/upload_utils.py)"]
+        FU --> FILES["glob data/Avalanche_ORG/*.csv"]
+        FILES --> D1{"MAX(file_date) in<br/>geo.avalanche_org_raw?"}
+        D1 -->|"table empty"| H1["HISTORICAL: all CSVs"]
+        D1 -->|"table has data"| I1["INCREMENTAL: file_date newer than max"]
+        H1 --> READ["spark.read.csv with model schema<br/>+ file_date column from filename"]
+        I1 --> READ
+        READ --> W1["df.write.jdbc append"]
+        D1 -->|"no new files"| SKIP1["log warning, nothing written"]
+    end
+
+    subgraph R2P["Step 2 — Raw2Plain (ingestion/raw2plain/ + utils/raw2plain_utils.py)"]
+        D2{"MAX(file_date) in<br/>geo.avalanche_org?"}
+        D2 -->|"final empty"| H2["HISTORICAL: all raw rows"]
+        D2 -->|"final has data"| I2["INCREMENTAL: file_date newer than max"]
+        H2 --> CV["convert_fn: cast TEXT to<br/>int / bool / timestamp / date"]
+        I2 --> CV
+        CV --> W2["write JDBC append"]
+        D2 -->|"no new rows"| SKIP2["log warning, nothing written"]
+        FT --> D2
+    end
+
+    W1 --> RAW[("geo.avalanche_org_raw<br/>all columns TEXT")]
+    RAW --> FT
+    W2 --> PLAIN[("geo.avalanche_org<br/>typed columns")]
+```
+
+How the data flows:
+
+1. `run_etl.py` appends the `_raw` suffix to the table name (unless you already passed one), resolves `JobType.INGESTION` → `jobs/ingestion.py`, and creates a single logger — both steps write to the same `logs/ingestion/ingestion_<table>_<timestamp>.log`.
+2. **Upload** — `UploadScriptFactory` picks the upload script for the table; CSVs from `data.directory` are read one by one, stamped with `file_date` from the filename, unioned and appended to the raw table.
+3. **Raw2Plain** — `Raw2PlainScriptFactory` picks the transform; only raw rows newer than the latest `file_date` in the plain table are read, passed through the dataset-specific `convert_fn`, and appended to the plain table.
+4. Both steps decide [Load type detection](#load-type-detection) from the state of their target table — no manual flag. If a step finds no new data it logs a warning and returns, and the job still finishes successfully.
 
 Details of each step: [Upload pipeline](#upload-pipeline) · [Raw2Plain pipeline](#raw2plain-pipeline).
 
@@ -84,12 +136,12 @@ To exercise the INCREMENTAL path, follow the [incremental test workflow](usage.m
 
 ## Upload pipeline
 
-Upload CSV files from GEO_Download to a Supabase table (`upload/` scripts are thin wrappers around `utils/upload_utils.py`):
+Upload CSV files from GEO_Download to a Supabase table (`ingestion/upload/` scripts are thin wrappers around `utils/upload_utils.py`):
 
 ```python
 from pyspark.sql import SparkSession
 from model.config import AppConfig, SupabaseConnectionConfig
-from upload.avalanche_org_upload import upload
+from ingestion.upload.avalanche_org_upload import upload
 
 config = AppConfig.from_json()
 db_config = SupabaseConnectionConfig.from_json()
@@ -118,12 +170,12 @@ Spark session stopped
 
 ## Raw2Plain pipeline
 
-Convert data from `avalanche_org_raw` (all TEXT) to `avalanche_org` (typed: int, bool, datetime, date) (`raw2plain/` scripts are thin wrappers around `utils/raw2plain_utils.py`):
+Convert data from `avalanche_org_raw` (all TEXT) to `avalanche_org` (typed: int, bool, datetime, date) (`ingestion/raw2plain/` scripts are thin wrappers around `utils/raw2plain_utils.py`):
 
 ```python
 from pyspark.sql import SparkSession
 from model.config import AppConfig, SupabaseConnectionConfig
-from raw2plain.avalanche_org_raw2plain import raw2plain
+from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
 
 config = AppConfig.from_json()
 db_config = SupabaseConnectionConfig.from_json()

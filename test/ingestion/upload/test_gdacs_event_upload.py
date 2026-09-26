@@ -10,12 +10,12 @@ class TestParseFileDate:
     def test_valid_filename(self):
         from utils.upload_utils import parse_file_date
 
-        assert parse_file_date("/data/usgs_streamflow_2026-09-01.csv") == dt.date(2026, 9, 1)
+        assert parse_file_date("/data/gdacs_2026-09-01.csv") == dt.date(2026, 9, 1)
 
     def test_nested_path(self):
         from utils.upload_utils import parse_file_date
 
-        assert parse_file_date("/some/deep/path/usgs_streamflow_2025-12-31.csv") == dt.date(2025, 12, 31)
+        assert parse_file_date("/some/deep/path/gdacs_2025-12-31.csv") == dt.date(2025, 12, 31)
 
     def test_no_date_returns_none(self):
         from utils.upload_utils import parse_file_date
@@ -25,12 +25,12 @@ class TestParseFileDate:
     def test_invalid_date_returns_none(self):
         from utils.upload_utils import parse_file_date
 
-        assert parse_file_date("/data/usgs_streamflow_not-a-date.csv") is None
+        assert parse_file_date("/data/gdacs_not-a-date.csv") is None
 
     def test_non_csv_returns_none(self):
         from utils.upload_utils import parse_file_date
 
-        assert parse_file_date("/data/usgs_streamflow_2026-09-01.txt") is None
+        assert parse_file_date("/data/gdacs_2026-09-01.txt") is None
 
 
 class TestGetMaxFileDate:
@@ -39,7 +39,7 @@ class TestGetMaxFileDate:
 
         spark = MagicMock()
         spark.read.jdbc.return_value.first.return_value = MagicMock(max_file_date=dt.date(2026, 9, 5))
-        result = get_max_file_date(spark, "jdbc:postgresql://x:5432/db", {}, "geo", "usgs_nwis_raw")
+        result = get_max_file_date(spark, "jdbc:postgresql://x:5432/db", {}, "geo", "gdacs_event_raw")
         assert result == dt.date(2026, 9, 5)
 
     def test_returns_none_when_row_is_null(self):
@@ -47,7 +47,7 @@ class TestGetMaxFileDate:
 
         spark = MagicMock()
         spark.read.jdbc.return_value.first.return_value = MagicMock(max_file_date=None)
-        result = get_max_file_date(spark, "jdbc:postgresql://x:5432/db", {}, "geo", "usgs_nwis_raw")
+        result = get_max_file_date(spark, "jdbc:postgresql://x:5432/db", {}, "geo", "gdacs_event_raw")
         assert result is None
 
     def test_returns_none_on_exception(self):
@@ -55,7 +55,7 @@ class TestGetMaxFileDate:
 
         spark = MagicMock()
         spark.read.jdbc.side_effect = Exception("table not found")
-        result = get_max_file_date(spark, "jdbc:postgresql://x:5432/db", {}, "geo", "usgs_nwis_raw")
+        result = get_max_file_date(spark, "jdbc:postgresql://x:5432/db", {}, "geo", "gdacs_event_raw")
         assert result is None
 
     def test_uses_correct_subquery(self):
@@ -73,12 +73,12 @@ class TestGetMaxFileDate:
 
 class TestWrapperFunctions:
     def test_parse_file_date_wraps_correctly(self):
-        from upload.usgs_nwis_upload import _parse_file_date
+        from ingestion.upload.gdacs_event_upload import _parse_file_date
 
-        assert _parse_file_date("/data/usgs_streamflow_2026-09-01.csv") == dt.date(2026, 9, 1)
+        assert _parse_file_date("/data/gdacs_2026-09-01.csv") == dt.date(2026, 9, 1)
 
     def test_get_max_file_date_wraps_correctly(self):
-        from upload.usgs_nwis_upload import _get_max_file_date
+        from ingestion.upload.gdacs_event_upload import _get_max_file_date
 
         spark = MagicMock()
         spark.read.jdbc.return_value.first.return_value = MagicMock(max_file_date=dt.date(2026, 9, 5))
@@ -94,14 +94,14 @@ class TestWrapperFunctions:
 @patch(f"{MODULE}.os.path.exists", return_value=True)
 def test_historical_when_table_empty(mock_exists, mock_glob, mock_schema, mock_logger):
     mock_glob.return_value = [
-        "/data/USGS_NWIS/usgs_streamflow_2026-09-01.csv",
-        "/data/USGS_NWIS/usgs_streamflow_2026-09-02.csv",
-        "/data/USGS_NWIS/usgs_streamflow_2026-09-03.csv",
+        "/data/GDACS/gdacs_2026-09-01.csv",
+        "/data/GDACS/gdacs_2026-09-02.csv",
+        "/data/GDACS/gdacs_2026-09-03.csv",
     ]
 
     spark, df = mock_spark_upload(max_file_date=None)
 
-    from upload.usgs_nwis_upload import upload
+    from ingestion.upload.gdacs_event_upload import upload
 
     upload(spark, mock_app_config_upload(), mock_db_config())
 
@@ -117,14 +117,14 @@ def test_historical_when_table_empty(mock_exists, mock_glob, mock_schema, mock_l
 @patch(f"{MODULE}.os.path.exists", return_value=True)
 def test_incremental_filters_by_date(mock_exists, mock_glob, mock_schema, mock_logger):
     mock_glob.return_value = [
-        "/data/USGS_NWIS/usgs_streamflow_2026-09-01.csv",
-        "/data/USGS_NWIS/usgs_streamflow_2026-09-02.csv",
-        "/data/USGS_NWIS/usgs_streamflow_2026-09-03.csv",
+        "/data/GDACS/gdacs_2026-09-01.csv",
+        "/data/GDACS/gdacs_2026-09-02.csv",
+        "/data/GDACS/gdacs_2026-09-03.csv",
     ]
 
     spark, _df = mock_spark_upload(max_file_date=dt.date(2026, 9, 1))
 
-    from upload.usgs_nwis_upload import upload
+    from ingestion.upload.gdacs_event_upload import upload
 
     upload(spark, mock_app_config_upload(), mock_db_config())
 
@@ -138,7 +138,7 @@ def test_incremental_filters_by_date(mock_exists, mock_glob, mock_schema, mock_l
 @patch(f"{MODULE}.glob.glob")
 @patch(f"{MODULE}.os.path.exists", return_value=True)
 def test_logs_record_count(mock_exists, mock_glob, mock_schema, mock_logger):
-    mock_glob.return_value = ["/data/USGS_NWIS/usgs_streamflow_2026-09-01.csv"]
+    mock_glob.return_value = ["/data/GDACS/gdacs_2026-09-01.csv"]
 
     spark, df = mock_spark_upload(max_file_date=None)
     df.count.return_value = 42
@@ -146,11 +146,11 @@ def test_logs_record_count(mock_exists, mock_glob, mock_schema, mock_logger):
     log = MagicMock()
     mock_logger.return_value = log
 
-    from upload.usgs_nwis_upload import upload
+    from ingestion.upload.gdacs_event_upload import upload
 
     upload(spark, mock_app_config_upload(), mock_db_config())
 
-    log.info.assert_any_call("Upload complete: 1 files written to geo.usgs_nwis_raw")
+    log.info.assert_any_call("Upload complete: 1 files written to geo.gdacs_event_raw")
 
 
 @patch(f"{MODULE}.F", mock_F_upload())
@@ -160,16 +160,16 @@ def test_logs_record_count(mock_exists, mock_glob, mock_schema, mock_logger):
 @patch(f"{MODULE}.glob.glob")
 @patch(f"{MODULE}.os.path.exists", return_value=True)
 def test_writes_to_correct_table(mock_exists, mock_glob, mock_schema, mock_logger):
-    mock_glob.return_value = ["/data/USGS_NWIS/usgs_streamflow_2026-09-01.csv"]
+    mock_glob.return_value = ["/data/GDACS/gdacs_2026-09-01.csv"]
 
     spark, df = mock_spark_upload(max_file_date=None)
 
-    from upload.usgs_nwis_upload import upload
+    from ingestion.upload.gdacs_event_upload import upload
 
     upload(spark, mock_app_config_upload(), mock_db_config())
 
     write_args = df.write.jdbc.call_args
-    assert write_args.kwargs["table"] == "geo.usgs_nwis_raw"
+    assert write_args.kwargs["table"] == "geo.gdacs_event_raw"
     assert write_args.kwargs["mode"] == "append"
 
 
@@ -180,11 +180,11 @@ def test_writes_to_correct_table(mock_exists, mock_glob, mock_schema, mock_logge
 @patch(f"{MODULE}.glob.glob")
 @patch(f"{MODULE}.os.path.exists", return_value=True)
 def test_no_new_files_skips_upload(mock_exists, mock_glob, mock_schema, mock_logger):
-    mock_glob.return_value = ["/data/USGS_NWIS/usgs_streamflow_2026-09-01.csv"]
+    mock_glob.return_value = ["/data/GDACS/gdacs_2026-09-01.csv"]
 
     spark, _df = mock_spark_upload(max_file_date=dt.date(2026, 9, 1))
 
-    from upload.usgs_nwis_upload import upload
+    from ingestion.upload.gdacs_event_upload import upload
 
     upload(spark, mock_app_config_upload(), mock_db_config())
 
@@ -199,17 +199,17 @@ def test_no_new_files_skips_upload(mock_exists, mock_glob, mock_schema, mock_log
 @patch(f"{MODULE}.glob.glob")
 @patch(f"{MODULE}.os.path.exists", return_value=True)
 def test_uses_passed_logger(mock_exists, mock_glob, mock_schema, mock_logger):
-    mock_glob.return_value = ["/data/USGS_NWIS/usgs_streamflow_2026-09-01.csv"]
+    mock_glob.return_value = ["/data/GDACS/gdacs_2026-09-01.csv"]
 
     spark, _df = mock_spark_upload(max_file_date=None)
     passed_logger = MagicMock()
 
-    from upload.usgs_nwis_upload import upload
+    from ingestion.upload.gdacs_event_upload import upload
 
     upload(spark, mock_app_config_upload(), mock_db_config(), logger=passed_logger)
 
     mock_logger.assert_not_called()
-    passed_logger.info.assert_any_call("---- Upload started: usgs_nwis_raw ----")
+    passed_logger.info.assert_any_call("---- Upload started: gdacs_event_raw ----")
 
 
 @patch(f"{MODULE}.F", mock_F_upload())
@@ -219,11 +219,11 @@ def test_uses_passed_logger(mock_exists, mock_glob, mock_schema, mock_logger):
 @patch(f"{MODULE}.glob.glob")
 @patch(f"{MODULE}.os.path.exists", return_value=True)
 def test_creates_own_logger_when_none(mock_exists, mock_glob, mock_schema, mock_logger):
-    mock_glob.return_value = ["/data/USGS_NWIS/usgs_streamflow_2026-09-01.csv"]
+    mock_glob.return_value = ["/data/GDACS/gdacs_2026-09-01.csv"]
 
     spark, _df = mock_spark_upload(max_file_date=None)
 
-    from upload.usgs_nwis_upload import upload
+    from ingestion.upload.gdacs_event_upload import upload
 
     upload(spark, mock_app_config_upload(), mock_db_config(), logger=None)
 

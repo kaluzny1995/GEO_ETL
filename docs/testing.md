@@ -42,24 +42,24 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/model/plain/test_usgs_earthquake.py` | UsgsEarthquake model validation + Spark schema + DDL types |
 | `test/model/plain/test_usgs_nwis.py` | UsgsNwis model validation + Spark schema + DDL types |
 | `test/model/plain/test_usgs_volcano.py` | UsgsVolcano model validation + Spark schema + DDL types |
-| `test/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload: historical, incremental, no files, logging) |
-| `test/upload/test_eonet_event_upload.py` | EONET upload script (helpers + upload: historical, incremental, no files, logging) |
-| `test/upload/test_gdacs_event_upload.py` | GDACS upload script (helpers + upload: historical, incremental, no files, logging) |
-| `test/upload/test_ibtracs_cyclone_upload.py` | IBTrACS upload script (helpers + upload: historical, incremental, no files, logging) |
-| `test/upload/test_nifc_fire_upload.py` | NIFC upload script (helpers + upload: historical, incremental, no files, logging) |
-| `test/upload/test_openmeteo_flood_upload.py` | OpenMeteo upload script (helpers + upload: historical, incremental, no files, logging) |
-| `test/upload/test_usgs_earthquake_upload.py` | USGS Earthquake upload script (helpers + upload: historical, incremental, no files, logging) |
-| `test/upload/test_usgs_nwis_upload.py` | USGS NWIS upload script (helpers + upload: historical, incremental, no files, logging) |
-| `test/upload/test_usgs_volcano_upload.py` | USGS Volcano upload script (helpers + upload: historical, incremental, no files, logging) |
-| `test/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion) |
-| `test/raw2plain/test_eonet_event_raw2plain.py` | EONET Raw2Plain transform (historical, incremental, no records, type conversion) |
-| `test/raw2plain/test_gdacs_event_raw2plain.py` | GDACS Raw2Plain transform (historical, incremental, no records, type conversion) |
-| `test/raw2plain/test_ibtracs_cyclone_raw2plain.py` | IBTrACS Raw2Plain transform (historical, incremental, no records, type conversion) |
-| `test/raw2plain/test_nifc_fire_raw2plain.py` | NIFC Raw2Plain transform (historical, incremental, no records, type conversion) |
-| `test/raw2plain/test_openmeteo_flood_raw2plain.py` | OpenMeteo Raw2Plain transform (historical, incremental, no records, type conversion) |
-| `test/raw2plain/test_usgs_earthquake_raw2plain.py` | USGS Earthquake Raw2Plain transform (historical, incremental, no records, type conversion) |
-| `test/raw2plain/test_usgs_nwis_raw2plain.py` | USGS NWIS Raw2Plain transform (historical, incremental, no records, type conversion) |
-| `test/raw2plain/test_usgs_volcano_raw2plain.py` | USGS Volcano Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/ingestion/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/ingestion/upload/test_eonet_event_upload.py` | EONET upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/ingestion/upload/test_gdacs_event_upload.py` | GDACS upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/ingestion/upload/test_ibtracs_cyclone_upload.py` | IBTrACS upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/ingestion/upload/test_nifc_fire_upload.py` | NIFC upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/ingestion/upload/test_openmeteo_flood_upload.py` | OpenMeteo upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/ingestion/upload/test_usgs_earthquake_upload.py` | USGS Earthquake upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/ingestion/upload/test_usgs_nwis_upload.py` | USGS NWIS upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/ingestion/upload/test_usgs_volcano_upload.py` | USGS Volcano upload script (helpers + upload: historical, incremental, no files, logging) |
+| `test/ingestion/raw2plain/test_avalanche_org_raw2plain.py` | Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/ingestion/raw2plain/test_eonet_event_raw2plain.py` | EONET Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/ingestion/raw2plain/test_gdacs_event_raw2plain.py` | GDACS Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/ingestion/raw2plain/test_ibtracs_cyclone_raw2plain.py` | IBTrACS Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/ingestion/raw2plain/test_nifc_fire_raw2plain.py` | NIFC Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/ingestion/raw2plain/test_openmeteo_flood_raw2plain.py` | OpenMeteo Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/ingestion/raw2plain/test_usgs_earthquake_raw2plain.py` | USGS Earthquake Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/ingestion/raw2plain/test_usgs_nwis_raw2plain.py` | USGS NWIS Raw2Plain transform (historical, incremental, no records, type conversion) |
+| `test/ingestion/raw2plain/test_usgs_volcano_raw2plain.py` | USGS Volcano Raw2Plain transform (historical, incremental, no records, type conversion) |
 | `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch, Spark session lifecycle, logger passing, error handling) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |

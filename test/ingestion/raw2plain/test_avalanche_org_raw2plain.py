@@ -16,7 +16,7 @@ MODULE = "utils.raw2plain_utils"
 def test_historical_when_plain_empty(mock_logger):
     spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from raw2plain.avalanche_org_raw2plain import raw2plain
+    from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
@@ -29,7 +29,7 @@ def test_historical_when_plain_empty(mock_logger):
 def test_incremental_filters_by_file_date(mock_logger):
     spark, raw_df, _plain_df = mock_spark_raw2plain(max_file_date=dt.date(2026, 9, 1))
 
-    from raw2plain.avalanche_org_raw2plain import raw2plain
+    from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
@@ -42,7 +42,7 @@ def test_no_records_skips_transform(mock_logger):
     spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
     raw_df.head.return_value = []
 
-    from raw2plain.avalanche_org_raw2plain import raw2plain
+    from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
@@ -55,7 +55,7 @@ def test_no_records_skips_transform(mock_logger):
 def test_writes_to_correct_table(mock_logger):
     spark, _raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from raw2plain.avalanche_org_raw2plain import raw2plain
+    from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
@@ -70,7 +70,7 @@ def test_logs_record_count(mock_logger):
     spark, raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
     raw_df.count.return_value = 42
 
-    from raw2plain.avalanche_org_raw2plain import raw2plain
+    from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
@@ -82,7 +82,7 @@ def test_logs_record_count(mock_logger):
 def test_reads_from_raw_table(mock_logger):
     spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from raw2plain.avalanche_org_raw2plain import raw2plain
+    from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
@@ -94,7 +94,7 @@ def test_reads_from_raw_table(mock_logger):
 
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["when", "to_timestamp", "to_date"]))
 def test_convert_selects_15_columns():
-    from raw2plain.avalanche_org_raw2plain import _convert
+    from ingestion.raw2plain.avalanche_org_raw2plain import _convert
 
     input_df = MagicMock()
     input_df.select.return_value = MagicMock()
@@ -112,7 +112,7 @@ def test_uses_passed_logger(mock_logger):
     spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
     passed_logger = MagicMock()
 
-    from raw2plain.avalanche_org_raw2plain import raw2plain
+    from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=passed_logger)
 
@@ -125,7 +125,7 @@ def test_uses_passed_logger(mock_logger):
 def test_creates_own_logger_when_none(mock_logger):
     spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from raw2plain.avalanche_org_raw2plain import raw2plain
+    from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=None)
 

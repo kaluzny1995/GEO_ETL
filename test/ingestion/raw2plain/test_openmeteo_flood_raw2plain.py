@@ -12,11 +12,11 @@ MODULE = "utils.raw2plain_utils"
 
 
 @patch(f"{MODULE}.setup_logger")
-@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
+@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_historical_when_plain_empty(mock_logger):
     spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from raw2plain.usgs_volcano_raw2plain import raw2plain
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
@@ -25,11 +25,11 @@ def test_historical_when_plain_empty(mock_logger):
 
 
 @patch(f"{MODULE}.setup_logger")
-@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
+@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_incremental_filters_by_file_date(mock_logger):
     spark, raw_df, _plain_df = mock_spark_raw2plain(max_file_date=dt.date(2026, 9, 1))
 
-    from raw2plain.usgs_volcano_raw2plain import raw2plain
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
@@ -37,12 +37,12 @@ def test_incremental_filters_by_file_date(mock_logger):
 
 
 @patch(f"{MODULE}.setup_logger")
-@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
+@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_no_records_skips_transform(mock_logger):
     spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
     raw_df.head.return_value = []
 
-    from raw2plain.usgs_volcano_raw2plain import raw2plain
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
@@ -51,50 +51,50 @@ def test_no_records_skips_transform(mock_logger):
 
 
 @patch(f"{MODULE}.setup_logger")
-@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
+@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_writes_to_correct_table(mock_logger):
     spark, _raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from raw2plain.usgs_volcano_raw2plain import raw2plain
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     write_args = plain_df.write.jdbc.call_args
-    assert write_args.kwargs["table"] == "geo.usgs_volcano"
+    assert write_args.kwargs["table"] == "geo.openmeteo_flood"
     assert write_args.kwargs["mode"] == "append"
 
 
 @patch(f"{MODULE}.setup_logger")
-@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
+@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_logs_record_count(mock_logger):
     spark, raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
     raw_df.count.return_value = 42
 
-    from raw2plain.usgs_volcano_raw2plain import raw2plain
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
-    mock_logger.return_value.info.assert_any_call("Raw2Plain complete: written to geo.usgs_volcano")
+    mock_logger.return_value.info.assert_any_call("Raw2Plain complete: written to geo.openmeteo_flood")
 
 
 @patch(f"{MODULE}.setup_logger")
-@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
+@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_reads_from_raw_table(mock_logger):
     spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from raw2plain.usgs_volcano_raw2plain import raw2plain
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     jdbc_calls = [c for c in spark.read.jdbc.call_args_list if "MAX" not in str(c)]
     assert len(jdbc_calls) >= 1
     raw_table_call = jdbc_calls[0]
-    assert "geo.usgs_volcano_raw" in str(raw_table_call)
+    assert "geo.openmeteo_flood_raw" in str(raw_table_call)
 
 
-@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
-def test_convert_selects_12_columns():
-    from raw2plain.usgs_volcano_raw2plain import _convert
+@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
+def test_convert_selects_7_columns():
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import _convert
 
     input_df = MagicMock()
     input_df.select.return_value = MagicMock()
@@ -103,29 +103,29 @@ def test_convert_selects_12_columns():
 
     input_df.select.assert_called_once()
     select_args = input_df.select.call_args[0]
-    assert len(select_args) == 12
+    assert len(select_args) == 7
 
 
 @patch(f"{MODULE}.setup_logger")
-@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
+@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_uses_passed_logger(mock_logger):
     spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
     passed_logger = MagicMock()
 
-    from raw2plain.usgs_volcano_raw2plain import raw2plain
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=passed_logger)
 
     mock_logger.assert_not_called()
-    passed_logger.info.assert_any_call("---- Raw2Final started: usgs_volcano_raw → usgs_volcano ----")
+    passed_logger.info.assert_any_call("---- Raw2Final started: openmeteo_flood_raw → openmeteo_flood ----")
 
 
 @patch(f"{MODULE}.setup_logger")
-@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
+@patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_creates_own_logger_when_none(mock_logger):
     spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from raw2plain.usgs_volcano_raw2plain import raw2plain
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import raw2plain
 
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=None)
 
@@ -141,7 +141,7 @@ class TestGetMaxFileDate:
 
         from utils.raw2plain_utils import get_max_file_date
 
-        result = get_max_file_date(spark, "jdbc:url", {}, "geo", "usgs_volcano")
+        result = get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         assert result == dt.date(2026, 9, 1)
 
@@ -151,7 +151,7 @@ class TestGetMaxFileDate:
 
         from utils.raw2plain_utils import get_max_file_date
 
-        result = get_max_file_date(spark, "jdbc:url", {}, "geo", "usgs_volcano")
+        result = get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         assert result is None
 
@@ -163,7 +163,7 @@ class TestGetMaxFileDate:
 
         from utils.raw2plain_utils import get_max_file_date
 
-        result = get_max_file_date(spark, "jdbc:url", {}, "geo", "usgs_volcano")
+        result = get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         assert result is None
 
@@ -173,7 +173,7 @@ class TestGetMaxFileDate:
 
         from utils.raw2plain_utils import get_max_file_date
 
-        result = get_max_file_date(spark, "jdbc:url", {}, "geo", "usgs_volcano")
+        result = get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         assert result is None
 
@@ -183,7 +183,7 @@ class TestGetMaxFileDate:
 
         from utils.raw2plain_utils import get_max_file_date
 
-        get_max_file_date(spark, "jdbc:url", {}, "geo", "usgs_volcano")
+        get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         call_kwargs = spark.read.jdbc.call_args
-        assert "usgs_volcano" in call_kwargs.kwargs["table"]
+        assert "openmeteo_flood" in call_kwargs.kwargs["table"]

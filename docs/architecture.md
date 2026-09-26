@@ -2,7 +2,7 @@
 
 # Project Structure
 
-The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `upload/` and `raw2plain/` hold per-table thin wrappers, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
+The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold per-table thin wrappers, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
 
 ```
 GEO_ETL/
@@ -16,29 +16,30 @@ GEO_ETL/
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
 │
-├── upload/                           # Data upload scripts (thin wrappers around utils/upload_utils.py)
+├── ingestion/                        # Ingestion scripts (CSV upload + raw-to-plain transforms)
 │   ├── __init__.py
-│   ├── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
-│   ├── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
-│   ├── gdacs_event_upload.py         # Upload GDACS CSVs -> Supabase via JDBC
-│   ├── ibtracs_cyclone_upload.py     # Upload IBTrACS CSVs -> Supabase via JDBC
-│   ├── nifc_fire_upload.py           # Upload NIFC CSVs -> Supabase via JDBC
-│   ├── openmeteo_flood_upload.py     # Upload OpenMeteo_Flood CSVs -> Supabase via JDBC
-│   ├── usgs_earthquake_upload.py     # Upload USGS_Earthquake CSVs -> Supabase via JDBC
-│   ├── usgs_nwis_upload.py           # Upload USGS_NWIS CSVs -> Supabase via JDBC
-│   └── usgs_volcano_upload.py        # Upload USGS_Volcano CSVs -> Supabase via JDBC
-│
-├── raw2plain/                        # Raw-to-final transformation scripts (thin wrappers around utils/raw2plain_utils.py)
-│   ├── __init__.py
-│   ├── avalanche_org_raw2plain.py    # Transform Avalanche_ORG raw -> typed data
-│   ├── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
-│   ├── gdacs_event_raw2plain.py      # Transform GDACS raw -> typed data
-│   ├── ibtracs_cyclone_raw2plain.py  # Transform IBTrACS raw -> typed data
-│   ├── nifc_fire_raw2plain.py        # Transform NIFC raw -> typed data
-│   ├── openmeteo_flood_raw2plain.py  # Transform OpenMeteo_Flood raw -> typed data
-│   ├── usgs_earthquake_raw2plain.py  # Transform USGS_Earthquake raw -> typed data
-│   ├── usgs_nwis_raw2plain.py        # Transform USGS_NWIS raw -> typed data
-│   └── usgs_volcano_raw2plain.py     # Transform USGS_Volcano raw -> typed data
+│   ├── upload/                       # Data upload scripts (thin wrappers around utils/upload_utils.py)
+│   │   ├── __init__.py
+│   │   ├── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
+│   │   ├── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
+│   │   ├── gdacs_event_upload.py         # Upload GDACS CSVs -> Supabase via JDBC
+│   │   ├── ibtracs_cyclone_upload.py     # Upload IBTrACS CSVs -> Supabase via JDBC
+│   │   ├── nifc_fire_upload.py           # Upload NIFC CSVs -> Supabase via JDBC
+│   │   ├── openmeteo_flood_upload.py     # Upload OpenMeteo_Flood CSVs -> Supabase via JDBC
+│   │   ├── usgs_earthquake_upload.py     # Upload USGS_Earthquake CSVs -> Supabase via JDBC
+│   │   ├── usgs_nwis_upload.py           # Upload USGS_NWIS CSVs -> Supabase via JDBC
+│   │   └── usgs_volcano_upload.py        # Upload USGS_Volcano CSVs -> Supabase via JDBC
+│   └── raw2plain/                    # Raw-to-final transforms (thin wrappers around utils/raw2plain_utils.py)
+│       ├── __init__.py
+│       ├── avalanche_org_raw2plain.py    # Transform Avalanche_ORG raw -> typed data
+│       ├── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
+│       ├── gdacs_event_raw2plain.py      # Transform GDACS raw -> typed data
+│       ├── ibtracs_cyclone_raw2plain.py  # Transform IBTrACS raw -> typed data
+│       ├── nifc_fire_raw2plain.py        # Transform NIFC raw -> typed data
+│       ├── openmeteo_flood_raw2plain.py  # Transform OpenMeteo_Flood raw -> typed data
+│       ├── usgs_earthquake_raw2plain.py  # Transform USGS_Earthquake raw -> typed data
+│       ├── usgs_nwis_raw2plain.py        # Transform USGS_NWIS raw -> typed data
+│       └── usgs_volcano_raw2plain.py     # Transform USGS_Volcano raw -> typed data
 │
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports all factories (lazy imports)
@@ -152,26 +153,27 @@ GEO_ETL/
     │   ├── test_run_drop_table.py
     │   ├── test_run_drop_schema.py
     │   └── test_run_delete_last_filedate_data.py
-    ├── upload/
-    │   ├── test_avalanche_org_upload.py
-    │   ├── test_eonet_event_upload.py
-    │   ├── test_gdacs_event_upload.py
-    │   ├── test_ibtracs_cyclone_upload.py
-    │   ├── test_nifc_fire_upload.py
-    │   ├── test_openmeteo_flood_upload.py
-    │   ├── test_usgs_earthquake_upload.py
-    │   ├── test_usgs_nwis_upload.py
-    │   └── test_usgs_volcano_upload.py
-    ├── raw2plain/
-    │   ├── test_avalanche_org_raw2plain.py
-    │   ├── test_eonet_event_raw2plain.py
-    │   ├── test_gdacs_event_raw2plain.py
-    │   ├── test_ibtracs_cyclone_raw2plain.py
-    │   ├── test_nifc_fire_raw2plain.py
-    │   ├── test_openmeteo_flood_raw2plain.py
-    │   ├── test_usgs_earthquake_raw2plain.py
-    │   ├── test_usgs_nwis_raw2plain.py
-    │   └── test_usgs_volcano_raw2plain.py
+    ├── ingestion/
+    │   ├── upload/
+    │   │   ├── test_avalanche_org_upload.py
+    │   │   ├── test_eonet_event_upload.py
+    │   │   ├── test_gdacs_event_upload.py
+    │   │   ├── test_ibtracs_cyclone_upload.py
+    │   │   ├── test_nifc_fire_upload.py
+    │   │   ├── test_openmeteo_flood_upload.py
+    │   │   ├── test_usgs_earthquake_upload.py
+    │   │   ├── test_usgs_nwis_upload.py
+    │   │   └── test_usgs_volcano_upload.py
+    │   └── raw2plain/
+    │       ├── test_avalanche_org_raw2plain.py
+    │       ├── test_eonet_event_raw2plain.py
+    │       ├── test_gdacs_event_raw2plain.py
+    │       ├── test_ibtracs_cyclone_raw2plain.py
+    │       ├── test_nifc_fire_raw2plain.py
+    │       ├── test_openmeteo_flood_raw2plain.py
+    │       ├── test_usgs_earthquake_raw2plain.py
+    │       ├── test_usgs_nwis_raw2plain.py
+    │       └── test_usgs_volcano_raw2plain.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_logger.py
