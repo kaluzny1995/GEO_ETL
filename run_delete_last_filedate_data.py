@@ -12,6 +12,7 @@ import datetime as dt
 import os
 
 import findspark
+
 findspark.init()
 
 from pyspark.sql import SparkSession
@@ -43,7 +44,10 @@ def _delete_file_date(
         Number of rows deleted.
     """
     count_sql = f"(SELECT COUNT(*) AS cnt FROM {schema}.{table_name} WHERE file_date = '{file_date}') AS t"
-    before = spark.read.jdbc(url=jdbc_url, table=count_sql, properties=properties).first().cnt
+    row = spark.read.jdbc(url=jdbc_url, table=count_sql, properties=properties).first()
+    if row is None:
+        raise RuntimeError(f"COUNT returned no row for {schema}.{table_name} on {file_date}")
+    before = row.cnt
 
     conn = _get_jdbc_connection(spark, jdbc_url, properties)
     try:
@@ -103,7 +107,9 @@ def main() -> None:
 
     logger = setup_logger(
         name=f"delete_last_filedate_{raw_table}",
-        log_file=os.path.join(log_dir, "delete_last_filedate", f"delete_last_filedate_{raw_table}_{dt.datetime.now().isoformat()}.log"),
+        log_file=os.path.join(
+            log_dir, "delete_last_filedate", f"delete_last_filedate_{raw_table}_{dt.datetime.now().isoformat()}.log"
+        ),
         level=app_config.logging.level_int,
     )
     logger.info(f"---- Delete last file_date started: {raw_table} ----")
@@ -112,10 +118,11 @@ def main() -> None:
     properties = db_config.get_jdbc_properties(app_config.database.jdbc_driver)
     schema = app_config.database.db_schema
 
-    spark = SparkSession.builder \
-        .master(app_config.spark.master) \
-        .appName(f"{app_prefix}_delete_last_filedate_{raw_table}") \
+    spark = (
+        SparkSession.builder.master(app_config.spark.master)
+        .appName(f"{app_prefix}_delete_last_filedate_{raw_table}")
         .getOrCreate()
+    )
 
     try:
         logger.info(f"Connected to Spark: {spark.sparkContext.master}")

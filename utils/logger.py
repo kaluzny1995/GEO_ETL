@@ -1,6 +1,5 @@
-import os
 import logging
-import datetime as dt
+import os
 
 
 def setup_logger(name: str, log_file: str, level: int = logging.INFO) -> logging.Logger:
@@ -13,14 +12,10 @@ def setup_logger(name: str, log_file: str, level: int = logging.INFO) -> logging
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    existing_paths = {
-        os.path.abspath(h.baseFilename)
-        for h in logger.handlers
-        if isinstance(h, logging.FileHandler)
-    }
+    existing_paths = {os.path.abspath(h.baseFilename) for h in logger.handlers if isinstance(h, logging.FileHandler)}
     if os.path.abspath(log_file) not in existing_paths:
         handler = logging.FileHandler(log_file)
-        handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
         logger.addHandler(handler)
 
     return logger

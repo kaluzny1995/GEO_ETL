@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class EonetEventRaw(BaseModel):
     """Raw NASA EONET natural hazard event data — all fields as TEXT."""
+
     event_id: str
     event_name: str
     category_id: str

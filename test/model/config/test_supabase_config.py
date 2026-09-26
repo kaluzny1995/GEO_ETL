@@ -3,9 +3,9 @@ import os
 import tempfile
 
 import pytest
+from pydantic import ValidationError
 
 from model.config.supabase_config import SupabaseConnectionConfig
-
 
 VALID_CONFIG = {
     "username": "user",
@@ -27,7 +27,7 @@ class TestSupabaseConnectionConfig:
 
     def test_frozen(self):
         cfg = SupabaseConnectionConfig(**VALID_CONFIG)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             cfg.host = "other.example.com"
 
     def test_from_json(self):
@@ -47,7 +47,7 @@ class TestSupabaseConnectionConfig:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"host": "db.example.com"}, f)
             f.flush()
-            with pytest.raises(Exception):
+            with pytest.raises(ValidationError):
                 SupabaseConnectionConfig.from_json(f.name)
         os.unlink(f.name)
 

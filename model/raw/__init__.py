@@ -8,5 +8,14 @@ from model.raw.usgs_earthquake_raw import UsgsEarthquakeRaw
 from model.raw.usgs_nwis_raw import UsgsNwisRaw
 from model.raw.usgs_volcano_raw import UsgsVolcanoRaw
 
-__all__ = ["AvalancheOrgRaw", "EonetEventRaw", "GdacsEventRaw", "IbtacsCycloneRaw",
-           "NifcFireRaw", "OpenMeteoFloodRaw", "UsgsEarthquakeRaw", "UsgsNwisRaw", "UsgsVolcanoRaw"]
+__all__ = [
+    "AvalancheOrgRaw",
+    "EonetEventRaw",
+    "GdacsEventRaw",
+    "IbtacsCycloneRaw",
+    "NifcFireRaw",
+    "OpenMeteoFloodRaw",
+    "UsgsEarthquakeRaw",
+    "UsgsNwisRaw",
+    "UsgsVolcanoRaw",
+]

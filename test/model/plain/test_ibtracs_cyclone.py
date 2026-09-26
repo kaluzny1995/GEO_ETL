@@ -1,17 +1,17 @@
 import datetime as dt
 
 import pytest
-
-from model.plain.ibtracs_cyclone import IbtacsCyclone
-from factory import TableFactory
-from utils.ddl_generator import pydantic_to_ddl
-from utils.schema_converter import pydantic_to_spark_schema
+from pydantic import ValidationError
 from pyspark.sql.types import (
     DoubleType,
     LongType,
-    StringType,
     TimestampType,
 )
+
+from factory import TableFactory
+from model.plain.ibtracs_cyclone import IbtacsCyclone
+from utils.ddl_generator import pydantic_to_ddl
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 class TestIbtacsCycloneValid:
@@ -87,11 +87,11 @@ class TestIbtacsCycloneValid:
 
 class TestIbtacsCycloneMissing:
     def test_missing_required_field_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             IbtacsCyclone(name="test")
 
     def test_missing_sid_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             IbtacsCyclone(
                 season=2026,
                 number=57,
@@ -128,9 +128,21 @@ class TestIbtacsCycloneSparkSchema:
 
     def test_int_fields(self):
         schema = pydantic_to_spark_schema(IbtacsCyclone)
-        int_fields = {"season", "number", "wmo_wind", "wmo_pres", "dist2land", "landfall",
-                       "usa_wind", "usa_pres", "usa_sshs", "usa_r34_ne", "usa_gust",
-                       "storm_speed", "storm_dir"}
+        int_fields = {
+            "season",
+            "number",
+            "wmo_wind",
+            "wmo_pres",
+            "dist2land",
+            "landfall",
+            "usa_wind",
+            "usa_pres",
+            "usa_sshs",
+            "usa_r34_ne",
+            "usa_gust",
+            "storm_speed",
+            "storm_dir",
+        }
         for f in schema.fields:
             if f.name in int_fields:
                 assert isinstance(f.dataType, LongType), f"{f.name} should be LongType"
@@ -161,6 +173,7 @@ class TestIbtacsCycloneRegistry:
     def test_registered_in_factory(self):
         import model  # noqa: F401
         from model.plain.ibtracs_cyclone import IbtacsCyclone as IbtacsCycloneModel
+
         TableFactory.register("ibtracs_cyclone", IbtacsCycloneModel)
         assert "ibtracs_cyclone" in TableFactory.tables()
         assert TableFactory.get("ibtracs_cyclone") is IbtacsCycloneModel

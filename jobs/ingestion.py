@@ -4,8 +4,8 @@ import logging
 
 from pyspark.sql import SparkSession
 
+from factory import Raw2PlainScriptFactory, UploadScriptFactory
 from model.config import AppConfig, SupabaseConnectionConfig
-from factory import UploadScriptFactory, Raw2PlainScriptFactory
 
 
 def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = None) -> str:

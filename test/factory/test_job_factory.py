@@ -2,8 +2,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from model.enums import JobType
 from factory import JobFactory
+from model.enums import JobType
 
 
 @pytest.fixture(autouse=True)

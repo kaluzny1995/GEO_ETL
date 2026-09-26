@@ -1,7 +1,7 @@
 """Upload script registry mapping table names to their upload functions."""
 
 from collections.abc import Callable
-from typing import Any
+from typing import ClassVar
 
 
 class UploadScriptFactory:
@@ -9,7 +9,8 @@ class UploadScriptFactory:
 
     Upload functions are registered at import time via ``jobs/__init__.py``.
     """
-    _registry: dict[str, Callable[..., None]] = {}
+
+    _registry: ClassVar[dict[str, Callable[..., None]]] = {}
 
     @classmethod
     def register(cls, table_name: str, upload_fn: Callable[..., None]) -> None:
@@ -35,10 +36,7 @@ class UploadScriptFactory:
             ValueError: If no function is registered for *table_name*.
         """
         if table_name not in cls._registry:
-            raise ValueError(
-                f"No upload script for '{table_name}'. "
-                f"Available: {list(cls._registry.keys())}"
-            )
+            raise ValueError(f"No upload script for '{table_name}'. Available: {list(cls._registry.keys())}")
         return cls._registry[table_name]
 
     @classmethod

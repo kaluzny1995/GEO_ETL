@@ -1,4 +1,5 @@
 import pytest
+
 from factory.raw2plain_script_factory import Raw2PlainScriptFactory
 
 
@@ -10,7 +11,9 @@ def _clean_registry():
 
 
 def test_register_and_get():
-    fn = lambda spark, config, db_config: None
+    def fn(spark, config, db_config):
+        return None
+
     Raw2PlainScriptFactory.register("my_table", fn)
     assert Raw2PlainScriptFactory.get("my_table") is fn
 
@@ -27,8 +30,12 @@ def test_clear_empties_registry():
 
 
 def test_register_overwrites_existing():
-    fn1 = lambda s, c, d: None
-    fn2 = lambda s, c, d: None
+    def fn1(s, c, d):
+        return None
+
+    def fn2(s, c, d):
+        return None
+
     Raw2PlainScriptFactory.register("t", fn1)
     Raw2PlainScriptFactory.register("t", fn2)
     assert Raw2PlainScriptFactory.get("t") is fn2

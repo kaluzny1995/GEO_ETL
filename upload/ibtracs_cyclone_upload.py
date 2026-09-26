@@ -1,12 +1,13 @@
 """Upload IBTrACS cyclone CSV files to Supabase."""
+
 import logging
 
 from pyspark.sql import SparkSession
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.raw import IbtacsCycloneRaw
-from utils.upload_utils import parse_file_date, get_max_file_date, upload as _upload
-
+from utils.upload_utils import get_max_file_date, parse_file_date
+from utils.upload_utils import upload as _upload
 
 TABLE_NAME = "ibtracs_cyclone_raw"
 
@@ -19,7 +20,9 @@ def _get_max_file_date(spark, jdbc_url, properties, schema):
     return get_max_file_date(spark, jdbc_url, properties, schema, TABLE_NAME)
 
 
-def upload(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None):
+def upload(
+    spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None
+):
     """Upload CSV files for this data source to Supabase.
 
     Delegates to :func:`utils.upload_utils.upload` with the dataset-specific

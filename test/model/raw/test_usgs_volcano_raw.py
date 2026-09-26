@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
+from pyspark.sql.types import StringType
 
 from model.raw.usgs_volcano_raw import UsgsVolcanoRaw
 from utils.schema_converter import pydantic_to_spark_schema
-from pyspark.sql.types import StringType
 
 VALID_ROW = {
     "volcano_name": "Ahyi Seamount",
@@ -29,7 +29,7 @@ class TestUsgsVolcanoRawValid:
         assert model.file_date == "2026-09-09"
 
     def test_optional_fields_none(self):
-        row = {k: None for k in VALID_ROW}
+        row = dict.fromkeys(VALID_ROW)
         row["file_date"] = "2026-09-09"
         model = UsgsVolcanoRaw(**row)
         assert model.volcano_name is None

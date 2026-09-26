@@ -1,7 +1,6 @@
 import datetime as dt
 from unittest.mock import MagicMock, patch
 
-
 from test.conftest import (
     mock_app_config_raw2plain,
     mock_db_config,
@@ -18,6 +17,7 @@ def test_historical_when_plain_empty(mock_logger):
     spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
 
     from raw2plain.openmeteo_flood_raw2plain import raw2plain
+
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     raw_df.filter.assert_not_called()
@@ -27,9 +27,10 @@ def test_historical_when_plain_empty(mock_logger):
 @patch(f"{MODULE}.setup_logger")
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_incremental_filters_by_file_date(mock_logger):
-    spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=dt.date(2026, 9, 1))
+    spark, raw_df, _plain_df = mock_spark_raw2plain(max_file_date=dt.date(2026, 9, 1))
 
     from raw2plain.openmeteo_flood_raw2plain import raw2plain
+
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     raw_df.filter.assert_called_once()
@@ -42,6 +43,7 @@ def test_no_records_skips_transform(mock_logger):
     raw_df.head.return_value = []
 
     from raw2plain.openmeteo_flood_raw2plain import raw2plain
+
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     plain_df.write.jdbc.assert_not_called()
@@ -51,9 +53,10 @@ def test_no_records_skips_transform(mock_logger):
 @patch(f"{MODULE}.setup_logger")
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_writes_to_correct_table(mock_logger):
-    spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
+    spark, _raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
 
     from raw2plain.openmeteo_flood_raw2plain import raw2plain
+
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     write_args = plain_df.write.jdbc.call_args
@@ -64,10 +67,11 @@ def test_writes_to_correct_table(mock_logger):
 @patch(f"{MODULE}.setup_logger")
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_logs_record_count(mock_logger):
-    spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
+    spark, raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
     raw_df.count.return_value = 42
 
     from raw2plain.openmeteo_flood_raw2plain import raw2plain
+
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     mock_logger.return_value.info.assert_any_call("Raw2Plain complete: written to geo.openmeteo_flood")
@@ -76,9 +80,10 @@ def test_logs_record_count(mock_logger):
 @patch(f"{MODULE}.setup_logger")
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_reads_from_raw_table(mock_logger):
-    spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
+    spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
 
     from raw2plain.openmeteo_flood_raw2plain import raw2plain
+
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     jdbc_calls = [c for c in spark.read.jdbc.call_args_list if "MAX" not in str(c)]
@@ -104,10 +109,11 @@ def test_convert_selects_7_columns():
 @patch(f"{MODULE}.setup_logger")
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_uses_passed_logger(mock_logger):
-    spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
+    spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
     passed_logger = MagicMock()
 
     from raw2plain.openmeteo_flood_raw2plain import raw2plain
+
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=passed_logger)
 
     mock_logger.assert_not_called()
@@ -117,9 +123,10 @@ def test_uses_passed_logger(mock_logger):
 @patch(f"{MODULE}.setup_logger")
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
 def test_creates_own_logger_when_none(mock_logger):
-    spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
+    spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
 
     from raw2plain.openmeteo_flood_raw2plain import raw2plain
+
     raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=None)
 
     mock_logger.assert_called_once()
@@ -133,6 +140,7 @@ class TestGetMaxFileDate:
         spark.read.jdbc.return_value.first.return_value = row
 
         from utils.raw2plain_utils import get_max_file_date
+
         result = get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         assert result == dt.date(2026, 9, 1)
@@ -142,6 +150,7 @@ class TestGetMaxFileDate:
         spark.read.jdbc.return_value.first.return_value = None
 
         from utils.raw2plain_utils import get_max_file_date
+
         result = get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         assert result is None
@@ -153,6 +162,7 @@ class TestGetMaxFileDate:
         spark.read.jdbc.return_value.first.return_value = row
 
         from utils.raw2plain_utils import get_max_file_date
+
         result = get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         assert result is None
@@ -162,6 +172,7 @@ class TestGetMaxFileDate:
         spark.read.jdbc.side_effect = Exception("table not found")
 
         from utils.raw2plain_utils import get_max_file_date
+
         result = get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         assert result is None
@@ -171,6 +182,7 @@ class TestGetMaxFileDate:
         spark.read.jdbc.return_value.first.return_value = None
 
         from utils.raw2plain_utils import get_max_file_date
+
         get_max_file_date(spark, "jdbc:url", {}, "geo", "openmeteo_flood")
 
         call_kwargs = spark.read.jdbc.call_args

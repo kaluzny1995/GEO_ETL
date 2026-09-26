@@ -1,16 +1,16 @@
 import datetime as dt
 
 import pytest
-
-from model.plain.usgs_nwis import UsgsNwis
-from factory import TableFactory
-from utils.ddl_generator import pydantic_to_ddl
-from utils.schema_converter import pydantic_to_spark_schema
+from pydantic import ValidationError
 from pyspark.sql.types import (
     DateType,
     DoubleType,
-    StringType,
 )
+
+from factory import TableFactory
+from model.plain.usgs_nwis import UsgsNwis
+from utils.ddl_generator import pydantic_to_ddl
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 class TestUsgsNwisValid:
@@ -39,7 +39,7 @@ class TestUsgsNwisValid:
 
 class TestUsgsNwisMissing:
     def test_missing_file_date_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             UsgsNwis(site_id="test")
 
 
@@ -78,6 +78,7 @@ class TestUsgsNwisRegistry:
     def test_registered_in_factory(self):
         import model  # noqa: F401
         from model.plain.usgs_nwis import UsgsNwis as UsgsNwisModel
+
         TableFactory.register("usgs_nwis", UsgsNwisModel)
         assert "usgs_nwis" in TableFactory.tables()
         assert TableFactory.get("usgs_nwis") is UsgsNwisModel

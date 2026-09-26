@@ -30,9 +30,11 @@ def _mock_db_config():
 @patch("run_drop_table.setup_logger")
 def test_drop_table_calls_correct_functions(mock_logger, mock_app, mock_db, mock_drop, mock_builder):
     import sys
+
     sys.argv = ["run_drop_table.py", "my_table"]
 
     from run_drop_table import main
+
     main()
 
     mock_drop.assert_called_once()
@@ -48,12 +50,14 @@ def test_drop_table_calls_correct_functions(mock_logger, mock_app, mock_db, mock
 @patch("run_drop_table.setup_logger")
 def test_drop_table_logs_success(mock_logger, mock_app, mock_db, mock_drop, mock_builder):
     import sys
+
     sys.argv = ["run_drop_table.py", "my_table"]
 
     mock_log = MagicMock()
     mock_logger.return_value = mock_log
 
     from run_drop_table import main
+
     main()
 
     mock_log.info.assert_any_call("Table geo.my_table dropped.")

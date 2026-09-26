@@ -1,27 +1,27 @@
 import datetime as dt
 
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
 
 
 class NifcFire(BaseModel):
     """Typed NIFC wildfire data (float, str, datetime)."""
+
     model_config = ConfigDict(json_schema_extra={})
 
-    incident_name: Optional[str] = None
-    irwin_id: Optional[str] = None
-    fire_number: Optional[str] = None
-    acres: Optional[float] = None
-    percent_contained: Optional[float] = None
-    fire_type: Optional[str] = None
-    fire_type_label: Optional[str] = None
-    jurisdiction: Optional[str] = None
-    jurisdiction_label: Optional[str] = None
-    state: Optional[str] = None
-    po_method: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    poly_date: Optional[dt.datetime] = None
-    created_on: Optional[dt.datetime] = None
-    modified_on: Optional[dt.datetime] = None
+    incident_name: str | None = None
+    irwin_id: str | None = None
+    fire_number: str | None = None
+    acres: float | None = None
+    percent_contained: float | None = None
+    fire_type: str | None = None
+    fire_type_label: str | None = None
+    jurisdiction: str | None = None
+    jurisdiction_label: str | None = None
+    state: str | None = None
+    po_method: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    poly_date: dt.datetime | None = None
+    created_on: dt.datetime | None = None
+    modified_on: dt.datetime | None = None
     file_date: str

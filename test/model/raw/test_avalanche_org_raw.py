@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
+from pyspark.sql.types import StringType
 
 from model.raw.avalanche_org_raw import AvalancheOrgRaw
 from utils.schema_converter import pydantic_to_spark_schema
-from pyspark.sql.types import StringType
 
 VALID_ROW = {
     "zone_id": "3004",
@@ -64,9 +64,20 @@ class TestAvalancheOrgRawSparkSchema:
         schema = pydantic_to_spark_schema(AvalancheOrgRaw)
         names = [f.name for f in schema.fields]
         assert names == [
-            "zone_id", "zone_name", "center_id", "center_name", "state",
-            "danger_level", "danger_rating", "travel_advice", "off_season",
-            "forecast_start", "forecast_end", "warning", "link", "date",
+            "zone_id",
+            "zone_name",
+            "center_id",
+            "center_name",
+            "state",
+            "danger_level",
+            "danger_rating",
+            "travel_advice",
+            "off_season",
+            "forecast_start",
+            "forecast_end",
+            "warning",
+            "link",
+            "date",
             "file_date",
         ]
 

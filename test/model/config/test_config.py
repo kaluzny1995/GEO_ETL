@@ -4,11 +4,15 @@ import os
 import tempfile
 
 import pytest
+from pydantic import ValidationError
 
 from model.config.app_config import (
-    AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig, LOG_LEVEL_MAP,
+    AppConfig,
+    DatabaseConfig,
+    DataConfig,
+    LoggingConfig,
+    SparkConfig,
 )
-
 
 VALID_CONFIG = {
     "spark": {"master": "spark://localhost:7078", "app_name_prefix": "geo_etl"},
@@ -26,7 +30,7 @@ class TestSparkConfig:
 
     def test_frozen(self):
         cfg = SparkConfig(master="spark://localhost:7078")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             cfg.master = "spark://other:7077"
 
     def test_default_app_name_prefix(self):
@@ -42,7 +46,7 @@ class TestDatabaseConfig:
 
     def test_frozen(self):
         cfg = DatabaseConfig(db_schema="geo", jdbc_driver="org.postgresql.Driver")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             cfg.db_schema = "other"
 
 
@@ -54,7 +58,7 @@ class TestLoggingConfig:
 
     def test_frozen(self):
         cfg = LoggingConfig(directory="logs", level="INFO")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             cfg.directory = "other"
 
     def test_level_int(self):
@@ -82,7 +86,7 @@ class TestDataConfig:
 
     def test_frozen(self):
         cfg = DataConfig(directory="data")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             cfg.directory = "other"
 
     def test_default_values(self):
@@ -100,7 +104,7 @@ class TestAppConfig:
 
     def test_frozen(self):
         cfg = AppConfig(**VALID_CONFIG)
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             cfg.spark = SparkConfig(master="spark://other:7077")
 
     def test_from_json(self):
@@ -122,7 +126,7 @@ class TestAppConfig:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump({"spark": {}}, f)
             f.flush()
-            with pytest.raises(Exception):
+            with pytest.raises(ValidationError):
                 AppConfig.from_json(f.name)
         os.unlink(f.name)
 

@@ -9,6 +9,8 @@ conda activate geo_etl_311
 pytest test/ -v
 ```
 
+The same suite also runs in an isolated tox environment (`tox -e py311`) — see [Code quality](development.md#tox-environments) for the full check matrix.
+
 ## Test structure
 
 | Test Suite | What It Tests |

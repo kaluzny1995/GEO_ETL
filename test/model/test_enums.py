@@ -28,5 +28,6 @@ def test_job_type_from_value():
 
 def test_job_type_invalid_value_raises():
     import pytest
+
     with pytest.raises(ValueError):
         JobType("INVALID")

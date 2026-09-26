@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -27,6 +26,7 @@ class SparkConfig(BaseModel):
         master: Spark master URL (e.g. ``"spark://localhost:7078"``).
         app_name_prefix: Prefix for Spark application names.
     """
+
     model_config = ConfigDict(frozen=True)
 
     master: str
@@ -40,6 +40,7 @@ class DatabaseConfig(BaseModel):
         db_schema: Target schema name (e.g. ``"geo"``).
         jdbc_driver: Fully qualified JDBC driver class name.
     """
+
     model_config = ConfigDict(frozen=True)
 
     db_schema: str
@@ -53,6 +54,7 @@ class LoggingConfig(BaseModel):
         directory: Root directory for log files.
         level: Log level name (``"DEBUG"``, ``"INFO"``, ``"WARNING"``, etc.).
     """
+
     model_config = ConfigDict(frozen=True)
 
     directory: str = "logs"
@@ -71,6 +73,7 @@ class DataConfig(BaseModel):
         directory: Relative path to the CSV data directory
             (e.g. ``"../GEO_Download/data"``).
     """
+
     model_config = ConfigDict(frozen=True)
 
     directory: str = "../GEO_Download/data"
@@ -85,6 +88,7 @@ class AppConfig(BaseModel):
         logging: Logging configuration.
         data: Data source paths.
     """
+
     model_config = ConfigDict(frozen=True)
 
     spark: SparkConfig
@@ -93,7 +97,7 @@ class AppConfig(BaseModel):
     data: DataConfig = DataConfig()
 
     @staticmethod
-    def from_json(path: Optional[str] = None) -> "AppConfig":
+    def from_json(path: str | None = None) -> "AppConfig":
         """Load configuration from a JSON file.
 
         Args:

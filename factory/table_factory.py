@@ -1,9 +1,12 @@
+from typing import ClassVar
+
 from pydantic import BaseModel
 
 
 class TableFactory:
     """Registry mapping table names to their Pydantic models."""
-    _registry: dict[str, type[BaseModel]] = {}
+
+    _registry: ClassVar[dict[str, type[BaseModel]]] = {}
 
     @classmethod
     def register(cls, table_name: str, model: type[BaseModel]) -> None:
@@ -14,10 +17,7 @@ class TableFactory:
     def get(cls, table_name: str) -> type[BaseModel]:
         """Get Pydantic model for a table name."""
         if table_name not in cls._registry:
-            raise ValueError(
-                f"Unknown table '{table_name}'. "
-                f"Available: {list(cls._registry.keys())}"
-            )
+            raise ValueError(f"Unknown table '{table_name}'. Available: {list(cls._registry.keys())}")
         return cls._registry[table_name]
 
     @classmethod

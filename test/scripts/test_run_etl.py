@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from model.enums import JobType
@@ -21,8 +22,10 @@ def test_main_dispatches_create_job(mock_logger, mock_create, mock_config, mock_
     mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "CREATE", "avalanche_org_raw"]):
         from run_etl import main
+
         main()
 
     mock_create.assert_called_once_with(JobType.CREATE)
@@ -36,8 +39,10 @@ def test_main_dispatches_ingestion_job(mock_logger, mock_create, mock_config, mo
     mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "INGESTION", "avalanche_org"]):
         from run_etl import main
+
         main()
 
     mock_create.assert_called_once_with(JobType.INGESTION)
@@ -52,8 +57,10 @@ def test_main_passes_table_name_to_job(mock_logger, mock_create, mock_config, mo
     mock_create.return_value = job_mock
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "CREATE", "my_custom_table"]):
         from run_etl import main
+
         main()
 
     job_mock.run.assert_called_once()
@@ -68,8 +75,10 @@ def test_main_creates_spark_session(mock_logger, mock_create, mock_config, mock_
     mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "CREATE", "t"]):
         from run_etl import main
+
         main()
 
     mock_spark.builder.master.assert_called_once_with("spark://localhost:7078")
@@ -84,8 +93,10 @@ def test_main_stops_spark_after_job(mock_logger, mock_create, mock_config, mock_
     mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "CREATE", "t"]):
         from run_etl import main
+
         main()
 
     spark_instance = mock_spark.builder.master.return_value.appName.return_value.getOrCreate.return_value
@@ -100,8 +111,10 @@ def test_main_stops_spark_on_exception(mock_logger, mock_create, mock_config, mo
     mock_create.return_value = MagicMock(run=MagicMock(side_effect=RuntimeError("boom")))
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "CREATE", "t"]):
         from run_etl import main
+
         with pytest.raises(RuntimeError, match="boom"):
             main()
 
@@ -118,8 +131,10 @@ def test_main_passes_logger_to_job(mock_logger, mock_create, mock_config, mock_s
     mock_create.return_value = job_mock
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "CREATE", "t"]):
         from run_etl import main
+
         main()
 
     job_mock.run.assert_called_once()
@@ -132,8 +147,10 @@ def test_main_passes_logger_to_job(mock_logger, mock_create, mock_config, mock_s
 @patch("run_etl.setup_logger")
 def test_main_invalid_job_type_exits(mock_logger, mock_create, mock_config, mock_spark):
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "INVALID", "t"]):
         from run_etl import main
+
         with pytest.raises(SystemExit):
             main()
 
@@ -146,8 +163,10 @@ def test_ingestion_log_uses_name_without_raw(mock_logger, mock_create, mock_conf
     mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "INGESTION", "avalanche_org"]):
         from run_etl import main
+
         main()
 
     log_file_arg = mock_logger.call_args.kwargs.get("log_file") or mock_logger.call_args[0][1]
@@ -164,8 +183,10 @@ def test_ingestion_passes_raw_name_to_job(mock_logger, mock_create, mock_config,
     mock_create.return_value = job_mock
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "INGESTION", "avalanche_org"]):
         from run_etl import main
+
         main()
 
     assert job_mock.run.call_args[0][1] == "avalanche_org_raw"
@@ -179,8 +200,10 @@ def test_create_log_keeps_raw_suffix(mock_logger, mock_create, mock_config, mock
     mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
 
     import sys
+
     with patch.object(sys, "argv", ["run_etl.py", "CREATE", "avalanche_org_raw"]):
         from run_etl import main
+
         main()
 
     log_file_arg = mock_logger.call_args.kwargs.get("log_file") or mock_logger.call_args[0][1]

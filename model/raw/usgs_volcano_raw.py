@@ -1,18 +1,18 @@
 from pydantic import BaseModel
-from typing import Optional
 
 
 class UsgsVolcanoRaw(BaseModel):
     """Raw USGS volcanic activity data — all fields as TEXT."""
-    volcano_name: Optional[str] = None
-    vnum: Optional[str] = None
-    observatory: Optional[str] = None
-    observatory_name: Optional[str] = None
-    alert_level: Optional[str] = None
-    color_code: Optional[str] = None
-    notice_type: Optional[str] = None
-    notice_identifier: Optional[str] = None
-    notice_date: Optional[str] = None
-    notice_url: Optional[str] = None
-    notice_data_url: Optional[str] = None
+
+    volcano_name: str | None = None
+    vnum: str | None = None
+    observatory: str | None = None
+    observatory_name: str | None = None
+    alert_level: str | None = None
+    color_code: str | None = None
+    notice_type: str | None = None
+    notice_identifier: str | None = None
+    notice_date: str | None = None
+    notice_url: str | None = None
+    notice_data_url: str | None = None
     file_date: str

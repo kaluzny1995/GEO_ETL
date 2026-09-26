@@ -1,16 +1,17 @@
 import datetime as dt
 
 import pytest
-
-from model.plain.nifc_fire import NifcFire
-from factory import TableFactory
-from utils.ddl_generator import pydantic_to_ddl
-from utils.schema_converter import pydantic_to_spark_schema
+from pydantic import ValidationError
 from pyspark.sql.types import (
     DoubleType,
     StringType,
     TimestampType,
 )
+
+from factory import TableFactory
+from model.plain.nifc_fire import NifcFire
+from utils.ddl_generator import pydantic_to_ddl
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 class TestNifcFireValid:
@@ -50,7 +51,7 @@ class TestNifcFireValid:
 
 class TestNifcFireMissing:
     def test_missing_file_date_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             NifcFire(incident_name="test")
 
 
@@ -98,6 +99,7 @@ class TestNifcFireRegistry:
     def test_registered_in_factory(self):
         import model  # noqa: F401
         from model.plain.nifc_fire import NifcFire as NifcFireModel
+
         TableFactory.register("nifc_fire", NifcFireModel)
         assert "nifc_fire" in TableFactory.tables()
         assert TableFactory.get("nifc_fire") is NifcFireModel

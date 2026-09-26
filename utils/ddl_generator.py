@@ -6,14 +6,13 @@ provides helpers for schema/table management via direct JDBC connections.
 
 import datetime as dt
 import types
-from typing import Union, get_args, get_origin
+from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel
-
 from pyspark.sql import SparkSession
 
 
-def _resolve_type(annotation: type) -> type:
+def _resolve_type(annotation: Any) -> Any:
     """Extract the base type from Optional/Union annotations.
 
     Args:
@@ -31,7 +30,7 @@ def _resolve_type(annotation: type) -> type:
     return annotation
 
 
-def _pg_type(annotation: type) -> str:
+def _pg_type(annotation: Any) -> str:
     """Map a Python type to its PostgreSQL column type string.
 
     Args:
@@ -77,11 +76,7 @@ def pydantic_to_ddl(model: type[BaseModel], table_name: str, schema: str) -> str
         columns.append(f"    {name} {pg_type} {nullable}")
 
     columns_ddl = ",\n".join(columns)
-    return (
-        f"CREATE TABLE IF NOT EXISTS {schema}.{table_name} (\n"
-        f"{columns_ddl}\n"
-        f");"
-    )
+    return f"CREATE TABLE IF NOT EXISTS {schema}.{table_name} (\n{columns_ddl}\n);"
 
 
 def _get_jdbc_connection(spark: SparkSession, jdbc_url: str, properties: dict[str, str]):
@@ -96,6 +91,8 @@ def _get_jdbc_connection(spark: SparkSession, jdbc_url: str, properties: dict[st
         A ``java.sql.Connection`` instance.
     """
     jvm = spark._jvm
+    if jvm is None:
+        raise RuntimeError("Spark JVM gateway is not available — is the Spark session active?")
     DriverManager = jvm.java.sql.DriverManager
     return DriverManager.getConnection(jdbc_url, properties["user"], properties["password"])
 
@@ -153,10 +150,7 @@ def _schema_has_tables(spark: SparkSession, schema: str, jdbc_url: str, properti
     Returns:
         ``True`` if the schema has at least one table, ``False`` otherwise.
     """
-    sql = (
-        f"SELECT COUNT(*) FROM information_schema.tables "
-        f"WHERE table_schema = '{schema}'"
-    )
+    sql = f"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '{schema}'"
     count = _query_jdbc(spark, sql, jdbc_url, properties)
     return count is not None and count > 0
 

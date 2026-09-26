@@ -1,10 +1,10 @@
 import datetime as dt
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
-from unittest.mock import MagicMock, patch
 
-from utils.ddl_generator import pydantic_to_ddl, drop_table, drop_schema, _schema_has_tables, create_schema, execute_ddl
+from utils.ddl_generator import _schema_has_tables, create_schema, drop_schema, drop_table, execute_ddl, pydantic_to_ddl
 
 
 class SimpleModel(BaseModel):

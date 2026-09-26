@@ -4,9 +4,8 @@ import logging
 
 from pyspark.sql import SparkSession
 
-from model.config import AppConfig, SupabaseConnectionConfig
 import utils.raw2plain_utils as _utils
-
+from model.config import AppConfig, SupabaseConnectionConfig
 
 RAW_TABLE = "avalanche_org_raw"
 PLAIN_TABLE = "avalanche_org"
@@ -28,8 +27,8 @@ def _convert(df):
         F.col("danger_rating"),
         F.col("travel_advice"),
         F.when(F.col("off_season").isin("true", "True", "1", "yes"), F.lit(True))
-         .otherwise(F.lit(False))
-         .alias("off_season"),
+        .otherwise(F.lit(False))
+        .alias("off_season"),
         F.to_timestamp("forecast_start").alias("forecast_start"),
         F.to_timestamp("forecast_end").alias("forecast_end"),
         F.col("warning"),
@@ -39,7 +38,9 @@ def _convert(df):
     )
 
 
-def raw2plain(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None):
+def raw2plain(
+    spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None
+):
     """Transform raw data to typed columns for this data source.
 
     Delegates to :func:`utils.raw2plain_utils.raw2plain` with the

@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
+from pyspark.sql.types import StringType
 
 from model.raw.ibtracs_cyclone_raw import IbtacsCycloneRaw
 from utils.schema_converter import pydantic_to_spark_schema
-from pyspark.sql.types import StringType
 
 VALID_ROW = {
     "SID": "2026237N09256",
@@ -203,7 +203,7 @@ class TestIbtacsCycloneRawValid:
 
     def test_all_174_fields_accepted(self):
         model = IbtacsCycloneRaw(**VALID_ROW)
-        field_names = [k for k in VALID_ROW.keys() if k != "file_date"]
+        field_names = [k for k in VALID_ROW if k != "file_date"]
         for name in field_names:
             assert getattr(model, name) == VALID_ROW[name]
 

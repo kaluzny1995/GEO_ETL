@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
+from pyspark.sql.types import StringType
 
 from model.raw.eonet_event_raw import EonetEventRaw
 from utils.schema_converter import pydantic_to_spark_schema
-from pyspark.sql.types import StringType
 
 VALID_ROW = {
     "event_id": "EONET_23870",
@@ -34,7 +34,14 @@ class TestEonetEventRawValid:
         assert model.file_date == "2026-09-01"
 
     def test_optional_fields_none(self):
-        row = {**VALID_ROW, "description": None, "source_url": None, "magnitude_value": None, "magnitude_unit": None, "closed": None}
+        row = {
+            **VALID_ROW,
+            "description": None,
+            "source_url": None,
+            "magnitude_value": None,
+            "magnitude_unit": None,
+            "closed": None,
+        }
         model = EonetEventRaw(**row)
         assert model.description is None
         assert model.source_url is None
@@ -67,10 +74,23 @@ class TestEonetEventRawSparkSchema:
         schema = pydantic_to_spark_schema(EonetEventRaw)
         names = [f.name for f in schema.fields]
         assert names == [
-            "event_id", "event_name", "category_id", "category_name",
-            "description", "source_id", "source_url", "latitude", "longitude",
-            "event_date", "magnitude_value", "magnitude_unit", "closed",
-            "geometry_count", "last_latitude", "last_longitude", "last_date",
+            "event_id",
+            "event_name",
+            "category_id",
+            "category_name",
+            "description",
+            "source_id",
+            "source_url",
+            "latitude",
+            "longitude",
+            "event_date",
+            "magnitude_value",
+            "magnitude_unit",
+            "closed",
+            "geometry_count",
+            "last_latitude",
+            "last_longitude",
+            "last_date",
             "file_date",
         ]
 

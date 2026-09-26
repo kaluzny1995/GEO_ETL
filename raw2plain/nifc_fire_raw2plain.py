@@ -4,9 +4,8 @@ import logging
 
 from pyspark.sql import SparkSession
 
-from model.config import AppConfig, SupabaseConnectionConfig
 import utils.raw2plain_utils as _utils
-
+from model.config import AppConfig, SupabaseConnectionConfig
 
 RAW_TABLE = "nifc_fire_raw"
 PLAIN_TABLE = "nifc_fire"
@@ -39,7 +38,9 @@ def _convert(df):
     )
 
 
-def raw2plain(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None):
+def raw2plain(
+    spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None
+):
     """Transform raw data to typed columns for this data source.
 
     Delegates to :func:`utils.raw2plain_utils.raw2plain` with the

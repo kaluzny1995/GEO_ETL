@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class AvalancheOrgRaw(BaseModel):
     """Raw Avalanche forecast data — all fields as TEXT."""
+
     zone_id: str
     zone_name: str
     center_id: str

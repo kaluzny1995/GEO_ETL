@@ -1,18 +1,18 @@
 import datetime as dt
 
 import pytest
-
-from model.plain.gdacs_event import GdacsEvent
-from factory import TableFactory
-from utils.ddl_generator import pydantic_to_ddl
-from utils.schema_converter import pydantic_to_spark_schema
+from pydantic import ValidationError
 from pyspark.sql.types import (
     BooleanType,
     DoubleType,
     LongType,
-    StringType,
     TimestampType,
 )
+
+from factory import TableFactory
+from model.plain.gdacs_event import GdacsEvent
+from utils.ddl_generator import pydantic_to_ddl
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 class TestGdacsEventValid:
@@ -66,11 +66,11 @@ class TestGdacsEventValid:
 
 class TestGdacsEventMissing:
     def test_missing_required_field_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             GdacsEvent(event_name="test")
 
     def test_missing_event_id_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             GdacsEvent(
                 event_type="WF",
                 event_name="test",
@@ -97,11 +97,24 @@ class TestGdacsEventSparkSchema:
         schema = pydantic_to_spark_schema(GdacsEvent)
         names = [f.name for f in schema.fields]
         assert names == [
-            "event_type", "event_id", "event_name", "alert_level",
-            "country", "country_code", "latitude", "longitude",
-            "from_date", "to_date", "date_modified", "severity",
-            "severity_text", "severity_unit", "source", "report_url",
-            "is_current", "file_date",
+            "event_type",
+            "event_id",
+            "event_name",
+            "alert_level",
+            "country",
+            "country_code",
+            "latitude",
+            "longitude",
+            "from_date",
+            "to_date",
+            "date_modified",
+            "severity",
+            "severity_text",
+            "severity_unit",
+            "source",
+            "report_url",
+            "is_current",
+            "file_date",
         ]
 
     def test_double_fields(self):
@@ -161,6 +174,7 @@ class TestGdacsEventRegistry:
     def test_registered_in_factory(self):
         import model  # noqa: F401
         from model.plain.gdacs_event import GdacsEvent as GdacsEventModel
+
         TableFactory.register("gdacs_event", GdacsEventModel)
         assert "gdacs_event" in TableFactory.tables()
         assert TableFactory.get("gdacs_event") is GdacsEventModel

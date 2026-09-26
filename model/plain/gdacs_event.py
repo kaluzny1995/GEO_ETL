@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class GdacsEvent(BaseModel):
     """Typed GDACS disaster event data (float, int, datetime, bool)."""
+
     event_type: str
     event_id: int
     event_name: str

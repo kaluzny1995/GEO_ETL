@@ -1,7 +1,7 @@
 """Job type registry mapping :class:`~model.enums.JobType` values to execution modules."""
 
 import types
-from typing import Any
+from typing import ClassVar
 
 from model.enums import JobType
 
@@ -12,7 +12,8 @@ class JobFactory:
     Modules are registered at import time via ``jobs/__init__.py`` and
     looked up by :class:`JobType` enum value.
     """
-    _registry: dict[JobType, types.ModuleType] = {}
+
+    _registry: ClassVar[dict[JobType, types.ModuleType]] = {}
 
     @classmethod
     def register(cls, job_type: JobType, job_module: types.ModuleType) -> None:

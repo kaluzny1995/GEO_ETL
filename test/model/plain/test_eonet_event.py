@@ -1,20 +1,18 @@
 import datetime as dt
 
 import pytest
-
-from model.plain.eonet_event import EonetEvent
-from factory import TableFactory
-from utils.ddl_generator import pydantic_to_ddl
-from utils.schema_converter import pydantic_to_spark_schema
+from pydantic import ValidationError
 from pyspark.sql.types import (
-    BooleanType,
     DateType,
     DoubleType,
-    IntegerType,
     LongType,
-    StringType,
     TimestampType,
 )
+
+from factory import TableFactory
+from model.plain.eonet_event import EonetEvent
+from utils.ddl_generator import pydantic_to_ddl
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 class TestEonetEventValid:
@@ -68,11 +66,11 @@ class TestEonetEventValid:
 
 class TestEonetEventMissing:
     def test_missing_required_field_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             EonetEvent(event_name="test")
 
     def test_missing_event_id_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             EonetEvent(
                 event_name="test",
                 category_id="test",
@@ -98,10 +96,23 @@ class TestEonetEventSparkSchema:
         schema = pydantic_to_spark_schema(EonetEvent)
         names = [f.name for f in schema.fields]
         assert names == [
-            "event_id", "event_name", "category_id", "category_name",
-            "description", "source_id", "source_url", "latitude", "longitude",
-            "event_date", "magnitude_value", "magnitude_unit", "closed",
-            "geometry_count", "last_latitude", "last_longitude", "last_date",
+            "event_id",
+            "event_name",
+            "category_id",
+            "category_name",
+            "description",
+            "source_id",
+            "source_url",
+            "latitude",
+            "longitude",
+            "event_date",
+            "magnitude_value",
+            "magnitude_unit",
+            "closed",
+            "geometry_count",
+            "last_latitude",
+            "last_longitude",
+            "last_date",
             "file_date",
         ]
 
@@ -161,6 +172,7 @@ class TestEonetEventRegistry:
     def test_registered_in_factory(self):
         import model  # noqa: F401 — triggers table registration
         from model.plain.eonet_event import EonetEvent as EonetEventModel
+
         # Re-register in case model was cached before EonetEvent was added
         TableFactory.register("eonet_event", EonetEventModel)
         assert "eonet_event" in TableFactory.tables()

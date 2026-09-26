@@ -29,6 +29,9 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 | Data Validation  | Pydantic >= 2.0.0                   |
 | HTTP Client      | requests >= 2.31.0                  |
 | Testing          | pytest >= 7.0.0                     |
+| Linting/Format   | ruff >= 0.6 (lint + format + import sort) |
+| Check runner     | tox >= 4.0 (isolated lint/test/typecheck) |
+| Type checking    | mypy >= 1.10                        |
 | Environment      | Conda                               |
 | Containers       | Docker + Docker Compose             |
 
@@ -44,6 +47,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 | [Spark cluster](docs/spark-cluster.md) | Cluster services, Web UI, Spark JARs and connecting from PySpark. |
 | [Logging](docs/logging.md) | Log structure and format, plus stage memory monitoring and the SparkListener build. |
 | [Testing](docs/testing.md) | Running pytest and what each test suite covers. |
+| [Code quality](docs/development.md) | Ruff lint/format, mypy and the tox environments. |
 
 ## Prerequisites
 

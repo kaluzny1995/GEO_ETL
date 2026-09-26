@@ -10,12 +10,13 @@ import datetime as dt
 import os
 
 import findspark
+
 findspark.init()
 
 from pyspark.sql import SparkSession
 
 from model.config import AppConfig, SupabaseConnectionConfig
-from utils.ddl_generator import drop_schema, _schema_has_tables
+from utils.ddl_generator import _schema_has_tables, drop_schema
 from utils.logger import setup_logger
 
 
@@ -46,10 +47,11 @@ def main() -> None:
     properties = db_config.get_jdbc_properties(app_config.database.jdbc_driver)
 
     # Connect to Spark cluster
-    spark = SparkSession.builder \
-        .master(app_config.spark.master) \
-        .appName(f"{app_prefix}_drop_schema_{schema_name}") \
+    spark = (
+        SparkSession.builder.master(app_config.spark.master)
+        .appName(f"{app_prefix}_drop_schema_{schema_name}")
         .getOrCreate()
+    )
 
     try:
         logger.info(f"Connected to Spark: {spark.sparkContext.master}")

@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
+from pyspark.sql.types import StringType
 
 from model.raw.gdacs_event_raw import GdacsEventRaw
 from utils.schema_converter import pydantic_to_spark_schema
-from pyspark.sql.types import StringType
 
 VALID_ROW = {
     "event_type": "WF",
@@ -66,11 +66,24 @@ class TestGdacsEventRawSparkSchema:
         schema = pydantic_to_spark_schema(GdacsEventRaw)
         names = [f.name for f in schema.fields]
         assert names == [
-            "event_type", "event_id", "event_name", "alert_level",
-            "country", "country_code", "latitude", "longitude",
-            "from_date", "to_date", "date_modified", "severity",
-            "severity_text", "severity_unit", "source", "report_url",
-            "is_current", "file_date",
+            "event_type",
+            "event_id",
+            "event_name",
+            "alert_level",
+            "country",
+            "country_code",
+            "latitude",
+            "longitude",
+            "from_date",
+            "to_date",
+            "date_modified",
+            "severity",
+            "severity_text",
+            "severity_unit",
+            "source",
+            "report_url",
+            "is_current",
+            "file_date",
         ]
 
     def test_all_fields_are_string_type(self):

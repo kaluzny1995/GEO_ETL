@@ -1,7 +1,7 @@
 import datetime as dt
 import enum
 import types
-from typing import Optional, Union, get_args, get_origin
+from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel
 from pyspark.sql.types import (
@@ -25,7 +25,7 @@ _PYSPARK_TYPE_MAP: dict[type, type] = {
 }
 
 
-def _resolve_type(annotation: type) -> tuple[type, bool]:
+def _resolve_type(annotation: Any) -> tuple[Any, bool]:
     """Extract base type and nullable flag from Optional/Union annotations."""
     origin = get_origin(annotation)
 
@@ -51,9 +51,7 @@ def pydantic_to_spark_schema(model: type[BaseModel]) -> StructType:
         else:
             spark_type_class = _PYSPARK_TYPE_MAP.get(python_type)
             if spark_type_class is None:
-                raise TypeError(
-                    f"Unsupported type '{python_type.__name__}' for field '{name}'"
-                )
+                raise TypeError(f"Unsupported type '{python_type.__name__}' for field '{name}'")
             spark_type = spark_type_class()
 
         fields.append(StructField(name, spark_type, nullable))

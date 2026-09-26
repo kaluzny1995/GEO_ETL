@@ -10,6 +10,7 @@ import datetime as dt
 import os
 
 import findspark
+
 findspark.init()
 
 from pyspark.sql import SparkSession
@@ -47,10 +48,11 @@ def main() -> None:
     schema = app_config.database.db_schema
 
     # Connect to Spark cluster
-    spark = SparkSession.builder \
-        .master(app_config.spark.master) \
-        .appName(f"{app_prefix}_drop_table_{table_name}") \
+    spark = (
+        SparkSession.builder.master(app_config.spark.master)
+        .appName(f"{app_prefix}_drop_table_{table_name}")
         .getOrCreate()
+    )
 
     try:
         logger.info(f"Connected to Spark: {spark.sparkContext.master}")

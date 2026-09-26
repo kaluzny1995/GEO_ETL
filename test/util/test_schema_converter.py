@@ -1,21 +1,19 @@
 import datetime as dt
 import enum
-from typing import Optional
 
 import pytest
 from pydantic import BaseModel
-
-from utils.schema_converter import pydantic_to_spark_schema
 from pyspark.sql.types import (
     BooleanType,
     DateType,
     DoubleType,
     LongType,
     StringType,
-    StructField,
     StructType,
     TimestampType,
 )
+
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 class Color(enum.Enum):
@@ -33,7 +31,7 @@ class BasicModel(BaseModel):
 class OptionalModel(BaseModel):
     name: str
     nickname: str | None = None
-    middle_name: Optional[str] = None
+    middle_name: str | None = None
 
 
 class DateTimeModel(BaseModel):
@@ -133,7 +131,7 @@ def test_mixed_types():
         ("tag", StringType(), True),
     ]
 
-    for field, (exp_name, exp_type, exp_nullable) in zip(schema.fields, expected):
+    for field, (exp_name, exp_type, exp_nullable) in zip(schema.fields, expected, strict=True):
         assert field.name == exp_name
         assert field.dataType == exp_type
         assert field.nullable == exp_nullable

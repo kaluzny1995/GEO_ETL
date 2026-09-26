@@ -12,15 +12,16 @@ import os
 import tempfile
 
 import findspark
+
 findspark.init()
 
 from pyspark.sql import SparkSession
 
-import model  # noqa: F401 — registers tables via model/__init__.py
 import jobs  # noqa: F401 — registers jobs via jobs/__init__.py
+import model  # noqa: F401 — registers tables via model/__init__.py
+from factory import JobFactory
 from model.config import AppConfig
 from model.enums import JobType
-from factory import JobFactory
 from utils.logger import setup_logger
 from utils.spark_monitor import register_memory_logger
 
@@ -42,8 +43,11 @@ class _StderrCapture:
 
     def start(self):
         self._orig_fd = os.dup(2)
-        self._tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".spark_stderr", delete=False,
+        # Kept open on purpose: stop_and_read() closes it after restoring fd 2.
+        self._tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
+            mode="w",
+            suffix=".spark_stderr",
+            delete=False,
         )
         fd = os.open(self._tmp.name, os.O_WRONLY | os.O_APPEND)
         os.dup2(fd, 2)
@@ -127,7 +131,9 @@ def main() -> None:
         choices=list(JobType),
         help=f"Job type: {[j.value for j in JobType]}",
     )
-    parser.add_argument("table_name", help="Table name, e.g. avalanche_org (raw suffix added automatically for ingestion)")
+    parser.add_argument(
+        "table_name", help="Table name, e.g. avalanche_org (raw suffix added automatically for ingestion)"
+    )
     args = parser.parse_args()
 
     job_name = args.job.value.lower()
@@ -153,10 +159,9 @@ def main() -> None:
     stderr_capture.start()
 
     # Connect to Spark cluster
-    spark = SparkSession.builder \
-        .master(config.spark.master) \
-        .appName(f"{app_prefix}_{job_name}_{table_name}") \
-        .getOrCreate()
+    spark = (
+        SparkSession.builder.master(config.spark.master).appName(f"{app_prefix}_{job_name}_{table_name}").getOrCreate()
+    )
 
     # Register stage-level memory logger
     memory_log = os.path.join(log_dir, "memory", f"stage_memory_{dt.datetime.now():%Y%m%d_%H%M%S}.log")

@@ -10,5 +10,6 @@ class JobType(enum.Enum):
         CREATE: Creates tables in the target database from Pydantic models.
         INGESTION: Uploads CSV data and transforms raw tables to typed tables.
     """
+
     CREATE = "CREATE"
     INGESTION = "INGESTION"

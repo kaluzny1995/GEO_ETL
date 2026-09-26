@@ -8,16 +8,19 @@ import datetime as dt
 import glob
 import logging
 import os
+
 import findspark
+
 findspark.init()
 
-from pyspark.sql import SparkSession, functions as F
-from pyspark.sql.types import StructType
 from pydantic import BaseModel
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.types import StructType
 
 from model.config import AppConfig, SupabaseConnectionConfig
-from utils.schema_converter import pydantic_to_spark_schema
 from utils.logger import setup_logger
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 def parse_file_date(filepath: str) -> dt.date | None:
@@ -106,7 +109,8 @@ def upload(
         logger = setup_logger(
             name=f"upload_{table_name}",
             log_file=os.path.join(
-                config.logging.directory, "upload",
+                config.logging.directory,
+                "upload",
                 f"upload_{table_name}_{dt.datetime.now().isoformat()}.log",
             ),
             level=config.logging.level_int,
@@ -148,6 +152,8 @@ def upload(
         df = partial_df if df is None else df.unionByName(partial_df)
 
     full_table = f"{schema}.{table_name}"
+    if df is None:
+        raise RuntimeError(f"No CSV file was read for {table_name} — nothing to write")
     logger.info(f"Writing to {full_table}...")
     df.write.jdbc(url=jdbc_url, table=full_table, mode="append", properties=properties)
     logger.info(f"Upload complete: {len(csv_files)} files written to {full_table}")

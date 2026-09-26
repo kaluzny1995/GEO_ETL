@@ -1,7 +1,5 @@
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import JobType
-from model.raw import (AvalancheOrgRaw, EonetEventRaw, GdacsEventRaw, IbtacsCycloneRaw,
-                        NifcFireRaw, OpenMeteoFloodRaw, UsgsEarthquakeRaw, UsgsNwisRaw, UsgsVolcanoRaw)
 from model.plain.avalanche_org import AvalancheOrg
 from model.plain.eonet_event import EonetEvent
 from model.plain.gdacs_event import GdacsEvent
@@ -11,10 +9,22 @@ from model.plain.openmeteo_flood import OpenMeteoFlood
 from model.plain.usgs_earthquake import UsgsEarthquake
 from model.plain.usgs_nwis import UsgsNwis
 from model.plain.usgs_volcano import UsgsVolcano
+from model.raw import (
+    AvalancheOrgRaw,
+    EonetEventRaw,
+    GdacsEventRaw,
+    IbtacsCycloneRaw,
+    NifcFireRaw,
+    OpenMeteoFloodRaw,
+    UsgsEarthquakeRaw,
+    UsgsNwisRaw,
+    UsgsVolcanoRaw,
+)
 
 
 def _register_tables():
     from factory import TableFactory
+
     TableFactory.register("avalanche_org_raw", AvalancheOrgRaw)
     TableFactory.register("avalanche_org", AvalancheOrg)
     TableFactory.register("eonet_event_raw", EonetEventRaw)
@@ -37,9 +47,26 @@ def _register_tables():
 
 _register_tables()
 
-__all__ = ["AppConfig", "SupabaseConnectionConfig", "JobType",
-           "AvalancheOrgRaw", "AvalancheOrg", "EonetEventRaw", "EonetEvent",
-           "GdacsEventRaw", "GdacsEvent", "IbtacsCycloneRaw", "IbtacsCyclone",
-           "NifcFireRaw", "NifcFire", "OpenMeteoFloodRaw", "OpenMeteoFlood",
-           "UsgsEarthquakeRaw", "UsgsEarthquake", "UsgsNwisRaw", "UsgsNwis",
-           "UsgsVolcanoRaw", "UsgsVolcano"]
+__all__ = [
+    "AppConfig",
+    "AvalancheOrg",
+    "AvalancheOrgRaw",
+    "EonetEvent",
+    "EonetEventRaw",
+    "GdacsEvent",
+    "GdacsEventRaw",
+    "IbtacsCyclone",
+    "IbtacsCycloneRaw",
+    "JobType",
+    "NifcFire",
+    "NifcFireRaw",
+    "OpenMeteoFlood",
+    "OpenMeteoFloodRaw",
+    "SupabaseConnectionConfig",
+    "UsgsEarthquake",
+    "UsgsEarthquakeRaw",
+    "UsgsNwis",
+    "UsgsNwisRaw",
+    "UsgsVolcano",
+    "UsgsVolcanoRaw",
+]

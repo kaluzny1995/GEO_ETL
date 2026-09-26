@@ -4,9 +4,9 @@ import logging
 
 from pyspark.sql import SparkSession
 
-from model.config import AppConfig, SupabaseConnectionConfig
 from factory import TableFactory
-from utils.ddl_generator import pydantic_to_ddl, create_schema, execute_ddl
+from model.config import AppConfig, SupabaseConnectionConfig
+from utils.ddl_generator import create_schema, execute_ddl, pydantic_to_ddl
 
 
 def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = None) -> str:
@@ -50,8 +50,8 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
     logger.info(f"Generated DDL for {schema}.{table_name}")
 
     # Step 3: Execute DDL against Supabase
-    logger.info(f"Executing DDL against Supabase...")
+    logger.info("Executing DDL against Supabase...")
     execute_ddl(spark, ddl, jdbc_url, properties)
-    logger.info(f"DDL executed successfully")
+    logger.info("DDL executed successfully")
 
     return f"Table {schema}.{table_name} created."

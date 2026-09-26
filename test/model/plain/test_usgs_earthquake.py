@@ -1,17 +1,17 @@
 import datetime as dt
 
 import pytest
-
-from model.plain.usgs_earthquake import UsgsEarthquake
-from factory import TableFactory
-from utils.ddl_generator import pydantic_to_ddl
-from utils.schema_converter import pydantic_to_spark_schema
+from pydantic import ValidationError
 from pyspark.sql.types import (
     DoubleType,
     LongType,
-    StringType,
     TimestampType,
 )
+
+from factory import TableFactory
+from model.plain.usgs_earthquake import UsgsEarthquake
+from utils.ddl_generator import pydantic_to_ddl
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 class TestUsgsEarthquakeValid:
@@ -56,7 +56,7 @@ class TestUsgsEarthquakeValid:
 
 class TestUsgsEarthquakeMissing:
     def test_missing_file_date_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             UsgsEarthquake(event_id="test")
 
 
@@ -67,8 +67,17 @@ class TestUsgsEarthquakeSparkSchema:
 
     def test_double_fields(self):
         schema = pydantic_to_spark_schema(UsgsEarthquake)
-        double_fields = {"latitude", "longitude", "depth", "mag", "dmin", "rms",
-                         "horizontal_error", "depth_error", "mag_error"}
+        double_fields = {
+            "latitude",
+            "longitude",
+            "depth",
+            "mag",
+            "dmin",
+            "rms",
+            "horizontal_error",
+            "depth_error",
+            "mag_error",
+        }
         for f in schema.fields:
             if f.name in double_fields:
                 assert isinstance(f.dataType, DoubleType), f"{f.name} should be DoubleType"
@@ -107,6 +116,7 @@ class TestUsgsEarthquakeRegistry:
     def test_registered_in_factory(self):
         import model  # noqa: F401
         from model.plain.usgs_earthquake import UsgsEarthquake as UsgsEarthquakeModel
+
         TableFactory.register("usgs_earthquake", UsgsEarthquakeModel)
         assert "usgs_earthquake" in TableFactory.tables()
         assert TableFactory.get("usgs_earthquake") is UsgsEarthquakeModel

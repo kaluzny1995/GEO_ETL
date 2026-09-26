@@ -1,16 +1,16 @@
 import datetime as dt
 
 import pytest
-
-from model.plain.openmeteo_flood import OpenMeteoFlood
-from factory import TableFactory
-from utils.ddl_generator import pydantic_to_ddl
-from utils.schema_converter import pydantic_to_spark_schema
+from pydantic import ValidationError
 from pyspark.sql.types import (
     DateType,
     DoubleType,
-    StringType,
 )
+
+from factory import TableFactory
+from model.plain.openmeteo_flood import OpenMeteoFlood
+from utils.ddl_generator import pydantic_to_ddl
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 class TestOpenMeteoFloodValid:
@@ -39,7 +39,7 @@ class TestOpenMeteoFloodValid:
 
 class TestOpenMeteoFloodMissing:
     def test_missing_file_date_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             OpenMeteoFlood(river_name="test")
 
 
@@ -79,6 +79,7 @@ class TestOpenMeteoFloodRegistry:
     def test_registered_in_factory(self):
         import model  # noqa: F401
         from model.plain.openmeteo_flood import OpenMeteoFlood as OpenMeteoFloodModel
+
         TableFactory.register("openmeteo_flood", OpenMeteoFloodModel)
         assert "openmeteo_flood" in TableFactory.tables()
         assert TableFactory.get("openmeteo_flood") is OpenMeteoFloodModel

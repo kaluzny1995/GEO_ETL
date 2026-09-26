@@ -4,9 +4,8 @@ import logging
 
 from pyspark.sql import SparkSession
 
-from model.config import AppConfig, SupabaseConnectionConfig
 import utils.raw2plain_utils as _utils
-
+from model.config import AppConfig, SupabaseConnectionConfig
 
 RAW_TABLE = "gdacs_event_raw"
 PLAIN_TABLE = "gdacs_event"
@@ -36,13 +35,15 @@ def _convert(df):
         F.col("source"),
         F.col("report_url"),
         F.when(F.col("is_current").isin("true", "True", "1", "yes"), F.lit(True))
-         .otherwise(F.lit(False))
-         .alias("is_current"),
+        .otherwise(F.lit(False))
+        .alias("is_current"),
         F.col("file_date"),
     )
 
 
-def raw2plain(spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None):
+def raw2plain(
+    spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None
+):
     """Transform raw data to typed columns for this data source.
 
     Delegates to :func:`utils.raw2plain_utils.raw2plain` with the

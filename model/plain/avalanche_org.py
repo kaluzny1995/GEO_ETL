@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class AvalancheOrg(BaseModel):
     """Typed Avalanche forecast data (int, bool, datetime, date)."""
+
     zone_id: int
     zone_name: str
     center_id: str

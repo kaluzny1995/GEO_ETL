@@ -36,5 +36,7 @@ def register_memory_logger(spark: SparkSession, log_file: str) -> None:
         os.makedirs(log_dir, exist_ok=True)
 
     jvm = spark.sparkContext._jvm
+    if jvm is None:
+        raise RuntimeError("Spark JVM gateway is not available — is the Spark session active?")
     listener = jvm.sparkmonitor.StageMemoryListener(os.path.abspath(log_file))
     jvm.sparkmonitor.ListenerHelper.addListener(spark.sparkContext._jsc.sc(), listener)

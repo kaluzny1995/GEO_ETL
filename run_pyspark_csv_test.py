@@ -1,17 +1,19 @@
 import findspark
+
 findspark.init()
 
-import os
 import datetime as dt
-from pyspark.sql import SparkSession  # type: ignore[import-untyped]
+import os
+
+from py4j.java_gateway import JVMView  # type: ignore[import-untyped]
 from pyspark import SparkContext  # type: ignore[import-untyped]
-from py4j.java_gateway import JavaGateway, JVMView  # type: ignore[import-untyped]
+from pyspark.sql import SparkSession  # type: ignore[import-untyped]
 
 from model.config import AppConfig
 from utils.logger import setup_logger
 
 
-def main():
+def main() -> None:
     config = AppConfig.from_json()
 
     log_dir = config.logging.directory
@@ -25,16 +27,14 @@ def main():
     SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
     DATA_PATH = os.path.normpath(os.path.join(SCRIPT_DIR, config.data.directory))
 
-    spark = SparkSession.builder \
-        .master(config.spark.master) \
-        .appName("pyspark_csv_test") \
-        .getOrCreate()
+    spark = SparkSession.builder.master(config.spark.master).appName("pyspark_csv_test").getOrCreate()
 
     sc: SparkContext = spark.sparkContext
     jvm: JVMView = sc._jvm  # type: ignore[assignment]
     jsc = sc._jsc  # type: ignore[attr-defined]
 
     from py4j.java_gateway import java_import
+
     java_import(jvm, "org.apache.hadoop.fs.*")
 
     fs = jvm.FileSystem.get(jsc.hadoopConfiguration())

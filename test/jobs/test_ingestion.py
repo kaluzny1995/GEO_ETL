@@ -1,7 +1,8 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
-from factory import UploadScriptFactory, Raw2PlainScriptFactory
+
+from factory import Raw2PlainScriptFactory, UploadScriptFactory
 
 
 def _mock_app_config():
@@ -45,6 +46,7 @@ def test_ingestion_runs_upload_then_raw2plain(mock_app, mock_db):
     Raw2PlainScriptFactory.register("avalanche_org_raw", raw2plain_fn)
 
     from jobs.ingestion import run
+
     result = run(spark, "avalanche_org_raw")
 
     assert upload_fn.call_count == 1
@@ -66,6 +68,7 @@ def test_ingestion_upload_before_raw2plain(mock_app, mock_db):
     Raw2PlainScriptFactory.register("t", raw2plain_fn)
 
     from jobs.ingestion import run
+
     run(spark, "t")
 
     assert call_order == ["upload", "raw2plain"]
@@ -82,6 +85,7 @@ def test_ingestion_passes_config_and_db_config(mock_app, mock_db):
     Raw2PlainScriptFactory.register("t", raw2plain_fn)
 
     from jobs.ingestion import run
+
     run(spark, "t")
 
     app_cfg = upload_fn.call_args[0][1]
@@ -102,6 +106,7 @@ def test_ingestion_passes_logger_to_upload_and_raw2plain(mock_app, mock_db):
 
     log = MagicMock()
     from jobs.ingestion import run
+
     run(spark, "t", logger=log)
 
     assert upload_fn.call_args.kwargs["logger"] is log
@@ -117,6 +122,7 @@ def test_ingestion_logs_steps(mock_app, mock_db):
 
     log = MagicMock()
     from jobs.ingestion import run
+
     run(spark, "t", logger=log)
 
     log.info.assert_any_call("Running upload for t...")

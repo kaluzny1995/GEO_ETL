@@ -1,9 +1,9 @@
 import pytest
 from pydantic import ValidationError
+from pyspark.sql.types import StringType
 
 from model.raw.nifc_fire_raw import NifcFireRaw
 from utils.schema_converter import pydantic_to_spark_schema
-from pyspark.sql.types import StringType
 
 VALID_ROW = {
     "incident_name": "Silvertip",
@@ -57,7 +57,7 @@ class TestNifcFireRawValid:
         assert model.file_date == "2026-09-01"
 
     def test_optional_fields_none(self):
-        row = {k: None for k in VALID_ROW}
+        row = dict.fromkeys(VALID_ROW)
         row["file_date"] = "2026-09-01"
         model = NifcFireRaw(**row)
         assert model.incident_name is None

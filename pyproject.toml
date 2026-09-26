@@ -1,0 +1,68 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = [
+    "logs",
+    "__pycache__",
+    ".idea",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # import sorting
+    "B",   # bugbear (likely bugs)
+    "UP",  # pyupgrade
+    "C4",  # comprehensions
+    "SIM", # simplify
+    "RUF", # ruff-specific
+]
+ignore = [
+    "SIM108", # ternary instead of if-else — often less readable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"] # package re-exports
+"test/**" = ["B011"]
+# findspark.init() must run before the pyspark imports
+"run_*.py" = ["E402"]
+"utils/upload_utils.py" = ["E402"]
+"utils/raw2plain_utils.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+addopts = "-q"
+
+[tool.mypy]
+files = [
+    "model",
+    "utils",
+    "factory",
+    "jobs",
+    "upload",
+    "raw2plain",
+    "run_etl.py",
+    "run_drop_table.py",
+    "run_drop_schema.py",
+    "run_delete_last_filedate_data.py",
+    "run_pyspark_csv_test.py",
+    "run_pyspark_supabase_test.py",
+]
+python_version = "3.11"
+warn_unused_configs = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pyspark",
+    "pyspark.*",
+    "findspark",
+    "py4j",
+    "py4j.*",
+]
+ignore_missing_imports = true

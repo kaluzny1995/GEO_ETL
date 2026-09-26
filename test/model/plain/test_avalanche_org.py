@@ -1,20 +1,18 @@
 import datetime as dt
 
 import pytest
-from pydantic import BaseModel
-
-from model.plain.avalanche_org import AvalancheOrg
-from factory import TableFactory
-from utils.ddl_generator import pydantic_to_ddl
-from utils.schema_converter import pydantic_to_spark_schema
+from pydantic import ValidationError
 from pyspark.sql.types import (
     BooleanType,
     DateType,
     LongType,
-    StringType,
-    StructType,
     TimestampType,
 )
+
+from factory import TableFactory
+from model.plain.avalanche_org import AvalancheOrg
+from utils.ddl_generator import pydantic_to_ddl
+from utils.schema_converter import pydantic_to_spark_schema
 
 
 class TestAvalancheOrgValid:
@@ -62,11 +60,11 @@ class TestAvalancheOrgValid:
 
 class TestAvalancheOrgMissing:
     def test_missing_required_field_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             AvalancheOrg(zone_name="test")
 
     def test_missing_zone_id_raises(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             AvalancheOrg(
                 zone_name="test",
                 center_id="BAC",
@@ -91,9 +89,21 @@ class TestAvalancheOrgSparkSchema:
         schema = pydantic_to_spark_schema(AvalancheOrg)
         names = [f.name for f in schema.fields]
         assert names == [
-            "zone_id", "zone_name", "center_id", "center_name", "state",
-            "danger_level", "danger_rating", "travel_advice", "off_season",
-            "forecast_start", "forecast_end", "warning", "link", "date", "file_date",
+            "zone_id",
+            "zone_name",
+            "center_id",
+            "center_name",
+            "state",
+            "danger_level",
+            "danger_rating",
+            "travel_advice",
+            "off_season",
+            "forecast_start",
+            "forecast_end",
+            "warning",
+            "link",
+            "date",
+            "file_date",
         ]
 
     def test_int_fields_are_long_type(self):

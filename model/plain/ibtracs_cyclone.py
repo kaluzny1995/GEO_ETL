@@ -1,56 +1,56 @@
 import datetime as dt
 
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
 
 
 class IbtacsCyclone(BaseModel):
     """Typed IBTrACS cyclone track data (float, int, datetime)."""
+
     model_config = ConfigDict(json_schema_extra={})
 
     sid: str
     season: int
     number: int
     basin: str
-    subbasin: Optional[str] = None
-    name: Optional[str] = None
+    subbasin: str | None = None
+    name: str | None = None
     iso_time: dt.datetime
-    nature: Optional[str] = None
+    nature: str | None = None
     lat: float
     lon: float
-    wmo_wind: Optional[int] = None
-    wmo_pres: Optional[int] = None
-    wmo_agency: Optional[str] = None
-    track_type: Optional[str] = None
-    dist2land: Optional[int] = None
-    landfall: Optional[int] = None
-    iflag: Optional[str] = None
-    usa_agency: Optional[str] = None
-    usa_atcf_id: Optional[str] = None
-    usa_lat: Optional[float] = None
-    usa_lon: Optional[float] = None
-    usa_record: Optional[str] = None
-    usa_status: Optional[str] = None
-    usa_wind: Optional[int] = None
-    usa_pres: Optional[int] = None
-    usa_sshs: Optional[int] = None
-    usa_r34_ne: Optional[int] = None
-    usa_r34_se: Optional[int] = None
-    usa_r34_sw: Optional[int] = None
-    usa_r34_nw: Optional[int] = None
-    usa_r50_ne: Optional[int] = None
-    usa_r50_se: Optional[int] = None
-    usa_r50_sw: Optional[int] = None
-    usa_r50_nw: Optional[int] = None
-    usa_r64_ne: Optional[int] = None
-    usa_r64_se: Optional[int] = None
-    usa_r64_sw: Optional[int] = None
-    usa_r64_nw: Optional[int] = None
-    usa_poci: Optional[int] = None
-    usa_roci: Optional[int] = None
-    usa_rmw: Optional[int] = None
-    usa_eye: Optional[int] = None
-    storm_speed: Optional[int] = None
-    storm_dir: Optional[int] = None
-    usa_gust: Optional[int] = None
+    wmo_wind: int | None = None
+    wmo_pres: int | None = None
+    wmo_agency: str | None = None
+    track_type: str | None = None
+    dist2land: int | None = None
+    landfall: int | None = None
+    iflag: str | None = None
+    usa_agency: str | None = None
+    usa_atcf_id: str | None = None
+    usa_lat: float | None = None
+    usa_lon: float | None = None
+    usa_record: str | None = None
+    usa_status: str | None = None
+    usa_wind: int | None = None
+    usa_pres: int | None = None
+    usa_sshs: int | None = None
+    usa_r34_ne: int | None = None
+    usa_r34_se: int | None = None
+    usa_r34_sw: int | None = None
+    usa_r34_nw: int | None = None
+    usa_r50_ne: int | None = None
+    usa_r50_se: int | None = None
+    usa_r50_sw: int | None = None
+    usa_r50_nw: int | None = None
+    usa_r64_ne: int | None = None
+    usa_r64_se: int | None = None
+    usa_r64_sw: int | None = None
+    usa_r64_nw: int | None = None
+    usa_poci: int | None = None
+    usa_roci: int | None = None
+    usa_rmw: int | None = None
+    usa_eye: int | None = None
+    storm_speed: int | None = None
+    storm_dir: int | None = None
+    usa_gust: int | None = None
     file_date: str

@@ -1,33 +1,33 @@
 import datetime as dt
 
 from pydantic import BaseModel, ConfigDict
-from typing import Optional
 
 
 class UsgsEarthquake(BaseModel):
     """Typed USGS earthquake data (float, int, datetime)."""
+
     model_config = ConfigDict(json_schema_extra={})
 
-    time: Optional[dt.datetime] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    depth: Optional[float] = None
-    mag: Optional[float] = None
-    mag_type: Optional[str] = None
-    nst: Optional[int] = None
-    gap: Optional[int] = None
-    dmin: Optional[float] = None
-    rms: Optional[float] = None
-    net: Optional[str] = None
-    event_id: Optional[str] = None
-    updated: Optional[dt.datetime] = None
-    place: Optional[str] = None
-    event_type: Optional[str] = None
-    horizontal_error: Optional[float] = None
-    depth_error: Optional[float] = None
-    mag_error: Optional[float] = None
-    mag_nst: Optional[int] = None
-    status: Optional[str] = None
-    location_source: Optional[str] = None
-    mag_source: Optional[str] = None
+    time: dt.datetime | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    depth: float | None = None
+    mag: float | None = None
+    mag_type: str | None = None
+    nst: int | None = None
+    gap: int | None = None
+    dmin: float | None = None
+    rms: float | None = None
+    net: str | None = None
+    event_id: str | None = None
+    updated: dt.datetime | None = None
+    place: str | None = None
+    event_type: str | None = None
+    horizontal_error: float | None = None
+    depth_error: float | None = None
+    mag_error: float | None = None
+    mag_nst: int | None = None
+    status: str | None = None
+    location_source: str | None = None
+    mag_source: str | None = None
     file_date: str

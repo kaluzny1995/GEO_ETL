@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 class TestRegisterMemoryLogger:
     """Tests for register_memory_logger()."""
@@ -38,9 +36,7 @@ class TestRegisterMemoryLogger:
         spark = MagicMock()
         register_memory_logger(spark, "/tmp/stage_memory.log")
 
-        spark.sparkContext._jvm.sparkmonitor.StageMemoryListener.assert_called_once_with(
-            "/abs/path"
-        )
+        spark.sparkContext._jvm.sparkmonitor.StageMemoryListener.assert_called_once_with("/abs/path")
 
     @patch("utils.spark_monitor.os.makedirs")
     @patch("utils.spark_monitor.os.path.abspath", return_value="/abs/path")

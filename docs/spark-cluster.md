@@ -75,14 +75,12 @@ cp spark_cluster_image/jars/postgresql-42.7.4.jar $(python -c "import pyspark, o
 
 ```python
 import findspark
+
 findspark.init()
 
 from pyspark.sql import SparkSession
 
-spark = SparkSession.builder \
-    .master("spark://localhost:7078") \
-    .appName("my_etl_job") \
-    .getOrCreate()
+spark = SparkSession.builder.master("spark://localhost:7078").appName("my_etl_job").getOrCreate()
 
 # Read CSVs
 df = spark.read.csv("/path/to/GEO_Download/data/USGS_Earthquake/*.csv", header=True)

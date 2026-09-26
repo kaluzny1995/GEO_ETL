@@ -11,9 +11,11 @@ import os
 from collections.abc import Callable
 
 import findspark
+
 findspark.init()
 
-from pyspark.sql import DataFrame, SparkSession, functions as F
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as F
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from utils.logger import setup_logger
@@ -86,7 +88,8 @@ def raw2plain(
         logger = setup_logger(
             name=f"raw2plain_{plain_table}",
             log_file=os.path.join(
-                config.logging.directory, "raw2plain",
+                config.logging.directory,
+                "raw2plain",
                 f"raw2plain_{plain_table}_{dt.datetime.now().isoformat()}.log",
             ),
             level=config.logging.level_int,

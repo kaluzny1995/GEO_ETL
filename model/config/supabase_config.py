@@ -2,7 +2,6 @@
 
 import json
 import os
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -21,6 +20,7 @@ class SupabaseConnectionConfig(BaseModel):
         port: Database port (typically ``5432``).
         database: Database name (typically ``"postgres"``).
     """
+
     model_config = ConfigDict(frozen=True)
 
     username: str
@@ -30,7 +30,7 @@ class SupabaseConnectionConfig(BaseModel):
     database: str
 
     @staticmethod
-    def from_json(path: Optional[str] = None) -> "SupabaseConnectionConfig":
+    def from_json(path: str | None = None) -> "SupabaseConnectionConfig":
         """Load credentials from ``supabase_config.json``.
 
         Args:
