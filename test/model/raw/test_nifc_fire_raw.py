@@ -26,6 +26,29 @@ VALID_ROW = {
 }
 
 
+# GEO_Download writes the CSV columns in exactly this order, and the upload step reads
+# them with an explicit Spark schema (positional mapping), so reordering either side
+# silently shifts values between columns. Keep in sync with downloader/nifc.py.
+CSV_HEADER_ORDER = [
+    "incident_name",
+    "irwin_id",
+    "fire_number",
+    "acres",
+    "percent_contained",
+    "fire_type",
+    "fire_type_label",
+    "jurisdiction",
+    "jurisdiction_label",
+    "state",
+    "po_method",
+    "latitude",
+    "longitude",
+    "poly_date",
+    "created_on",
+    "modified_on",
+]
+
+
 class TestNifcFireRawValid:
     def test_valid_row(self):
         model = NifcFireRaw(**VALID_ROW)
@@ -62,3 +85,8 @@ class TestNifcFireRawSparkSchema:
         schema = pydantic_to_spark_schema(NifcFireRaw)
         for field in schema.fields:
             assert isinstance(field.dataType, StringType), f"{field.name} is not StringType"
+
+    def test_field_order_matches_download_csv_header(self):
+        schema = pydantic_to_spark_schema(NifcFireRaw)
+        csv_fields = [field.name for field in schema.fields if field.name != "file_date"]
+        assert csv_fields == CSV_HEADER_ORDER

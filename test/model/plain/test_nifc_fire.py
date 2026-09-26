@@ -8,7 +8,6 @@ from utils.ddl_generator import pydantic_to_ddl
 from utils.schema_converter import pydantic_to_spark_schema
 from pyspark.sql.types import (
     DoubleType,
-    LongType,
     StringType,
     TimestampType,
 )
@@ -22,10 +21,10 @@ class TestNifcFireValid:
             fire_number=None,
             acres=123.4,
             percent_contained=50.0,
-            fire_type=1,
-            fire_type_label="Wildfire",
-            jurisdiction=10,
-            jurisdiction_label="USFS",
+            fire_type="WF",
+            fire_type_label="Wildfire Daily Fire Perimeter",
+            jurisdiction="USFS",
+            jurisdiction_label="WAOWF",
             state="MT",
             po_method=None,
             latitude=47.843,
@@ -67,12 +66,12 @@ class TestNifcFireSparkSchema:
             if f.name in double_fields:
                 assert isinstance(f.dataType, DoubleType), f"{f.name} should be DoubleType"
 
-    def test_int_fields(self):
+    def test_str_fields(self):
         schema = pydantic_to_spark_schema(NifcFire)
-        int_fields = {"fire_type", "jurisdiction"}
+        str_fields = {"fire_type", "jurisdiction"}
         for f in schema.fields:
-            if f.name in int_fields:
-                assert isinstance(f.dataType, LongType), f"{f.name} should be LongType"
+            if f.name in str_fields:
+                assert isinstance(f.dataType, StringType), f"{f.name} should be StringType"
 
     def test_timestamp_fields(self):
         schema = pydantic_to_spark_schema(NifcFire)
@@ -85,8 +84,8 @@ class TestNifcFireDDL:
     def test_ddl_types(self):
         ddl = pydantic_to_ddl(NifcFire, "nifc_fire", schema="geo")
         assert "acres DOUBLE PRECISION NULL" in ddl
-        assert "fire_type INTEGER NULL" in ddl
-        assert "jurisdiction INTEGER NULL" in ddl
+        assert "fire_type TEXT NULL" in ddl
+        assert "jurisdiction TEXT NULL" in ddl
         assert "poly_date TIMESTAMP NULL" in ddl
         assert "file_date TEXT NOT NULL" in ddl
 

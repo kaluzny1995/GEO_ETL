@@ -102,7 +102,7 @@ GEO_ETL/
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
 │       ├── gdacs_event.py            # GdacsEvent — typed model (float, int, datetime, bool)
 │       ├── ibtracs_cyclone.py        # IbtacsCyclone — typed model (float, int, datetime)
-│       ├── nifc_fire.py              # NifcFire — typed model (float, int, datetime)
+│       ├── nifc_fire.py              # NifcFire — typed model (float, str, datetime)
 │       ├── openmeteo_flood.py        # OpenMeteoFlood — typed model (float, date)
 │       ├── usgs_earthquake.py        # UsgsEarthquake — typed model (float, int, datetime)
 │       ├── usgs_nwis.py              # UsgsNwis — typed model (date, float, double)
@@ -340,7 +340,7 @@ python run_etl.py INGESTION usgs_volcano
 | `ibtracs_cyclone_raw` | `IbtacsCycloneRaw` | `model/raw/` | IBTrACS cyclone track data — all fields as TEXT |
 | `ibtracs_cyclone` | `IbtacsCyclone` | `model/plain/` | IBTrACS cyclone track data — typed (float, int, datetime) |
 | `nifc_fire_raw` | `NifcFireRaw` | `model/raw/` | NIFC wildfire incident data — all fields as TEXT |
-| `nifc_fire` | `NifcFire` | `model/plain/` | NIFC wildfire data — typed (float, int, datetime) |
+| `nifc_fire` | `NifcFire` | `model/plain/` | NIFC wildfire data — typed (float, str, datetime) |
 | `openmeteo_flood_raw` | `OpenMeteoFloodRaw` | `model/raw/` | OpenMeteo flood monitoring data — all fields as TEXT |
 | `openmeteo_flood` | `OpenMeteoFlood` | `model/plain/` | OpenMeteo flood data — typed (float, date) |
 | `usgs_earthquake_raw` | `UsgsEarthquakeRaw` | `model/raw/` | USGS earthquake event data — all fields as TEXT |
@@ -805,7 +805,7 @@ Downloaded CSV files from [GEO_Download](../GEO_Download) are the input. Current
 | EONET | `geo.eonet_event_raw` | `geo.eonet_event` | 109 | HISTORICAL |
 | GDACS | `geo.gdacs_event_raw` | `geo.gdacs_event` | 8,031 | HISTORICAL |
 | IBTrACS | `geo.ibtracs_cyclone_raw` | `geo.ibtracs_cyclone` | 424 | HISTORICAL |
-| NIFC | `geo.nifc_fire_raw` | `geo.nifc_fire` | 128 | HISTORICAL |
+| NIFC | `geo.nifc_fire_raw` | `geo.nifc_fire` | 190 | HISTORICAL |
 | OpenMeteo_Flood | `geo.openmeteo_flood_raw` | `geo.openmeteo_flood` | 4,884 | HISTORICAL |
 | USGS_Earthquake | `geo.usgs_earthquake_raw` | `geo.usgs_earthquake` | 7,084 | HISTORICAL |
 | USGS_Volcano | `geo.usgs_volcano_raw` | `geo.usgs_volcano` | 24 | HISTORICAL |
