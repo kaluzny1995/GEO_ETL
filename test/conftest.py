@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 
+import pytest
+
 
 def mock_F_upload():
     f_mock = MagicMock()
@@ -96,3 +98,31 @@ def mock_spark_raw2plain(max_file_date=None, count=5):
 
     spark.read.jdbc.side_effect = read_side_effect
     return spark, raw_df, plain_df
+
+
+def _start_spark():
+    """Start a local SparkSession, or skip the test when Spark is unavailable."""
+    try:
+        from pyspark.sql import SparkSession
+
+        spark = (
+            SparkSession.builder.master("local[2]")
+            .appName("geo_etl_tests")
+            .config("spark.sql.shuffle.partitions", "2")
+            .config("spark.ui.enabled", "false")
+            .getOrCreate()
+        )
+        spark.sparkContext.setLogLevel("ERROR")
+        return spark
+    except Exception as exc:  # pragma: no cover - only hit without a JVM
+        import pytest
+
+        pytest.skip(f"local SparkSession unavailable: {exc}")
+
+
+@pytest.fixture(scope="session")
+def spark_session():
+    """Session-scoped local SparkSession for tests that execute DataFrames."""
+    spark = _start_spark()
+    yield spark
+    spark.stop()

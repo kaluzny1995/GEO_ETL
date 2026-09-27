@@ -4,6 +4,7 @@ Usage::
 
     python run_etl.py CREATE <table_name>
     python run_etl.py INGESTION <table_name>
+    python run_etl.py DATA_QUALITY <table_name>
 """
 
 import argparse

@@ -52,6 +52,41 @@ def test_main_dispatches_ingestion_job(mock_logger, mock_create, mock_config, mo
 @patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
+def test_main_dispatches_data_quality_job(mock_logger, mock_create, mock_config, mock_spark):
+    mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "DATA_QUALITY", "avalanche_org"]):
+        from run_etl import main
+
+        main()
+
+    mock_create.assert_called_once_with(JobType.DATA_QUALITY)
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_data_quality_passes_plain_table_name(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "DATA_QUALITY", "avalanche_org"]):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args[0][1] == "avalanche_org"
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
 def test_main_passes_table_name_to_job(mock_logger, mock_create, mock_config, mock_spark):
     job_mock = MagicMock(run=MagicMock(return_value="done"))
     mock_create.return_value = job_mock

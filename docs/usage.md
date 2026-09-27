@@ -54,6 +54,9 @@ python run_etl.py CREATE avalanche_org
 
 # Run full ingestion pipeline (upload CSVs → raw table → typed plain table)
 python run_etl.py INGESTION avalanche_org
+
+# Measure data quality of the plain table (writes geo.data_quality)
+python run_etl.py DATA_QUALITY avalanche_org
 ```
 
 **All registered tables:**
@@ -90,8 +93,41 @@ python run_etl.py INGESTION usgs_volcano
 2. Connects to the Spark cluster
 3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model, executes it against Supabase
 4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories
+5. For `DATA_QUALITY`: measures only the selected `file_date`s of the plain table and replaces those rows in `geo.data_quality`
 
 See [ETL jobs](etl-jobs.md) for the job registry, the CREATE and INGESTION pipelines and their load-type logic.
+
+## Check data quality
+
+```bash
+conda activate geo_etl_311
+
+# One table
+python run_etl.py DATA_QUALITY avalanche_org
+
+# All plain tables
+for t in avalanche_org eonet_event gdacs_event ibtracs_cyclone nifc_fire openmeteo_flood usgs_earthquake usgs_nwis usgs_volcano; do
+    python run_etl.py DATA_QUALITY "$t"
+done
+```
+
+> **Note:** Pass the plain table name — `DATA_QUALITY` does not add the `_raw` suffix, and the metrics are computed on the typed table.
+
+The first run measures every `file_date` (`HISTORICAL`); later runs measure only the `file_date`s added since (`INCREMENTAL`) and drop metrics for `file_date`s that no longer exist in the source. Run it after each INGESTION to keep `geo.data_quality` in step with the data — see [Data Quality job — Load type detection](data-quality.md#load-type-detection).
+
+Expected output:
+
+```
+INFO Creating table 'geo.data_quality' if not exists...
+INFO No metrics stored for avalanche_org → HISTORICAL: measuring every file_date
+INFO Reading geo.avalanche_org...
+INFO Computed 126 metrics for 9 file_date(s) in avalanche_org (HISTORICAL)
+INFO Replacing stored metrics for avalanche_org...
+INFO Writing to geo.data_quality...
+INFO Data quality metrics complete: 126 rows written to geo.data_quality
+```
+
+Results land in `geo.data_quality` (one row per metric and `file_date`). Re-running the job for the same table replaces its previous rows. Metrics, rules and example SQL: see [Data Quality job](data-quality.md).
 
 ## Verify Supabase connectivity
 

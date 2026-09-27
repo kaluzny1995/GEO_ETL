@@ -12,6 +12,7 @@
 |----------|--------|--------------|
 | `CREATE` | `jobs/create_table.py` | Creates the schema and the tables from Pydantic DDL |
 | `INGESTION` | `jobs/ingestion.py` | Upload CSVs → raw table, then raw → typed table |
+| `DATA_QUALITY` | `jobs/data_quality.py` | Computes per-`file_date` quality metrics into `geo.data_quality` |
 
 Every run:
 
@@ -23,6 +24,7 @@ Every run:
 ```bash
 python run_etl.py CREATE avalanche_org
 python run_etl.py INGESTION avalanche_org
+python run_etl.py DATA_QUALITY avalanche_org
 ```
 
 ## CREATE TABLE job
@@ -107,9 +109,32 @@ How the data flows:
 
 Details of each step: [Upload pipeline](#upload-pipeline) · [Raw2Plain pipeline](#raw2plain-pipeline).
 
+## DATA_QUALITY job
+
+`jobs/data_quality.py` measures a plain table and stores one row per `(table_name, file_date, metric)` in `geo.data_quality`:
+
+1. Resolves the Pydantic model for the table (no `_raw` suffix is appended — pass the plain table name).
+2. Creates the `geo` schema and the `geo.data_quality` table if they do not exist.
+3. Reads the latest stored `file_date` for this table and picks the [load type](#load-type-detection) — `HISTORICAL` (nothing measured yet → every `file_date`) or `INCREMENTAL` (only `file_date` newer than the stored maximum).
+4. Purges stored metrics whose `file_date` no longer exists in the source.
+5. Reads the source table for the selected `file_date`s and computes all metrics in a single `groupBy(...).agg(...)` pass (`utils/dq_metrics.py`).
+6. Deletes the stored rows for exactly that range, then appends the freshly computed ones — re-running the job replaces instead of duplicating.
+
+```
+INFO Creating table 'geo.data_quality' if not exists...
+INFO No metrics stored for avalanche_org → HISTORICAL: measuring every file_date
+INFO Reading geo.avalanche_org...
+INFO Computed 126 metrics for 9 file_date(s) in avalanche_org (HISTORICAL)
+INFO Replacing stored metrics for avalanche_org...
+INFO Writing to geo.data_quality...
+INFO Data quality metrics complete: 126 rows written to geo.data_quality
+```
+
+Metric families, the rules behind `bad_pct__*`, load type details and example SQL: see [Data Quality job](data-quality.md).
+
 ## Load type detection
 
-Both pipelines decide their load type from the state of the target table — no manual flag is needed.
+The INGESTION pipelines and the DATA_QUALITY job decide their load type from the state of their target table — no manual flag is needed.
 
 ### Upload
 
@@ -125,11 +150,21 @@ Both pipelines decide their load type from the state of the target table — no 
 | Final table is empty | `HISTORICAL` | Processes all raw data |
 | Final table has data | `INCREMENTAL` | Processes only raw rows with `file_date` > max in final |
 
-When nothing new is found, both steps log a warning and return without writing — the script still finishes successfully:
+### DATA_QUALITY
+
+| Condition | Load Type | Behavior |
+|-----------|-----------|----------|
+| No metrics stored for this table | `HISTORICAL` | Measures every `file_date` in the source |
+| Metrics stored | `INCREMENTAL` | Measures only `file_date` > the stored maximum, and purges metrics whose `file_date` left the source |
+
+Details: [Data Quality job — Load type detection](data-quality.md#load-type-detection).
+
+When nothing new is found, the job logs a warning and returns without writing — it still finishes successfully:
 
 ```
 logger.warning("No new files to upload for avalanche_org_raw — nothing to do, table is up to date")
 logger.warning("No new records to process for avalanche_org_raw — nothing to do, table is up to date")
+logger.warning("No new file_date to measure for avalanche_org — metrics are up to date")
 ```
 
 To exercise the INCREMENTAL path, follow the [incremental test workflow](usage.md#incremental-test-workflow).

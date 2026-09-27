@@ -51,10 +51,11 @@ GEO_ETL/
 ├── jobs/                             # Job modules (the "what to do" layer)
 │   ├── __init__.py                   # Registers jobs in JobFactory
 │   ├── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
+│   ├── data_quality.py              # DATA_QUALITY job (per-file_date metrics -> geo.data_quality)
 │   └── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
 │
 ├── model/                            # Data models and configuration
-│   ├── enums.py                      # JobType enum (CREATE, INGESTION)
+│   ├── enums.py                      # JobType enum (CREATE, INGESTION, DATA_QUALITY)
 │   ├── config/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
@@ -70,6 +71,7 @@ GEO_ETL/
 │   │   └── usgs_volcano_raw.py       # UsgsVolcanoRaw — all-TEXT raw model
 │   └── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
+│       ├── data_quality.py           # DataQuality — metric row (str, float, datetime)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
 │       ├── gdacs_event.py            # GdacsEvent — typed model (float, int, datetime, bool)
 │       ├── ibtracs_cyclone.py        # IbtacsCyclone — typed model (float, int, datetime)
@@ -81,6 +83,7 @@ GEO_ETL/
 │
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
+│   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
 │   ├── schema_converter.py           # Pydantic -> PySpark StructType schemas
@@ -97,6 +100,7 @@ GEO_ETL/
 ├── logs/                             # Runtime log output (gitignored)
 │   ├── ingestion/                    # INGESTION job logs
 │   ├── create_table/                 # CREATE TABLE job logs
+│   ├── data_quality/                 # DATA_QUALITY job logs
 │   ├── drop_table/                   # Drop table job logs
 │   ├── drop_schema/                  # Drop schema job logs
 │   ├── delete_last_filedate/         # Delete last file_date job logs
@@ -114,7 +118,7 @@ GEO_ETL/
 │       └── postgresql-42.7.4.jar
 │
 └── test/                             # Unit tests (pytest)
-    ├── conftest.py                   # Shared test fixtures (mock_F, mock_app_config, mock_db_config, mock_spark)
+    ├── conftest.py                   # Shared test fixtures (mock_F, mock_app_config, mock_db_config, mock_spark, spark_session)
     ├── factory/
     │   ├── test_job_factory.py
     │   ├── test_table_factory.py
@@ -122,6 +126,7 @@ GEO_ETL/
     │   └── test_raw2plain_script_factory.py
     ├── jobs/
     │   ├── test_create_table.py
+    │   ├── test_data_quality.py
     │   └── test_ingestion.py
     ├── model/
     │   ├── test_enums.py
@@ -130,6 +135,7 @@ GEO_ETL/
     │   │   └── test_supabase_config.py
     │   ├── plain/
     │   │   ├── test_avalanche_org.py
+    │   │   ├── test_data_quality.py
     │   │   ├── test_eonet_event.py
     │   │   ├── test_gdacs_event.py
     │   │   ├── test_ibtracs_cyclone.py
@@ -176,6 +182,7 @@ GEO_ETL/
     │       └── test_usgs_volcano_raw2plain.py
     └── util/
         ├── test_ddl_generator.py
+        ├── test_dq_metrics.py
         ├── test_logger.py
         └── test_schema_converter.py
 ```

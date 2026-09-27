@@ -31,8 +31,11 @@ DDL is generated from the Pydantic models instead of being written by hand — s
 | `usgs_nwis` | `UsgsNwis` | `model/plain/` | USGS NWIS stream gauge data — typed (date, float, double) |
 | `usgs_volcano_raw` | `UsgsVolcanoRaw` | `model/raw/` | USGS volcanic activity data — all fields as TEXT |
 | `usgs_volcano` | `UsgsVolcano` | `model/plain/` | USGS volcanic activity data — typed (int, timestamp) |
+| `data_quality` | `DataQuality` | `model/plain/` | Quality metrics per `file_date` — long format (str, float, timestamp) |
 
 > **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org` to the CLI, not `avalanche_org_raw`.
+
+> **Note:** `data_quality` is metadata rather than a data source — it is created and filled by the [`DATA_QUALITY` job](data-quality.md), not by `CREATE` + `INGESTION`. It appears in the schema after the job's first run, so the table count in [Verifying the schema](#verifying-the-schema) goes from 18 to 19.
 
 Models are registered in `model/__init__.py` via `TableFactory.register()` and looked up by `factory/table_factory.py`.
 

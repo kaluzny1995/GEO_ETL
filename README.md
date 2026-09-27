@@ -16,7 +16,8 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 - **Custom Spark image** — based on `apache/spark:3.5.5` with Hadoop AWS + PostgreSQL JARs
 - **Local PySpark client** — scripts run on the host, connecting to the cluster remotely
 - **Model-driven schema** — Pydantic models define table structures; DDL and PySpark schemas are generated automatically
-- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, etc.) via a job registry
+- **Data quality metrics** — per-`file_date` null/bad/duplicate rates in `geo.data_quality`, measured incrementally (HISTORICAL first, then only new dates)
+- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY) via a job registry
 
 ## Tech Stack
 
@@ -42,6 +43,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 | [Project structure](docs/architecture.md) | Directory layout — what each folder and entry-point script is for. |
 | [Usage](docs/usage.md) | Setup, creating tables, running ingestion, drop/delete scripts and expected output. |
 | [ETL jobs](docs/etl-jobs.md) | Job registry, CREATE and INGESTION pipelines, load type detection, upload/raw2plain internals. |
+| [Data quality](docs/data-quality.md) | The DATA_QUALITY job — metric families, rules and querying `geo.data_quality`. |
 | [Data tables](docs/data-tables.md) | The `geo` schema — raw/plain table pairs, registered models, current data and how to add a table. |
 | [Configuration](docs/configuration.md) | `config.json` and `supabase_config.json` reference. |
 | [Spark cluster](docs/spark-cluster.md) | Cluster services, Web UI, Spark JARs and connecting from PySpark. |
@@ -72,9 +74,10 @@ cd ../GEO_ETL
 # 3. Verify cluster connectivity
 python run_pyspark_csv_test.py
 
-# 4. Create tables and ingest a data source
+# 4. Create tables, ingest a data source and measure its quality
 python run_etl.py CREATE avalanche_org
 python run_etl.py INGESTION avalanche_org
+python run_etl.py DATA_QUALITY avalanche_org
 ```
 
 Supabase credentials must be present in `supabase_config.json` — see [Configuration](docs/configuration.md). Full instructions, including verifying the schema, dropping tables, deleting the latest `file_date` and the standalone upload/raw2plain pipelines, are in [Usage](docs/usage.md).

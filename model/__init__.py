@@ -1,6 +1,7 @@
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import JobType
 from model.plain.avalanche_org import AvalancheOrg
+from model.plain.data_quality import DataQuality
 from model.plain.eonet_event import EonetEvent
 from model.plain.gdacs_event import GdacsEvent
 from model.plain.ibtracs_cyclone import IbtacsCyclone
@@ -43,6 +44,7 @@ def _register_tables():
     TableFactory.register("usgs_nwis", UsgsNwis)
     TableFactory.register("usgs_volcano_raw", UsgsVolcanoRaw)
     TableFactory.register("usgs_volcano", UsgsVolcano)
+    TableFactory.register("data_quality", DataQuality)
 
 
 _register_tables()
@@ -51,6 +53,7 @@ __all__ = [
     "AppConfig",
     "AvalancheOrg",
     "AvalancheOrgRaw",
+    "DataQuality",
     "EonetEvent",
     "EonetEventRaw",
     "GdacsEvent",

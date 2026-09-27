@@ -2,12 +2,14 @@
 
 # Testing
 
-All tests are pure unit tests with external dependencies (Spark, Supabase) mocked:
+Tests are unit tests with external dependencies (Spark cluster, Supabase) mocked:
 
 ```bash
 conda activate geo_etl_311
 pytest test/ -v
 ```
+
+The only exception is the `spark_session` fixture in `test/conftest.py` — a session-scoped local `SparkSession` (`local[2]`, UI disabled) used by `test/util/test_dq_metrics.py` (real DataFrame execution) and by the INCREMENTAL case of `test/jobs/test_data_quality.py` (building the `file_date` filter needs a live context). The fixture skips the test when no JVM is available, so the suite still runs on a machine without Java. Everything else stays fully mocked.
 
 The same suite also runs in an isolated tox environment (`tox -e py311`) — see [Code quality](development.md#tox-environments) for the full check matrix.
 
@@ -20,6 +22,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/factory/test_upload_script_factory.py` | UploadScriptFactory (register, get, tables, clear) |
 | `test/factory/test_raw2plain_script_factory.py` | Raw2PlainScriptFactory (register, get, tables, clear) |
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
+| `test/jobs/test_data_quality.py` | DATA_QUALITY job (HISTORICAL + INCREMENTAL load types, stale-metric purge, replace, no-new-data, logging, unknown table) |
 | `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logger passing, logging) |
 | `test/model/test_enums.py` | JobType enum (values, membership, from_value, invalid value) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig models |
@@ -34,6 +37,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/model/raw/test_usgs_nwis_raw.py` | UsgsNwisRaw model validation + Spark schema |
 | `test/model/raw/test_usgs_volcano_raw.py` | UsgsVolcanoRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
+| `test/model/plain/test_data_quality.py` | DataQuality model validation + Spark schema + DDL types + registry |
 | `test/model/plain/test_eonet_event.py` | EonetEvent model validation + Spark schema + DDL types |
 | `test/model/plain/test_gdacs_event.py` | GdacsEvent model validation + Spark schema + DDL types |
 | `test/model/plain/test_ibtracs_cyclone.py` | IbtacsCyclone model validation + Spark schema + DDL types |
@@ -65,6 +69,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date, table derivation, skip on empty) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
+| `test/util/test_dq_metrics.py` | Rules, metric computation, unpivoting — run on a real local Spark session |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
 | `test/util/test_spark_monitor.py` | Stage memory logger registration (Java bridge, directory creation, listener setup) |
 | `test/util/test_logger.py` | Logger setup, duplicate handlers, nested directories |

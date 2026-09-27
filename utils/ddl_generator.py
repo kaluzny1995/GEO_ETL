@@ -168,12 +168,24 @@ def create_schema(spark: SparkSession, schema: str, jdbc_url: str, properties: d
     _execute_jdbc(spark, ddl, jdbc_url, properties)
 
 
-def execute_ddl(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict[str, str]) -> None:
-    """Execute an arbitrary DDL statement against the database.
+def execute_statement(spark: SparkSession, sql: str, jdbc_url: str, properties: dict[str, str]) -> None:
+    """Execute an arbitrary SQL statement (DDL or DML) against the database.
 
     Args:
         spark: Active Spark session.
-        ddl: The DDL statement to execute.
+        sql: Statement to execute.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+    """
+    _execute_jdbc(spark, sql, jdbc_url, properties)
+
+
+def execute_ddl(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict[str, str]) -> None:
+    """Execute a DDL statement against the database.
+
+    Args:
+        spark: Active Spark session.
+        ddl: DDL statement to execute.
         jdbc_url: JDBC connection URL.
         properties: JDBC connection properties.
     """
