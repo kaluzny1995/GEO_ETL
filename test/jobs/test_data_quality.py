@@ -92,6 +92,57 @@ class TestHistoricalRun:
         mock_schema.assert_called_once()
         assert mock_schema.call_args[0][1] == "geo"
 
+    def test_retries_transient_connection_failure(
+        self,
+        mock_get,
+        mock_app,
+        mock_db,
+        mock_schema,
+        mock_ddl,
+        mock_delete,
+        mock_max,
+        mock_dq,
+        mock_spark,
+        monkeypatch,
+    ):
+        monkeypatch.setattr("utils.jdbc_retry.time.sleep", lambda _seconds: None)
+        _setup_metrics(mock_dq)
+        mock_schema.side_effect = [
+            RuntimeError("Caused by: java.net.SocketTimeoutException: Read timed out"),
+            None,
+        ]
+
+        result = run(mock_spark, "avalanche_org")
+
+        assert mock_schema.call_count == 2
+        assert "HISTORICAL" in result
+
+    def test_delete_and_write_are_retried_as_one_unit(
+        self,
+        mock_get,
+        mock_app,
+        mock_db,
+        mock_schema,
+        mock_ddl,
+        mock_delete,
+        mock_max,
+        mock_dq,
+        mock_spark,
+        monkeypatch,
+    ):
+        monkeypatch.setattr("utils.jdbc_retry.time.sleep", lambda _seconds: None)
+        metrics_df = _setup_metrics(mock_dq)
+        metrics_df.write.jdbc.side_effect = [
+            RuntimeError("Caused by: java.net.UnknownHostException: pooler.supabase.com"),
+            None,
+        ]
+
+        run(mock_spark, "avalanche_org")
+
+        assert metrics_df.write.jdbc.call_count == 2
+        assert mock_delete.call_count == 2
+        metrics_df.unpersist.assert_called_once()
+
     def test_executes_ddl_for_metrics_table(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):

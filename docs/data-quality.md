@@ -95,6 +95,7 @@ Notes:
 - Metrics are always **per `file_date`** — the job never computes one figure for the table as a whole.
 - Only the selected `file_date`s are read, deleted and rewritten; older stored rows are left untouched.
 - `MAX(file_date)` on the stored metrics is read through a JDBC subquery, so an empty or unreadable metrics table simply falls back to `HISTORICAL`.
+- Supabase is reached through its pooler over the network, so a JDBC call can fail transiently (socket timeout, unresolved host). The job retries such connection errors up to 3 times with a 5 s pause — `utils/jdbc_retry.py` — and always retries the `DELETE` and the append **together**, so an interrupted write cannot leave partial or duplicated metrics behind.
 - To force a full remeasure, delete this table's rows — the next run is `HISTORICAL` again:
 
 ```sql
@@ -181,6 +182,7 @@ WHERE metric = 'bad_row_pct' AND value > 0.05;
 | `jobs/data_quality.py` | Load type detection, purge of removed `file_date`s, measure and replace |
 | `utils/dq_metrics.py` | Rules, metric computation and unpivoting |
 | `model/other/data_quality.py` | `DataQuality` model — the row layout of `geo.data_quality` |
+| `utils/jdbc_retry.py` | Bounded retry for transient pooler connection failures |
 | `utils/ddl_generator.py` | `execute_statement` runs the `DELETE`s over JDBC |
 | `test/jobs/test_data_quality.py` | Job flow for both load types, purge, empty/no-new-data paths |
 | `test/util/test_dq_metrics.py` | Metrics verified against a real local Spark session |

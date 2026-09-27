@@ -120,6 +120,8 @@ Details of each step: [Upload pipeline](#upload-pipeline) · [Raw2Plain pipeline
 5. Reads the source table for the selected `file_date`s and computes all metrics in a single `groupBy(...).agg(...)` pass (`utils/dq_metrics.py`).
 6. Deletes the stored rows for exactly that range, then appends the freshly computed ones — re-running the job replaces instead of duplicating.
 
+Transient connection failures (socket timeout, unresolved host) are retried up to 3 times with a 5 s pause, and the delete and the append are retried as a single unit — `utils/jdbc_retry.py`.
+
 ```
 INFO Creating table 'geo.data_quality' if not exists...
 INFO No metrics stored for avalanche_org → HISTORICAL: measuring every file_date

@@ -11,6 +11,7 @@ from model.config import AppConfig, SupabaseConnectionConfig
 from model.other.data_quality import DataQuality
 from utils.ddl_generator import create_schema, execute_ddl, execute_statement, pydantic_to_ddl
 from utils.dq_metrics import FILE_DATE_COL, METRICS_TABLE, data_quality_rows
+from utils.jdbc_retry import retry_connection
 
 
 def _max_stored_file_date(
@@ -28,14 +29,17 @@ def _max_stored_file_date(
     Returns:
         The greatest stored :class:`datetime.date`, or ``None`` when no metrics
         exist for *table_name* yet (or they cannot be read) — the job then
-        measures every ``file_date``.
+        measures every ``file_date``. Transient connection failures are
+        retried before that fallback is used.
     """
     subquery = (
         f"(SELECT MAX(TO_DATE(file_date, 'YYYY-MM-DD')) AS max_file_date "
         f"FROM {schema}.{METRICS_TABLE} WHERE table_name = '{table_name}') AS t"
     )
     try:
-        row = spark.read.jdbc(url=jdbc_url, table=subquery, properties=properties).first()
+        row = retry_connection(
+            lambda: spark.read.jdbc(url=jdbc_url, table=subquery, properties=properties).first(),
+        )
         if row and row.max_file_date:
             return row.max_file_date
     except Exception:
@@ -59,6 +63,11 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
     Metrics mirror the source: re-running the job replaces the previous rows
     for *table_name*, so trends are never skewed by duplicate runs and stored
     metrics never outlive the data they describe.
+
+    Transient connection failures to the pooler (socket timeout, unresolved
+    host) are retried with a pause — see :func:`utils.jdbc_retry.retry_connection`.
+    The ``DELETE`` and the append are retried as one unit, so an interrupted
+    write can never leave duplicated or partial metrics behind.
 
     Args:
         spark: Active Spark session.
@@ -84,8 +93,11 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
     source = f"{schema}.{table_name}"
 
     logger.info(f"Creating table '{schema}.{METRICS_TABLE}' if not exists...")
-    create_schema(spark, schema, jdbc_url, properties)
-    execute_ddl(spark, pydantic_to_ddl(DataQuality, METRICS_TABLE, schema=schema), jdbc_url, properties)
+    retry_connection(lambda: create_schema(spark, schema, jdbc_url, properties), logger=logger)
+    retry_connection(
+        lambda: execute_ddl(spark, pydantic_to_ddl(DataQuality, METRICS_TABLE, schema=schema), jdbc_url, properties),
+        logger=logger,
+    )
 
     max_stored = _max_stored_file_date(spark, jdbc_url, properties, schema, table_name)
     if max_stored is None:
@@ -95,20 +107,18 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
 
     if max_stored is not None:
         logger.info(f"Purging metrics for file_dates no longer present in {source}...")
-        execute_statement(
-            spark,
+        purge_sql = (
             f"DELETE FROM {schema}.{METRICS_TABLE} AS q WHERE q.table_name = '{table_name}' "
-            f"AND NOT EXISTS (SELECT 1 FROM {source} s WHERE s.file_date = q.file_date)",
-            jdbc_url,
-            properties,
+            f"AND NOT EXISTS (SELECT 1 FROM {source} s WHERE s.file_date = q.file_date)"
         )
+        retry_connection(lambda: execute_statement(spark, purge_sql, jdbc_url, properties), logger=logger)
 
     logger.info(f"Reading {source}...")
-    df = spark.read.jdbc(url=jdbc_url, table=source, properties=properties)
+    df = retry_connection(lambda: spark.read.jdbc(url=jdbc_url, table=source, properties=properties), logger=logger)
     if max_stored is not None:
         df = df.filter(F.col(FILE_DATE_COL) > F.lit(max_stored.isoformat()))
 
-    if not df.head(1):
+    if not retry_connection(lambda: df.head(1), logger=logger):
         if max_stored is None:
             logger.warning(f"No data in {source} — no metrics written")
             return f"No data in {source} — no metrics written."
@@ -118,11 +128,10 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
     load_type = "HISTORICAL" if max_stored is None else "INCREMENTAL"
     metrics_df = data_quality_rows(df, table_name=table_name, model=model).cache()
     try:
-        row_count = metrics_df.count()
-        file_date_count = metrics_df.select(FILE_DATE_COL).distinct().count()
+        row_count = retry_connection(metrics_df.count, logger=logger)
+        file_date_count = retry_connection(lambda: metrics_df.select(FILE_DATE_COL).distinct().count(), logger=logger)
         logger.info(f"Computed {row_count} metrics for {file_date_count} file_date(s) in {table_name} ({load_type})")
 
-        logger.info(f"Replacing stored metrics for {table_name}...")
         if max_stored is None:
             delete_sql = f"DELETE FROM {schema}.{METRICS_TABLE} WHERE table_name = '{table_name}'"
         else:
@@ -130,10 +139,14 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
                 f"DELETE FROM {schema}.{METRICS_TABLE} "
                 f"WHERE table_name = '{table_name}' AND file_date > '{max_stored.isoformat()}'"
             )
-        execute_statement(spark, delete_sql, jdbc_url, properties)
 
-        logger.info(f"Writing to {schema}.{METRICS_TABLE}...")
-        metrics_df.write.jdbc(url=jdbc_url, table=f"{schema}.{METRICS_TABLE}", mode="append", properties=properties)
+        def _replace_stored_metrics() -> None:
+            logger.info(f"Replacing stored metrics for {table_name}...")
+            execute_statement(spark, delete_sql, jdbc_url, properties)
+            logger.info(f"Writing to {schema}.{METRICS_TABLE}...")
+            metrics_df.write.jdbc(url=jdbc_url, table=f"{schema}.{METRICS_TABLE}", mode="append", properties=properties)
+
+        retry_connection(_replace_stored_metrics, logger=logger)
         logger.info(f"Data quality metrics complete: {row_count} rows written to {schema}.{METRICS_TABLE}")
     finally:
         metrics_df.unpersist()
