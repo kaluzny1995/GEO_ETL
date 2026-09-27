@@ -29,8 +29,22 @@ def _mock_db_config():
     return cfg
 
 
-def _metric_rows(count=2):
-    return [MagicMock(file_date=f"2026-09-{i + 1:02d}") for i in range(count)]
+def _metric_row_count():
+    return 725
+
+
+def _setup_metrics(mock_dq, date_count=2):
+    """Wire the mocked metrics DataFrame for the cache/count/write path.
+
+    ``data_quality_rows`` must stay inside Spark: building the frame from a
+    Python list would require Python workers on the executors, which the
+    Docker-based cluster does not have.
+    """
+    df = mock_dq.return_value
+    df.cache.return_value = df
+    df.count.return_value = _metric_row_count()
+    df.select.return_value.distinct.return_value.count.return_value = date_count
+    return df
 
 
 PURGE_SQL = (
@@ -60,7 +74,7 @@ class TestHistoricalRun:
     def test_returns_success_message(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         result = run(mock_spark, "avalanche_org")
 
@@ -71,7 +85,7 @@ class TestHistoricalRun:
     def test_creates_geo_schema(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
@@ -81,7 +95,7 @@ class TestHistoricalRun:
     def test_executes_ddl_for_metrics_table(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
@@ -92,7 +106,7 @@ class TestHistoricalRun:
     def test_reads_source_table(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
@@ -102,7 +116,7 @@ class TestHistoricalRun:
     def test_no_file_date_filter(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
@@ -111,7 +125,7 @@ class TestHistoricalRun:
     def test_deletes_all_stored_metrics(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
@@ -121,17 +135,16 @@ class TestHistoricalRun:
     def test_writes_metrics(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        rows = _metric_rows()
-        mock_dq.return_value.collect.return_value = rows
+        metrics_df = _setup_metrics(mock_dq)
 
-        run(mock_spark, "avalanche_org")
+        result = run(mock_spark, "avalanche_org")
 
-        mock_spark.createDataFrame.assert_called_once()
-        assert mock_spark.createDataFrame.call_args[0][0] == rows
-        metrics_df = mock_spark.createDataFrame.return_value
+        mock_spark.createDataFrame.assert_not_called()
         metrics_df.write.jdbc.assert_called_once()
         assert metrics_df.write.jdbc.call_args.kwargs["table"] == "geo.data_quality"
         assert metrics_df.write.jdbc.call_args.kwargs["mode"] == "append"
+        metrics_df.unpersist.assert_called_once()
+        assert f"{_metric_row_count()} metrics" in result
 
     def test_empty_source_returns_no_data_message(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
@@ -148,7 +161,7 @@ class TestHistoricalRun:
     def test_logs_steps(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
         mock_logger = MagicMock()
 
         run(mock_spark, "avalanche_org", logger=mock_logger)
@@ -156,12 +169,16 @@ class TestHistoricalRun:
         mock_logger.info.assert_any_call("Creating table 'geo.data_quality' if not exists...")
         mock_logger.info.assert_any_call("No metrics stored for avalanche_org → HISTORICAL: measuring every file_date")
         mock_logger.info.assert_any_call("Reading geo.avalanche_org...")
+        mock_logger.info.assert_any_call(
+            f"Computed {_metric_row_count()} metrics for 2 file_date(s) in avalanche_org (HISTORICAL)"
+        )
         mock_logger.info.assert_any_call("Replacing stored metrics for avalanche_org...")
+        mock_logger.info.assert_any_call("Writing to geo.data_quality...")
 
     def test_default_logger_used_when_missing(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         result = run(mock_spark, "avalanche_org")
 
@@ -192,7 +209,7 @@ class TestIncrementalRun:
         mock_spark,
         spark_session,
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
@@ -214,7 +231,7 @@ class TestIncrementalRun:
         mock_spark,
         spark_session,
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
@@ -233,7 +250,7 @@ class TestIncrementalRun:
         mock_spark,
         spark_session,
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
@@ -256,7 +273,7 @@ class TestIncrementalRun:
         mock_spark,
         spark_session,
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
 
         result = run(mock_spark, "avalanche_org")
 
@@ -318,7 +335,7 @@ class TestIncrementalRun:
         mock_spark,
         spark_session,
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        _setup_metrics(mock_dq)
         mock_logger = MagicMock()
 
         run(mock_spark, "avalanche_org", logger=mock_logger)
@@ -341,11 +358,13 @@ class TestIncrementalRun:
         mock_spark,
         spark_session,
     ):
-        mock_dq.return_value.collect.return_value = _metric_rows()
+        metrics_df = _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
-        mock_spark.createDataFrame.return_value.write.jdbc.assert_called_once()
+        metrics_df.write.jdbc.assert_called_once()
+        assert metrics_df.write.jdbc.call_args.kwargs["mode"] == "append"
+        mock_spark.createDataFrame.assert_not_called()
 
 
 def test_unknown_table_raises(mock_spark):

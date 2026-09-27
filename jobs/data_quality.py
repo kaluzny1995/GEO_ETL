@@ -8,10 +8,9 @@ from pyspark.sql import functions as F
 
 from factory import TableFactory
 from model.config import AppConfig, SupabaseConnectionConfig
-from model.plain.data_quality import DataQuality
+from model.other.data_quality import DataQuality
 from utils.ddl_generator import create_schema, execute_ddl, execute_statement, pydantic_to_ddl
 from utils.dq_metrics import FILE_DATE_COL, METRICS_TABLE, data_quality_rows
-from utils.schema_converter import pydantic_to_spark_schema
 
 
 def _max_stored_file_date(
@@ -117,23 +116,26 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
         return f"No new file_date for {table_name} — metrics are up to date."
 
     load_type = "HISTORICAL" if max_stored is None else "INCREMENTAL"
-    rows = data_quality_rows(df, table_name=table_name, model=model).collect()
-    file_dates = {row.file_date for row in rows}
-    logger.info(f"Computed {len(rows)} metrics for {len(file_dates)} file_date(s) in {table_name} ({load_type})")
+    metrics_df = data_quality_rows(df, table_name=table_name, model=model).cache()
+    try:
+        row_count = metrics_df.count()
+        file_date_count = metrics_df.select(FILE_DATE_COL).distinct().count()
+        logger.info(f"Computed {row_count} metrics for {file_date_count} file_date(s) in {table_name} ({load_type})")
 
-    logger.info(f"Replacing stored metrics for {table_name}...")
-    if max_stored is None:
-        delete_sql = f"DELETE FROM {schema}.{METRICS_TABLE} WHERE table_name = '{table_name}'"
-    else:
-        delete_sql = (
-            f"DELETE FROM {schema}.{METRICS_TABLE} "
-            f"WHERE table_name = '{table_name}' AND file_date > '{max_stored.isoformat()}'"
-        )
-    execute_statement(spark, delete_sql, jdbc_url, properties)
+        logger.info(f"Replacing stored metrics for {table_name}...")
+        if max_stored is None:
+            delete_sql = f"DELETE FROM {schema}.{METRICS_TABLE} WHERE table_name = '{table_name}'"
+        else:
+            delete_sql = (
+                f"DELETE FROM {schema}.{METRICS_TABLE} "
+                f"WHERE table_name = '{table_name}' AND file_date > '{max_stored.isoformat()}'"
+            )
+        execute_statement(spark, delete_sql, jdbc_url, properties)
 
-    metrics_df = spark.createDataFrame(rows, schema=pydantic_to_spark_schema(DataQuality))
-    logger.info(f"Writing to {schema}.{METRICS_TABLE}...")
-    metrics_df.write.jdbc(url=jdbc_url, table=f"{schema}.{METRICS_TABLE}", mode="append", properties=properties)
-    logger.info(f"Data quality metrics complete: {len(rows)} rows written to {schema}.{METRICS_TABLE}")
+        logger.info(f"Writing to {schema}.{METRICS_TABLE}...")
+        metrics_df.write.jdbc(url=jdbc_url, table=f"{schema}.{METRICS_TABLE}", mode="append", properties=properties)
+        logger.info(f"Data quality metrics complete: {row_count} rows written to {schema}.{METRICS_TABLE}")
+    finally:
+        metrics_df.unpersist()
 
-    return f"Data quality ({load_type}) for {table_name} written to {schema}.{METRICS_TABLE} — {len(rows)} metrics."
+    return f"Data quality ({load_type}) for {table_name} written to {schema}.{METRICS_TABLE} — {row_count} metrics."

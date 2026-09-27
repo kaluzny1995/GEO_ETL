@@ -134,7 +134,7 @@ Columns missing from the DataFrame are skipped, so the metric set always matches
 | Table | Rules |
 |-------|-------|
 | `eonet_event`, `gdacs_event`, `nifc_fire`, `openmeteo_flood`, `usgs_earthquake`, `usgs_nwis` | `latitude_range`, `longitude_range` |
-| `avalanche_org` | `danger_level_1_5`, `forecast_order` |
+| `avalanche_org` | `danger_level_domain`, `forecast_order` |
 | `ibtracs_cyclone` | `latitude_range` (on `lat`), `longitude_range` (on `lon`), `wmo_wind_non_negative` |
 | `nifc_fire` | `acres_non_negative`, `percent_contained_0_100` |
 | `openmeteo_flood` | `discharge_non_negative` |
@@ -143,6 +143,8 @@ Columns missing from the DataFrame are skipped, so the metric set always matches
 | `usgs_volcano` | *(model rules only)* |
 
 Rules whose column is missing from the table are skipped.
+
+`danger_level_domain` accepts the source's `-1` ("no rating") sentinel together with `1`…`5`, so a period where no ratings are published (off-season) is reported as clean instead of 100% bad rows.
 
 ## Querying the results
 
@@ -178,7 +180,7 @@ WHERE metric = 'bad_row_pct' AND value > 0.05;
 |------|------|
 | `jobs/data_quality.py` | Load type detection, purge of removed `file_date`s, measure and replace |
 | `utils/dq_metrics.py` | Rules, metric computation and unpivoting |
-| `model/plain/data_quality.py` | `DataQuality` model — the row layout of `geo.data_quality` |
+| `model/other/data_quality.py` | `DataQuality` model — the row layout of `geo.data_quality` |
 | `utils/ddl_generator.py` | `execute_statement` runs the `DELETE`s over JDBC |
 | `test/jobs/test_data_quality.py` | Job flow for both load types, purge, empty/no-new-data paths |
 | `test/util/test_dq_metrics.py` | Metrics verified against a real local Spark session |

@@ -3,7 +3,7 @@
 Every metric is a plain aggregate, so a single
 ``groupBy("file_date").agg(...)`` pass computes the whole metric set for a
 table.  The wide frame is then unpivoted to the long layout of
-:class:`model.plain.data_quality.DataQuality` and appended to
+:class:`model.other.data_quality.DataQuality` and appended to
 ``geo.data_quality``.
 
 Metrics produced per ``file_date``:
@@ -119,7 +119,11 @@ def dataset_rules(table_name: str, columns: list[str]) -> list[Rule]:
         add("longitude_range", F.col("longitude").between(-180, 180), "longitude")
 
     if table_name == "avalanche_org":
-        add("danger_level_1_5", F.col("danger_level").between(1, 5), "danger_level")
+        add(
+            "danger_level_domain",
+            F.col("danger_level").between(1, 5) | (F.col("danger_level") == -1),
+            "danger_level",
+        )
         add(
             "forecast_order",
             (F.col("forecast_end") >= F.col("forecast_start"))

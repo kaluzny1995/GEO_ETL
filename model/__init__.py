@@ -1,7 +1,7 @@
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import JobType
+from model.other.data_quality import DataQuality
 from model.plain.avalanche_org import AvalancheOrg
-from model.plain.data_quality import DataQuality
 from model.plain.eonet_event import EonetEvent
 from model.plain.gdacs_event import GdacsEvent
 from model.plain.ibtracs_cyclone import IbtacsCyclone

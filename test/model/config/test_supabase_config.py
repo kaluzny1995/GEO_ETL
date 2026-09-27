@@ -62,4 +62,5 @@ class TestSupabaseConnectionConfig:
             "user": "user",
             "password": "pass",
             "driver": "org.postgresql.Driver",
+            "prepareThreshold": "0",
         }

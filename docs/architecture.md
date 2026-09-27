@@ -69,9 +69,8 @@ GEO_ETL/
 │   │   ├── usgs_earthquake_raw.py    # UsgsEarthquakeRaw — all-TEXT raw model
 │   │   ├── usgs_nwis_raw.py          # UsgsNwisRaw — all-TEXT raw model
 │   │   └── usgs_volcano_raw.py       # UsgsVolcanoRaw — all-TEXT raw model
-│   └── plain/
+│   ├── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
-│       ├── data_quality.py           # DataQuality — metric row (str, float, datetime)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
 │       ├── gdacs_event.py            # GdacsEvent — typed model (float, int, datetime, bool)
 │       ├── ibtracs_cyclone.py        # IbtacsCyclone — typed model (float, int, datetime)
@@ -80,6 +79,8 @@ GEO_ETL/
 │       ├── usgs_earthquake.py        # UsgsEarthquake — typed model (float, int, datetime)
 │       ├── usgs_nwis.py              # UsgsNwis — typed model (date, float, double)
 │       └── usgs_volcano.py           # UsgsVolcano — typed model (int, timestamp)
+│   └── other/
+│       └── data_quality.py           # DataQuality — metric row (str, float, datetime)
 │
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
@@ -135,7 +136,6 @@ GEO_ETL/
     │   │   └── test_supabase_config.py
     │   ├── plain/
     │   │   ├── test_avalanche_org.py
-    │   │   ├── test_data_quality.py
     │   │   ├── test_eonet_event.py
     │   │   ├── test_gdacs_event.py
     │   │   ├── test_ibtracs_cyclone.py
@@ -144,16 +144,18 @@ GEO_ETL/
     │   │   ├── test_usgs_earthquake.py
     │   │   ├── test_usgs_nwis.py
     │   │   └── test_usgs_volcano.py
-    │   └── raw/
-    │       ├── test_avalanche_org_raw.py
-    │       ├── test_eonet_event_raw.py
-    │       ├── test_gdacs_event_raw.py
-    │       ├── test_ibtracs_cyclone_raw.py
-    │       ├── test_nifc_fire_raw.py
-    │       ├── test_openmeteo_flood_raw.py
-    │       ├── test_usgs_earthquake_raw.py
-    │       ├── test_usgs_nwis_raw.py
-    │       └── test_usgs_volcano_raw.py
+    │   ├── raw/
+    │   │   ├── test_avalanche_org_raw.py
+    │   │   ├── test_eonet_event_raw.py
+    │   │   ├── test_gdacs_event_raw.py
+    │   │   ├── test_ibtracs_cyclone_raw.py
+    │   │   ├── test_nifc_fire_raw.py
+    │   │   ├── test_openmeteo_flood_raw.py
+    │   │   ├── test_usgs_earthquake_raw.py
+    │   │   ├── test_usgs_nwis_raw.py
+    │   │   └── test_usgs_volcano_raw.py
+    │   └── other/
+    │       └── test_data_quality.py
     ├── scripts/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py

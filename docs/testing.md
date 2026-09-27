@@ -37,7 +37,6 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/model/raw/test_usgs_nwis_raw.py` | UsgsNwisRaw model validation + Spark schema |
 | `test/model/raw/test_usgs_volcano_raw.py` | UsgsVolcanoRaw model validation + Spark schema |
 | `test/model/plain/test_avalanche_org.py` | AvalancheOrg model validation + Spark schema + DDL types |
-| `test/model/plain/test_data_quality.py` | DataQuality model validation + Spark schema + DDL types + registry |
 | `test/model/plain/test_eonet_event.py` | EonetEvent model validation + Spark schema + DDL types |
 | `test/model/plain/test_gdacs_event.py` | GdacsEvent model validation + Spark schema + DDL types |
 | `test/model/plain/test_ibtracs_cyclone.py` | IbtacsCyclone model validation + Spark schema + DDL types |
@@ -46,6 +45,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/model/plain/test_usgs_earthquake.py` | UsgsEarthquake model validation + Spark schema + DDL types |
 | `test/model/plain/test_usgs_nwis.py` | UsgsNwis model validation + Spark schema + DDL types |
 | `test/model/plain/test_usgs_volcano.py` | UsgsVolcano model validation + Spark schema + DDL types |
+| `test/model/other/test_data_quality.py` | DataQuality model validation + Spark schema + DDL types + registry |
 | `test/ingestion/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload: historical, incremental, no files, logging) |
 | `test/ingestion/upload/test_eonet_event_upload.py` | EONET upload script (helpers + upload: historical, incremental, no files, logging) |
 | `test/ingestion/upload/test_gdacs_event_upload.py` | GDACS upload script (helpers + upload: historical, incremental, no files, logging) |

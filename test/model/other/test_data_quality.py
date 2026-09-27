@@ -10,7 +10,7 @@ from pyspark.sql.types import (
 )
 
 from factory import TableFactory
-from model.plain.data_quality import DataQuality
+from model.other.data_quality import DataQuality
 from utils.ddl_generator import pydantic_to_ddl
 from utils.schema_converter import pydantic_to_spark_schema
 

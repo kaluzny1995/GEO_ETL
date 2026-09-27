@@ -4,8 +4,8 @@ import pytest
 from pydantic import BaseModel
 from pyspark.sql import Row
 
+from model.other.data_quality import DataQuality
 from model.plain.avalanche_org import AvalancheOrg
-from model.plain.data_quality import DataQuality
 from utils.dq_metrics import (
     BAD_METRIC_PREFIX,
     BAD_ROW_METRIC,
@@ -89,7 +89,7 @@ class TestRules:
 
     def test_dataset_rules_avalanche(self, spark_session):
         rules = dataset_rules("avalanche_org", COLUMNS)
-        assert [r.name for r in rules] == ["danger_level_1_5", "forecast_order"]
+        assert [r.name for r in rules] == ["danger_level_domain", "forecast_order"]
 
     def test_dataset_rules_skip_missing_columns(self, spark_session):
         assert dataset_rules("avalanche_org", ["zone_id"]) == []
@@ -107,7 +107,7 @@ class TestRules:
         assert [r.name for r in rules] == [
             "not_blank__zone_name",
             "file_date_iso",
-            "danger_level_1_5",
+            "danger_level_domain",
             "forecast_order",
         ]
 
@@ -117,6 +117,12 @@ class TestRules:
         for rule in rules_for("avalanche_org", AvalancheOrg, COLUMNS):
             assert isinstance(rule.cond, Column)
 
+    def test_danger_level_domain_accepts_no_rating_sentinel(self, spark_session):
+        rule = next(r for r in dataset_rules("avalanche_org", COLUMNS) if r.name == "danger_level_domain")
+        df = spark_session.createDataFrame([(-1,), (1,), (5,), (0,), (6,), (None,)], "danger_level int")
+        outcomes = {r.danger_level: r.passes for r in df.select("danger_level", rule.cond.alias("passes")).collect()}
+        assert outcomes == {-1: True, 1: True, 5: True, 0: False, 6: False, None: None}
+
 
 class TestComputeMetrics:
     def test_columns(self, wide):
@@ -124,7 +130,7 @@ class TestComputeMetrics:
             [FILE_DATE_COL, TOTAL_RECORDS_METRIC]
             + [f"{NULL_METRIC_PREFIX}{c}" for c in COLUMNS]
             + [f"{BAD_METRIC_PREFIX}not_blank__zone_name", f"{BAD_METRIC_PREFIX}file_date_iso"]
-            + [f"{BAD_METRIC_PREFIX}danger_level_1_5", f"{BAD_METRIC_PREFIX}forecast_order"]
+            + [f"{BAD_METRIC_PREFIX}danger_level_domain", f"{BAD_METRIC_PREFIX}forecast_order"]
             + [BAD_ROW_METRIC, DUP_ROW_METRIC, UNIQUE_ROW_METRIC]
         )
         assert sorted(wide.columns) == sorted(expected)
@@ -144,10 +150,10 @@ class TestComputeMetrics:
         assert _value(wide, "2026-09-02", f"{NULL_METRIC_PREFIX}forecast_end") == 0.5
 
     def test_bad_percentages(self, wide):
-        assert _value(wide, "2026-09-01", f"{BAD_METRIC_PREFIX}danger_level_1_5") == 0.25
+        assert _value(wide, "2026-09-01", f"{BAD_METRIC_PREFIX}danger_level_domain") == 0.25
         assert _value(wide, "2026-09-01", f"{BAD_METRIC_PREFIX}not_blank__zone_name") == 0.25
         assert _value(wide, "2026-09-01", f"{BAD_METRIC_PREFIX}file_date_iso") == 0.0
-        assert _value(wide, "2026-09-02", f"{BAD_METRIC_PREFIX}danger_level_1_5") == 0.0
+        assert _value(wide, "2026-09-02", f"{BAD_METRIC_PREFIX}danger_level_domain") == 0.0
 
     def test_nulls_are_not_double_counted_as_bad(self, wide):
         assert _value(wide, "2026-09-01", f"{BAD_METRIC_PREFIX}forecast_order") == 0.0
@@ -155,6 +161,13 @@ class TestComputeMetrics:
     def test_bad_row_pct(self, wide):
         assert _value(wide, "2026-09-01", BAD_ROW_METRIC) == 0.5
         assert _value(wide, "2026-09-02", BAD_ROW_METRIC) == 0.0
+
+    def test_no_rating_sentinel_is_not_a_violation(self, spark_session):
+        rows = [(1, -1, "Alpha", dt.datetime(2026, 9, 3, 10), dt.datetime(2026, 9, 3, 12), "2026-09-03")]
+        df = spark_session.createDataFrame([Row(**dict(zip(COLUMNS, row, strict=True))) for row in rows])
+        wide = compute_metrics(df, table_name="avalanche_org", model=AvalancheOrg)
+        assert _value(wide, "2026-09-03", f"{BAD_METRIC_PREFIX}danger_level_domain") == 0.0
+        assert _value(wide, "2026-09-03", BAD_ROW_METRIC) == 0.0
 
     def test_duplicate_and_unique_percentages(self, wide):
         assert _value(wide, "2026-09-01", DUP_ROW_METRIC) == 0.25
@@ -215,7 +228,7 @@ class TestDataQualityRows:
             f"{NULL_METRIC_PREFIX}file_date",
             f"{BAD_METRIC_PREFIX}not_blank__zone_name",
             f"{BAD_METRIC_PREFIX}file_date_iso",
-            f"{BAD_METRIC_PREFIX}danger_level_1_5",
+            f"{BAD_METRIC_PREFIX}danger_level_domain",
             f"{BAD_METRIC_PREFIX}forecast_order",
         }
 

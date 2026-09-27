@@ -31,7 +31,7 @@ DDL is generated from the Pydantic models instead of being written by hand — s
 | `usgs_nwis` | `UsgsNwis` | `model/plain/` | USGS NWIS stream gauge data — typed (date, float, double) |
 | `usgs_volcano_raw` | `UsgsVolcanoRaw` | `model/raw/` | USGS volcanic activity data — all fields as TEXT |
 | `usgs_volcano` | `UsgsVolcano` | `model/plain/` | USGS volcanic activity data — typed (int, timestamp) |
-| `data_quality` | `DataQuality` | `model/plain/` | Quality metrics per `file_date` — long format (str, float, timestamp) |
+| `data_quality` | `DataQuality` | `model/other/` | Quality metrics per `file_date` — long format (str, float, timestamp) |
 
 > **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org` to the CLI, not `avalanche_org_raw`.
 
