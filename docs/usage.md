@@ -92,10 +92,12 @@ python run_etl.py INGESTION usgs_volcano
 1. Reads config from `config.json` (Spark master, DB schema, JDBC driver) and `supabase_config.json` (credentials)
 2. Connects to the Spark cluster
 3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model, executes it against Supabase
-4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories
+4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories — **exits with code 1 when nothing was ingested** (no CSV newer than the raw table's max `file_date` and no raw row newer than the plain table's)
 5. For `DATA_QUALITY`: measures only the selected `file_date`s of the plain table and replaces those rows in `geo.data_quality`
 
 See [ETL jobs](etl-jobs.md) for the job registry, the CREATE and INGESTION pipelines and their load-type logic.
+
+**Exit codes:** `0` when the job wrote data (or `DATA_QUALITY` only had nothing new to measure and warned), `1` on any exception — including the `INGESTION` "no new data" case. A chained [GEO_E2E](../../GEO_E2E/docs/architecture.md) run reacts to a non-zero code by logging a warning and stopping the chain, so `DATA_QUALITY` never runs on a table that did not change.
 
 ## Check data quality
 

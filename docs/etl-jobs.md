@@ -81,7 +81,7 @@ flowchart TD
         H1 --> READ["spark.read.csv with model schema<br/>+ file_date column from filename"]
         I1 --> READ
         READ --> W1["df.write.jdbc append"]
-        D1 -->|"no new files"| SKIP1["log warning, nothing written"]
+        D1 -->|"no new files"| SKIP1["log warning → return False"]
     end
 
     subgraph R2P["Step 2 — Raw2Plain (ingestion/raw2plain/ + utils/raw2plain_utils.py)"]
@@ -91,13 +91,18 @@ flowchart TD
         H2 --> CV["convert_fn: cast TEXT to<br/>int / bool / timestamp / date"]
         I2 --> CV
         CV --> W2["write JDBC append"]
-        D2 -->|"no new rows"| SKIP2["log warning, nothing written"]
+        D2 -->|"no new rows"| SKIP2["log warning → return False"]
         FT --> D2
     end
 
     W1 --> RAW[("geo.avalanche_org_raw<br/>all columns TEXT")]
     RAW --> FT
     W2 --> PLAIN[("geo.avalanche_org<br/>typed columns")]
+
+    SKIP1 -.-> NOOP{"both steps<br/>returned False?"}
+    SKIP2 -.-> NOOP
+    NOOP -->|"yes"| FAIL["raise RuntimeError →<br/>exit code 1"]
+    NOOP -->|"no"| OK["return<br/>'complete'"]
 ```
 
 How the data flows:
@@ -105,7 +110,7 @@ How the data flows:
 1. `run_etl.py` appends the `_raw` suffix to the table name (unless you already passed one), resolves `JobType.INGESTION` → `jobs/ingestion.py`, and creates a single logger — both steps write to the same `logs/ingestion/ingestion_<table>_<timestamp>.log`.
 2. **Upload** — `UploadScriptFactory` picks the upload script for the table; CSVs from `data.directory` are read one by one, stamped with `file_date` from the filename, unioned and appended to the raw table.
 3. **Raw2Plain** — `Raw2PlainScriptFactory` picks the transform; only raw rows newer than the latest `file_date` in the plain table are read, passed through the dataset-specific `convert_fn`, and appended to the plain table.
-4. Both steps decide [Load type detection](#load-type-detection) from the state of their target table — no manual flag. If a step finds no new data it logs a warning and returns, and the job still finishes successfully.
+4. Both steps decide [Load type detection](#load-type-detection) from the state of their target table — no manual flag. A step that finds no new data logs a warning and returns `False`; **when both steps return `False` the job raises `RuntimeError`** (`No new data to ingest for <table>`), so `run_etl.py` exits with code 1 and a chained GEO_E2E run stops. If either step wrote anything the job still finishes successfully — e.g. raw rows left by an earlier crash are transformed even though no new file arrived.
 
 Details of each step: [Upload pipeline](#upload-pipeline) · [Raw2Plain pipeline](#raw2plain-pipeline).
 
@@ -144,6 +149,7 @@ The INGESTION pipelines and the DATA_QUALITY job decide their load type from the
 |-----------|-----------|----------|
 | Table is empty | `HISTORICAL` | Uploads all CSV files |
 | Table has data | `INCREMENTAL` | Uploads only CSVs with `file_date` newer than the latest in the table |
+| No file newer than the table's max | `INCREMENTAL` | Warns, writes nothing, returns `False` |
 
 ### Raw2Plain
 
@@ -151,6 +157,7 @@ The INGESTION pipelines and the DATA_QUALITY job decide their load type from the
 |-----------|-----------|----------|
 | Final table is empty | `HISTORICAL` | Processes all raw data |
 | Final table has data | `INCREMENTAL` | Processes only raw rows with `file_date` > max in final |
+| No raw row newer than the final max | `INCREMENTAL` | Warns, writes nothing, returns `False` |
 
 ### DATA_QUALITY
 
@@ -161,11 +168,20 @@ The INGESTION pipelines and the DATA_QUALITY job decide their load type from the
 
 Details: [Data Quality job — Load type detection](data-quality.md#load-type-detection).
 
-When nothing new is found, the job logs a warning and returns without writing — it still finishes successfully:
+**INGESTION fails when there is nothing to ingest** — both steps warn, and because neither wrote anything the job raises, so `run_etl.py` exits with code 1 (the E2E chain then logs a warning and skips `DATA_QUALITY`):
 
 ```
-logger.warning("No new files to upload for avalanche_org_raw — nothing to do, table is up to date")
-logger.warning("No new records to process for avalanche_org_raw — nothing to do, table is up to date")
+WARNING No new files to upload for avalanche_org_raw — nothing to do, table is up to date
+WARNING No new records to process for avalanche_org_raw — nothing to do, table is up to date
+WARNING No new data to ingest for avalanche_org_raw — no file newer than the latest file_date
+ERROR ETL job failed   (RuntimeError)   → exit code 1
+```
+
+A step that *did* have work keeps the job green: raw rows left behind by an earlier crash are transformed even when no new file arrived.
+
+**DATA_QUALITY** keeps the opposite behaviour — with no new `file_date` to measure it warns and still finishes successfully, so an unchanged chain never fails on the quality step:
+
+```
 logger.warning("No new file_date to measure for avalanche_org — metrics are up to date")
 ```
 

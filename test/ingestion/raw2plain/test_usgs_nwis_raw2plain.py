@@ -44,8 +44,9 @@ def test_no_records_skips_transform(mock_logger):
 
     from ingestion.raw2plain.usgs_nwis_raw2plain import raw2plain
 
-    raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+    result = raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
+    assert result is False
     plain_df.write.jdbc.assert_not_called()
     assert "No new records to process" in mock_logger.return_value.warning.call_args[0][0]
 
@@ -57,8 +58,9 @@ def test_writes_to_correct_table(mock_logger):
 
     from ingestion.raw2plain.usgs_nwis_raw2plain import raw2plain
 
-    raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+    result = raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
+    assert result is True
     write_args = plain_df.write.jdbc.call_args
     assert write_args.kwargs["table"] == "geo.usgs_nwis"
     assert write_args.kwargs["mode"] == "append"

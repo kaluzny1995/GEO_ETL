@@ -166,8 +166,9 @@ def test_writes_to_correct_table(mock_exists, mock_glob, mock_schema, mock_logge
 
     from ingestion.upload.gdacs_event_upload import upload
 
-    upload(spark, mock_app_config_upload(), mock_db_config())
+    uploaded = upload(spark, mock_app_config_upload(), mock_db_config())
 
+    assert uploaded is True
     write_args = df.write.jdbc.call_args
     assert write_args.kwargs["table"] == "geo.gdacs_event_raw"
     assert write_args.kwargs["mode"] == "append"
@@ -186,8 +187,9 @@ def test_no_new_files_skips_upload(mock_exists, mock_glob, mock_schema, mock_log
 
     from ingestion.upload.gdacs_event_upload import upload
 
-    upload(spark, mock_app_config_upload(), mock_db_config())
+    uploaded = upload(spark, mock_app_config_upload(), mock_db_config())
 
+    assert uploaded is False
     spark.read.csv.assert_not_called()
     assert "No new files to upload" in mock_logger.return_value.warning.call_args[0][0]
 

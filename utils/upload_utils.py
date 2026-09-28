@@ -80,7 +80,7 @@ def upload(
     raw_model_cls: type[BaseModel],
     dataset_folder: str,
     logger: logging.Logger | None = None,
-) -> None:
+) -> bool:
     """Upload CSV files to a Supabase table via JDBC.
 
     Automatically detects whether to run a **HISTORICAL** load (all files)
@@ -98,8 +98,10 @@ def upload(
         logger: Optional logger; when ``None`` a file-based logger is created.
 
     Returns:
-        ``None``. If no new CSV files exist for an incremental load, a warning
-        is logged and nothing is written (the table is already up to date).
+        ``True`` when at least one CSV file was written to the table, ``False``
+        when there was nothing to ingest (no file newer than the table's latest
+        ``file_date``). The caller turns ``False`` from every step into a job
+        failure.
     """
     schema = config.database.db_schema
     jdbc_url = db_config.get_jdbc_url()
@@ -137,7 +139,7 @@ def upload(
 
     if not csv_files:
         logger.warning(f"No new files to upload for {table_name} — nothing to do, table is up to date")
-        return
+        return False
 
     csv_schema = pydantic_to_spark_schema(raw_model_cls)
     fields_without_file_date = [f for f in csv_schema.fields if f.name != "file_date"]
@@ -157,3 +159,4 @@ def upload(
     logger.info(f"Writing to {full_table}...")
     df.write.jdbc(url=jdbc_url, table=full_table, mode="append", properties=properties)
     logger.info(f"Upload complete: {len(csv_files)} files written to {full_table}")
+    return True

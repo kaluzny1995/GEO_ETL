@@ -45,4 +45,4 @@ def raw2plain(
         db_config: Supabase connection credentials.
         logger: Optional logger for consolidated logging.
     """
-    _utils.raw2plain(spark, config, db_config, RAW_TABLE, PLAIN_TABLE, _convert, logger)
+    return _utils.raw2plain(spark, config, db_config, RAW_TABLE, PLAIN_TABLE, _convert, logger)

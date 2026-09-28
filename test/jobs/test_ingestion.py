@@ -61,8 +61,18 @@ def test_ingestion_runs_upload_then_raw2plain(mock_app, mock_db):
 def test_ingestion_upload_before_raw2plain(mock_app, mock_db):
     spark = MagicMock()
     call_order = []
-    upload_fn = MagicMock(side_effect=lambda s, c, d, **kw: call_order.append("upload"))
-    raw2plain_fn = MagicMock(side_effect=lambda s, c, d, **kw: call_order.append("raw2plain"))
+
+    def _record(name):
+        """Fake upload/raw2plain step that records its name and reports work done."""
+
+        def _step(*args, **kwargs):
+            call_order.append(name)
+            return True
+
+        return _step
+
+    upload_fn = MagicMock(side_effect=_record("upload"))
+    raw2plain_fn = MagicMock(side_effect=_record("raw2plain"))
 
     UploadScriptFactory.register("t", upload_fn)
     Raw2PlainScriptFactory.register("t", raw2plain_fn)
@@ -129,3 +139,55 @@ def test_ingestion_logs_steps(mock_app, mock_db):
     log.info.assert_any_call("Upload for t complete")
     log.info.assert_any_call("Running raw2plain for t...")
     log.info.assert_any_call("Raw2Plain for t complete")
+
+
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+def test_ingestion_fails_when_nothing_to_ingest(mock_app, mock_db):
+    """No new file and no pending raw rows → RuntimeError, so the E2E chain stops."""
+    # Arrange
+    spark = MagicMock()
+    UploadScriptFactory.register("t", MagicMock(return_value=False))
+    Raw2PlainScriptFactory.register("t", MagicMock(return_value=False))
+
+    from jobs.ingestion import run
+
+    # Act & Assert
+    with pytest.raises(RuntimeError, match="No new data to ingest for t"):
+        run(spark, "t")
+
+
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+def test_ingestion_succeeds_when_only_upload_found_new_files(mock_app, mock_db):
+    """A new CSV that produced no new plain rows is still a successful run."""
+    # Arrange
+    spark = MagicMock()
+    UploadScriptFactory.register("t", MagicMock(return_value=True))
+    Raw2PlainScriptFactory.register("t", MagicMock(return_value=False))
+
+    from jobs.ingestion import run
+
+    # Act
+    result = run(spark, "t")
+
+    # Assert
+    assert "complete" in result
+
+
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+def test_ingestion_succeeds_when_only_raw2plain_has_pending_rows(mock_app, mock_db):
+    """Raw rows left by an earlier crash are transformed — the run must not fail."""
+    # Arrange
+    spark = MagicMock()
+    UploadScriptFactory.register("t", MagicMock(return_value=False))
+    Raw2PlainScriptFactory.register("t", MagicMock(return_value=True))
+
+    from jobs.ingestion import run
+
+    # Act
+    result = run(spark, "t")
+
+    # Assert
+    assert "complete" in result

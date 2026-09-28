@@ -34,4 +34,4 @@ def upload(
         db_config: Supabase connection credentials.
         logger: Optional logger for consolidated logging.
     """
-    _upload(spark, config, db_config, TABLE_NAME, UsgsEarthquakeRaw, "USGS_Earthquake", logger)
+    return _upload(spark, config, db_config, TABLE_NAME, UsgsEarthquakeRaw, "USGS_Earthquake", logger)
