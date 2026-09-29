@@ -14,6 +14,21 @@ Metrics produced per ``file_date``:
 * ``bad_row_pct`` — share of rows violating *any* rule.
 * ``dup_row_pct`` — share of full-row duplicates inside the file_date.
 * ``unique_row_pct`` — share of distinct rows inside the file_date.
+* ``min__<column>``, ``max__<column>``, ``range__<column>`` — observed value
+  range of a numeric column.
+* ``mean__<column>``, ``stddev__<column>`` — mean and population standard
+  deviation of a numeric column.
+* ``p05__<column>`` … ``p95__<column>`` — approximate 5/25/50/75/95th
+  percentile of a numeric column (one metric per point).
+* ``distinct__<column>`` — number of distinct non-NULL values (one per column,
+  ``file_date`` excluded).
+
+A column is *numeric* when its Pydantic annotation is ``int``, ``float`` or
+``bool`` (unwrapping ``Optional``); those are the columns that receive the
+range/spread/percentile metrics, while ``distinct__*`` covers every column.
+A statistic that is undefined for a ``file_date`` — e.g. ``min`` of a column
+that is entirely NULL that day — is omitted instead of stored as NULL, because
+``geo.data_quality.value`` is NOT NULL.
 
 Nulls are reported by ``null_pct__*`` only — a rule that cannot be evaluated
 because of a NULL does not count the row as incorrect, so the two metric
@@ -37,6 +52,15 @@ BAD_METRIC_PREFIX = "bad_pct__"
 BAD_ROW_METRIC = "bad_row_pct"
 DUP_ROW_METRIC = "dup_row_pct"
 UNIQUE_ROW_METRIC = "unique_row_pct"
+MIN_METRIC_PREFIX = "min__"
+MAX_METRIC_PREFIX = "max__"
+RANGE_METRIC_PREFIX = "range__"
+MEAN_METRIC_PREFIX = "mean__"
+STDDEV_METRIC_PREFIX = "stddev__"
+DISTINCT_METRIC_PREFIX = "distinct__"
+PERCENTILE_POINTS = (5, 25, 50, 75, 95)
+
+NUMERIC_TYPES = (int, float, bool)
 
 GEO_TABLES = frozenset(
     {
@@ -92,6 +116,30 @@ def model_rules(model: type[BaseModel], columns: list[str]) -> list[Rule]:
     if FILE_DATE_COL in column_set:
         rules.append(Rule("file_date_iso", F.col(FILE_DATE_COL).rlike(r"^\d{4}-\d{2}-\d{2}$")))
     return rules
+
+
+def numeric_columns(model: type[BaseModel], columns: list[str]) -> list[str]:
+    """Numeric columns of *model* that are present in the DataFrame.
+
+    A column is numeric when its annotation unwraps to ``int``, ``float`` or
+    ``bool`` — those are the columns that receive the range, spread and
+    percentile metrics.  ``file_date`` is the grouping key and columns absent
+    from the DataFrame are skipped, so the metric set always matches the
+    actual table.
+
+    Args:
+        model: Pydantic model of the table being measured.
+        columns: Columns actually present in the DataFrame.
+
+    Returns:
+        Numeric column names in model field order.
+    """
+    column_set = set(columns)
+    return [
+        name
+        for name, field_info in model.model_fields.items()
+        if name != FILE_DATE_COL and name in column_set and _base_type(field_info.annotation) in NUMERIC_TYPES
+    ]
 
 
 def dataset_rules(table_name: str, columns: list[str]) -> list[Rule]:
@@ -205,11 +253,33 @@ def compute_metrics(df: DataFrame, *, table_name: str, model: type[BaseModel]) -
         ((total - distinct_rows) / total).alias(DUP_ROW_METRIC),
         (distinct_rows / total).alias(UNIQUE_ROW_METRIC),
     ]
+
+    for column in numeric_columns(model, df.columns):
+        value = F.col(column).cast("double")
+        aggs += [
+            F.min(value).alias(f"{MIN_METRIC_PREFIX}{column}"),
+            F.max(value).alias(f"{MAX_METRIC_PREFIX}{column}"),
+            (F.max(value) - F.min(value)).alias(f"{RANGE_METRIC_PREFIX}{column}"),
+            F.avg(value).alias(f"{MEAN_METRIC_PREFIX}{column}"),
+            F.stddev_pop(value).alias(f"{STDDEV_METRIC_PREFIX}{column}"),
+        ]
+        aggs += [
+            F.percentile_approx(value, point / 100).alias(f"p{point:02d}__{column}") for point in PERCENTILE_POINTS
+        ]
+    aggs += [
+        F.countDistinct(F.col(column)).alias(f"{DISTINCT_METRIC_PREFIX}{column}")
+        for column in df.columns
+        if column != FILE_DATE_COL
+    ]
     return df.groupBy(FILE_DATE_COL).agg(*aggs)
 
 
 def to_metrics_rows(wide: DataFrame, *, table_name: str) -> DataFrame:
     """Unpivot a wide metric frame to the long ``DataQuality`` layout.
+
+    Metric values that are NULL — a statistic undefined for a ``file_date``,
+    such as ``min`` of a column that is entirely NULL that day — are dropped:
+    ``geo.data_quality.value`` is NOT NULL.
 
     Args:
         wide: Output of :func:`compute_metrics`.
@@ -227,12 +297,16 @@ def to_metrics_rows(wide: DataFrame, *, table_name: str) -> DataFrame:
             ]
         )
     )
-    return wide.select(F.lit(table_name).alias("table_name"), F.col(FILE_DATE_COL), stacked.alias("_metric")).select(
-        F.col("table_name"),
-        F.col(FILE_DATE_COL),
-        F.col("_metric.metric").alias("metric"),
-        F.col("_metric.value").alias("value"),
-        F.current_timestamp().alias("computed_at"),
+    return (
+        wide.select(F.lit(table_name).alias("table_name"), F.col(FILE_DATE_COL), stacked.alias("_metric"))
+        .select(
+            F.col("table_name"),
+            F.col(FILE_DATE_COL),
+            F.col("_metric.metric").alias("metric"),
+            F.col("_metric.value").alias("value"),
+            F.current_timestamp().alias("computed_at"),
+        )
+        .where(F.col("value").isNotNull())
     )
 
 

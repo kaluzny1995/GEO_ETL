@@ -53,10 +53,10 @@ Expected output (first run):
 INFO Creating table 'geo.data_quality' if not exists...
 INFO No metrics stored for avalanche_org → HISTORICAL: measuring every file_date
 INFO Reading geo.avalanche_org...
-INFO Computed 126 metrics for 9 file_date(s) in avalanche_org (HISTORICAL)
+INFO Computed 657 metrics for 9 file_date(s) in avalanche_org (HISTORICAL)
 INFO Replacing stored metrics for avalanche_org...
 INFO Writing to geo.data_quality...
-INFO Data quality metrics complete: 126 rows written to geo.data_quality
+INFO Data quality metrics complete: 657 rows written to geo.data_quality
 ```
 
 Expected output (later runs):
@@ -66,10 +66,10 @@ INFO Creating table 'geo.data_quality' if not exists...
 INFO Latest measured file_date: 2026-09-20 → INCREMENTAL: measuring file_date > 2026-09-20
 INFO Purging metrics for file_dates no longer present in geo.avalanche_org...
 INFO Reading geo.avalanche_org...
-INFO Computed 14 metrics for 1 file_date(s) in avalanche_org (INCREMENTAL)
+INFO Computed 73 metrics for 1 file_date(s) in avalanche_org (INCREMENTAL)
 INFO Replacing stored metrics for avalanche_org...
 INFO Writing to geo.data_quality...
-INFO Data quality metrics complete: 14 rows written to geo.data_quality
+INFO Data quality metrics complete: 73 rows written to geo.data_quality
 ```
 
 When nothing new arrived, the job stops after the purge and writes nothing:
@@ -114,8 +114,12 @@ Each row of `geo.data_quality` is one metric value for one `file_date`:
 | `bad_row_pct` | Share of rows violating *any* rule. |
 | `dup_row_pct` | Share of full-row duplicates inside the `file_date`. |
 | `unique_row_pct` | Share of distinct rows inside the `file_date`. |
+| `distinct__<column>` | Number of distinct non-NULL values — one metric per column (`file_date` excluded). |
+| `min__<column>`, `max__<column>`, `range__<column>` | Observed value range of a numeric column (`range` = `max − min`). |
+| `mean__<column>`, `stddev__<column>` | Mean and population standard deviation of a numeric column. |
+| `p05__<column>` … `p95__<column>` | Approximate 5th/25th/50th/75th/95th percentile of a numeric column — one metric per point. |
 
-Nulls are reported by `null_pct__*` only. A rule that cannot be evaluated because of a NULL does not count the row as incorrect, so the two metric families never double count.
+Nulls are reported by `null_pct__*` only. A rule that cannot be evaluated because of a NULL does not count the row as incorrect, so the two metric families never double count. The range and distribution statistics simply ignore NULL values.
 
 ## Rules
 
@@ -147,6 +151,22 @@ Rules whose column is missing from the table are skipped.
 
 `danger_level_domain` accepts the source's `-1` ("no rating") sentinel together with `1`…`5`, so a period where no ratings are published (off-season) is reported as clean instead of 100% bad rows.
 
+## Range and distribution metrics
+
+How much a field *varies* inside one `file_date` — its observed range, its spread and the shape of its distribution:
+
+- **Numeric columns** — a column whose Pydantic annotation is `int`, `float` or `bool` (`Optional` unwrapped) gets `min__`, `max__`, `range__`, `mean__`, `stddev__` and the five `p05__`…`p95__` percentiles. Columns missing from the table are skipped, so the metric set always matches the actual table.
+- **Every column** gets `distinct__` — the number of distinct non-NULL values, which is the direct measure of how varied a field is (a string column stuck on one value, or a numeric column collapsing to a single reading, shows up immediately). `file_date` is the grouping key and is excluded.
+
+Notes:
+
+- All of these are plain aggregates, so they are computed in the same single `groupBy("file_date").agg(...)` pass as the rates.
+- Percentiles use Spark's `percentile_approx`: approximate, and always an *observed* value — they never interpolate between two observations.
+- Statistics are computed over the non-NULL values of that `file_date`. When a statistic is undefined — `min` of a column that is entirely NULL that day — the metric is **omitted** rather than stored as NULL, because `geo.data_quality.value` is `NOT NULL`; `null_pct__<column> = 1` already tells you why. `distinct__` of an all-NULL column is stored as `0`.
+- Booleans are numeric: `mean__off_season` is the share of `true` rows.
+
+Example metric names for `avalanche_org` (numeric columns `zone_id`, `danger_level`, `off_season`): `min__danger_level`, `max__danger_level`, `range__danger_level`, `mean__danger_level`, `stddev__danger_level`, `p50__danger_level`, plus `distinct__zone_name` for the string column.
+
 ## Querying the results
 
 Latest quality snapshot for a table:
@@ -173,6 +193,52 @@ Tables breaching a threshold:
 SELECT DISTINCT table_name
 FROM geo.data_quality
 WHERE metric = 'bad_row_pct' AND value > 0.05;
+```
+
+Observed range of a column over time (one row per `file_date`):
+
+```sql
+SELECT file_date,
+       max(value) FILTER (WHERE metric = 'min__mag')    AS min_mag,
+       max(value) FILTER (WHERE metric = 'max__mag')    AS max_mag,
+       max(value) FILTER (WHERE metric = 'range__mag')  AS range_mag,
+       max(value) FILTER (WHERE metric = 'mean__mag')   AS mean_mag
+FROM geo.data_quality
+WHERE table_name = 'usgs_earthquake'
+GROUP BY file_date
+ORDER BY file_date;
+```
+
+Distribution shape of a column — quantiles plus spread:
+
+```sql
+SELECT file_date,
+       max(value) FILTER (WHERE metric = 'p05__mag')    AS p05,
+       max(value) FILTER (WHERE metric = 'p50__mag')    AS p50,
+       max(value) FILTER (WHERE metric = 'p95__mag')    AS p95,
+       max(value) FILTER (WHERE metric = 'stddev__mag') AS stddev
+FROM geo.data_quality
+WHERE table_name = 'usgs_earthquake'
+GROUP BY file_date
+ORDER BY file_date;
+```
+
+Fields that stopped varying — one distinct value for the whole `file_date`:
+
+```sql
+SELECT table_name, file_date, metric, value AS distinct_values
+FROM geo.data_quality
+WHERE metric LIKE 'distinct__%' AND value = 1
+ORDER BY table_name, file_date;
+```
+
+Cardinality drift of one field (e.g. a code column collapsing to fewer values):
+
+```sql
+SELECT file_date, value AS distinct_values
+FROM geo.data_quality
+WHERE table_name = 'gdacs_event' AND metric = 'distinct__alert_level'
+ORDER BY file_date;
 ```
 
 ## Related code

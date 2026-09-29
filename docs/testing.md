@@ -69,7 +69,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date, table derivation, skip on empty) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
-| `test/util/test_dq_metrics.py` | Rules, metric computation, unpivoting — run on a real local Spark session |
+| `test/util/test_dq_metrics.py` | Rules, rate/variance metric computation, unpivoting — run on a real local Spark session |
 | `test/util/test_jdbc_retry.py` | Connection-error detection, bounded retries, delay and warning per attempt |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
 | `test/util/test_spark_monitor.py` | Stage memory logger registration (Java bridge, directory creation, listener setup) |

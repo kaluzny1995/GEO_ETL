@@ -6,19 +6,28 @@ from pyspark.sql import Row
 
 from model.other.data_quality import DataQuality
 from model.plain.avalanche_org import AvalancheOrg
+from model.plain.usgs_earthquake import UsgsEarthquake
 from utils.dq_metrics import (
     BAD_METRIC_PREFIX,
     BAD_ROW_METRIC,
+    DISTINCT_METRIC_PREFIX,
     DUP_ROW_METRIC,
     FILE_DATE_COL,
+    MAX_METRIC_PREFIX,
+    MEAN_METRIC_PREFIX,
     METRICS_TABLE,
+    MIN_METRIC_PREFIX,
     NULL_METRIC_PREFIX,
+    PERCENTILE_POINTS,
+    RANGE_METRIC_PREFIX,
+    STDDEV_METRIC_PREFIX,
     TOTAL_RECORDS_METRIC,
     UNIQUE_ROW_METRIC,
     compute_metrics,
     data_quality_rows,
     dataset_rules,
     model_rules,
+    numeric_columns,
     rules_for,
     to_metrics_rows,
 )
@@ -35,7 +44,26 @@ ROWS = [
     ("5", "2", "Echo", None, "2026-09-02 12:00", "2026-09-02"),
 ]
 
-METRICS_PER_DATE = 14
+NUMERIC_COLUMNS = ["zone_id", "danger_level"]
+DISTINCT_COLUMNS = ["zone_id", "danger_level", "zone_name", "forecast_start", "forecast_end"]
+
+METRICS_PER_DATE = 39
+
+VARYINGNESS_PREFIXES = (
+    MIN_METRIC_PREFIX,
+    MAX_METRIC_PREFIX,
+    RANGE_METRIC_PREFIX,
+    MEAN_METRIC_PREFIX,
+    STDDEV_METRIC_PREFIX,
+    *(f"p{point:02d}__" for point in PERCENTILE_POINTS),
+)
+
+
+def _varyingness_metrics() -> set[str]:
+    """Every range/spread/percentile/cardinality metric of the test frame."""
+    return {f"{prefix}{column}" for column in NUMERIC_COLUMNS for prefix in VARYINGNESS_PREFIXES} | {
+        f"{DISTINCT_METRIC_PREFIX}{column}" for column in DISTINCT_COLUMNS
+    }
 
 
 @pytest.fixture
@@ -63,6 +91,15 @@ class TestConstants:
         assert BAD_ROW_METRIC == "bad_row_pct"
         assert DUP_ROW_METRIC == "dup_row_pct"
         assert UNIQUE_ROW_METRIC == "unique_row_pct"
+
+    def test_varyingness_metric_names(self):
+        assert MIN_METRIC_PREFIX == "min__"
+        assert MAX_METRIC_PREFIX == "max__"
+        assert RANGE_METRIC_PREFIX == "range__"
+        assert MEAN_METRIC_PREFIX == "mean__"
+        assert STDDEV_METRIC_PREFIX == "stddev__"
+        assert DISTINCT_METRIC_PREFIX == "distinct__"
+        assert PERCENTILE_POINTS == (5, 25, 50, 75, 95)
 
 
 class TestRules:
@@ -124,6 +161,31 @@ class TestRules:
         assert outcomes == {-1: True, 1: True, 5: True, 0: False, 6: False, None: None}
 
 
+class TestNumericColumns:
+    def test_selects_numeric_model_columns(self):
+        assert numeric_columns(AvalancheOrg, COLUMNS) == ["zone_id", "danger_level"]
+
+    def test_keeps_model_field_order(self):
+        assert numeric_columns(AvalancheOrg, ["danger_level", "zone_name", "zone_id", "file_date"]) == [
+            "zone_id",
+            "danger_level",
+        ]
+
+    def test_unwraps_optional_numeric(self):
+        assert numeric_columns(UsgsEarthquake, ["latitude", "mag_type", "place", "file_date"]) == ["latitude"]
+
+    def test_includes_bool_columns(self):
+        assert numeric_columns(AvalancheOrg, ["off_season", "zone_name", "file_date"]) == ["off_season"]
+
+    def test_excludes_file_date_and_missing_columns(self):
+        assert numeric_columns(AvalancheOrg, ["zone_id"]) == ["zone_id"]
+        assert numeric_columns(AvalancheOrg, ["file_date"]) == []
+        assert numeric_columns(AvalancheOrg, ["zone_name"]) == []
+
+    def test_excludes_temporal_and_string_columns(self):
+        assert numeric_columns(AvalancheOrg, ["forecast_start", "forecast_end", "date", "zone_name"]) == []
+
+
 class TestComputeMetrics:
     def test_columns(self, wide):
         expected = (
@@ -132,6 +194,7 @@ class TestComputeMetrics:
             + [f"{BAD_METRIC_PREFIX}not_blank__zone_name", f"{BAD_METRIC_PREFIX}file_date_iso"]
             + [f"{BAD_METRIC_PREFIX}danger_level_domain", f"{BAD_METRIC_PREFIX}forecast_order"]
             + [BAD_ROW_METRIC, DUP_ROW_METRIC, UNIQUE_ROW_METRIC]
+            + list(_varyingness_metrics())
         )
         assert sorted(wide.columns) == sorted(expected)
 
@@ -179,6 +242,98 @@ class TestComputeMetrics:
         df = source_df.drop(FILE_DATE_COL)
         with pytest.raises(ValueError, match="file_date"):
             compute_metrics(df, table_name="avalanche_org", model=AvalancheOrg)
+
+
+class TestVaryingnessMetrics:
+    def test_min_max_range(self, wide):
+        assert _value(wide, "2026-09-01", f"{MIN_METRIC_PREFIX}zone_id") == 1.0
+        assert _value(wide, "2026-09-01", f"{MAX_METRIC_PREFIX}zone_id") == 3.0
+        assert _value(wide, "2026-09-01", f"{RANGE_METRIC_PREFIX}zone_id") == 2.0
+        assert _value(wide, "2026-09-02", f"{MIN_METRIC_PREFIX}zone_id") == 4.0
+        assert _value(wide, "2026-09-02", f"{MAX_METRIC_PREFIX}zone_id") == 5.0
+        assert _value(wide, "2026-09-01", f"{MIN_METRIC_PREFIX}danger_level") == 1.0
+        assert _value(wide, "2026-09-01", f"{MAX_METRIC_PREFIX}danger_level") == 9.0
+        assert _value(wide, "2026-09-01", f"{RANGE_METRIC_PREFIX}danger_level") == 8.0
+
+    def test_mean_and_stddev(self, wide):
+        assert _value(wide, "2026-09-01", f"{MEAN_METRIC_PREFIX}zone_id") == pytest.approx(1.75)
+        assert _value(wide, "2026-09-01", f"{STDDEV_METRIC_PREFIX}zone_id") == pytest.approx(0.82915619758885)
+        assert _value(wide, "2026-09-01", f"{MEAN_METRIC_PREFIX}danger_level") == pytest.approx(4.0)
+        assert _value(wide, "2026-09-01", f"{STDDEV_METRIC_PREFIX}danger_level") == pytest.approx(3.0)
+        assert _value(wide, "2026-09-02", f"{MEAN_METRIC_PREFIX}zone_id") == pytest.approx(4.5)
+        assert _value(wide, "2026-09-02", f"{STDDEV_METRIC_PREFIX}danger_level") == pytest.approx(0.5)
+
+    def test_mean_stays_within_the_observed_range(self, wide):
+        for file_date in ("2026-09-01", "2026-09-02"):
+            for column in NUMERIC_COLUMNS:
+                low = _value(wide, file_date, f"{MIN_METRIC_PREFIX}{column}")
+                high = _value(wide, file_date, f"{MAX_METRIC_PREFIX}{column}")
+                assert low <= _value(wide, file_date, f"{MEAN_METRIC_PREFIX}{column}") <= high
+                assert _value(wide, file_date, f"{RANGE_METRIC_PREFIX}{column}") == pytest.approx(high - low)
+
+    def test_percentiles_are_ordered_and_bounded(self, wide):
+        for file_date in ("2026-09-01", "2026-09-02"):
+            for column in NUMERIC_COLUMNS:
+                quantiles = [_value(wide, file_date, f"p{point:02d}__{column}") for point in PERCENTILE_POINTS]
+                assert quantiles == sorted(quantiles)
+                assert _value(wide, file_date, f"{MIN_METRIC_PREFIX}{column}") <= quantiles[0]
+                assert quantiles[-1] <= _value(wide, file_date, f"{MAX_METRIC_PREFIX}{column}")
+
+    def test_percentiles_return_observed_values(self, wide):
+        # Spark's percentile_approx never interpolates between observations.
+        assert _value(wide, "2026-09-01", "p50__zone_id") == 1.0
+        assert _value(wide, "2026-09-01", "p95__zone_id") == 3.0
+        assert _value(wide, "2026-09-01", "p50__danger_level") == 3.0
+        assert _value(wide, "2026-09-02", "p95__danger_level") == 2.0
+
+    def test_distinct_counts(self, wide):
+        assert _value(wide, "2026-09-01", f"{DISTINCT_METRIC_PREFIX}zone_id") == 3.0
+        assert _value(wide, "2026-09-01", f"{DISTINCT_METRIC_PREFIX}danger_level") == 3.0
+        assert _value(wide, "2026-09-01", f"{DISTINCT_METRIC_PREFIX}zone_name") == 3.0
+        assert _value(wide, "2026-09-01", f"{DISTINCT_METRIC_PREFIX}forecast_start") == 1.0
+        assert _value(wide, "2026-09-02", f"{DISTINCT_METRIC_PREFIX}zone_id") == 2.0
+
+    def test_string_columns_only_get_cardinality(self, wide):
+        assert f"{DISTINCT_METRIC_PREFIX}zone_name" in wide.columns
+        for prefix in VARYINGNESS_PREFIXES:
+            assert f"{prefix}zone_name" not in wide.columns
+
+    def test_file_date_excluded_from_varyingness_metrics(self, wide):
+        for prefix in VARYINGNESS_PREFIXES:
+            assert f"{prefix}{FILE_DATE_COL}" not in wide.columns
+        assert f"{DISTINCT_METRIC_PREFIX}{FILE_DATE_COL}" not in wide.columns
+
+    def test_all_null_numeric_column_omits_undefined_stats(self, spark_session):
+        rows = [
+            (None, "3", "Alpha", "2026-09-01 10:00", "2026-09-01 12:00", "2026-09-01"),
+            (None, "1", "Bravo", None, None, "2026-09-01"),
+        ]
+        schema = ",".join(f"{column} string" for column in COLUMNS)
+        df = spark_session.createDataFrame(rows, schema)
+        rows_long = data_quality_rows(df, table_name="avalanche_org", model=AvalancheOrg).collect()
+
+        metrics = {row.metric for row in rows_long}
+        assert f"{MIN_METRIC_PREFIX}zone_id" not in metrics
+        assert f"{RANGE_METRIC_PREFIX}zone_id" not in metrics
+        assert f"{MEAN_METRIC_PREFIX}zone_id" not in metrics
+        assert f"{STDDEV_METRIC_PREFIX}zone_id" not in metrics
+        assert "p50__zone_id" not in metrics
+        assert f"{NULL_METRIC_PREFIX}zone_id" in metrics
+        assert f"{DISTINCT_METRIC_PREFIX}zone_id" in metrics
+        assert all(row.value is not None for row in rows_long)
+
+    def test_stats_ignore_null_values(self, spark_session):
+        rows = [
+            ("1", "3", "Alpha", None, None, "2026-09-01"),
+            (None, "9", "Bravo", None, None, "2026-09-01"),
+        ]
+        schema = ",".join(f"{column} string" for column in COLUMNS)
+        df = spark_session.createDataFrame(rows, schema)
+        wide = compute_metrics(df, table_name="avalanche_org", model=AvalancheOrg)
+        assert _value(wide, "2026-09-01", f"{MIN_METRIC_PREFIX}zone_id") == 1.0
+        assert _value(wide, "2026-09-01", f"{MAX_METRIC_PREFIX}zone_id") == 1.0
+        assert _value(wide, "2026-09-01", f"{MEAN_METRIC_PREFIX}zone_id") == pytest.approx(1.0)
+        assert _value(wide, "2026-09-01", f"{DISTINCT_METRIC_PREFIX}zone_id") == 1.0
 
 
 class TestToMetricsRows:
@@ -230,6 +385,7 @@ class TestDataQualityRows:
             f"{BAD_METRIC_PREFIX}file_date_iso",
             f"{BAD_METRIC_PREFIX}danger_level_domain",
             f"{BAD_METRIC_PREFIX}forecast_order",
+            *_varyingness_metrics(),
         }
 
     def test_file_dates_present(self, source_df):

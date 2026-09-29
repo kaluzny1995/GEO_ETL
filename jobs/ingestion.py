@@ -52,6 +52,6 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
     if not uploaded and not transformed:
         message = f"No new data to ingest for {table_name} — no file newer than the latest file_date"
         logger.warning(message)
-        raise Exception(message)
+        raise RuntimeError(message)
 
     return f"Ingestion for {table_name} complete."

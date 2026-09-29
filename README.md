@@ -16,7 +16,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 - **Custom Spark image** — based on `apache/spark:3.5.5` with Hadoop AWS + PostgreSQL JARs
 - **Local PySpark client** — scripts run on the host, connecting to the cluster remotely
 - **Model-driven schema** — Pydantic models define table structures; DDL and PySpark schemas are generated automatically
-- **Data quality metrics** — per-`file_date` null/bad/duplicate rates in `geo.data_quality`, measured incrementally (HISTORICAL first, then only new dates)
+- **Data quality metrics** — per-`file_date` null/bad/duplicate rates plus field varyingness (min/max/range, mean/stddev, percentiles, distinct counts) in `geo.data_quality`, measured incrementally (HISTORICAL first, then only new dates)
 - **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY) via a job registry
 
 ## Tech Stack
