@@ -18,6 +18,7 @@ from utils.dq_metrics import (
     METRICS_TABLE,
     MIN_METRIC_PREFIX,
     NULL_METRIC_PREFIX,
+    OVERALL_FILE_DATE,
     PERCENTILE_POINTS,
     RANGE_METRIC_PREFIX,
     STDDEV_METRIC_PREFIX,
@@ -84,6 +85,7 @@ def _value(wide, file_date, metric):
 class TestConstants:
     def test_metric_names(self):
         assert FILE_DATE_COL == "file_date"
+        assert OVERALL_FILE_DATE == "overall"
         assert METRICS_TABLE == "data_quality"
         assert TOTAL_RECORDS_METRIC == "total_records"
         assert NULL_METRIC_PREFIX == "null_pct__"
@@ -159,6 +161,13 @@ class TestRules:
         df = spark_session.createDataFrame([(-1,), (1,), (5,), (0,), (6,), (None,)], "danger_level int")
         outcomes = {r.danger_level: r.passes for r in df.select("danger_level", rule.cond.alias("passes")).collect()}
         assert outcomes == {-1: True, 1: True, 5: True, 0: False, 6: False, None: None}
+
+    def test_overall_mode_drops_the_file_date_iso_rule(self, spark_session):
+        assert [r.name for r in model_rules(AvalancheOrg, COLUMNS, overall=True)] == ["not_blank__zone_name"]
+
+    def test_overall_mode_keeps_the_other_rules(self, spark_session):
+        names = [r.name for r in rules_for("avalanche_org", AvalancheOrg, COLUMNS, overall=True)]
+        assert names == ["not_blank__zone_name", "danger_level_domain", "forecast_order"]
 
 
 class TestNumericColumns:
@@ -334,6 +343,49 @@ class TestVaryingnessMetrics:
         assert _value(wide, "2026-09-01", f"{MAX_METRIC_PREFIX}zone_id") == 1.0
         assert _value(wide, "2026-09-01", f"{MEAN_METRIC_PREFIX}zone_id") == pytest.approx(1.0)
         assert _value(wide, "2026-09-01", f"{DISTINCT_METRIC_PREFIX}zone_id") == 1.0
+
+
+class TestOverallMetrics:
+    """``overall=True`` measures the whole table as one group."""
+
+    def test_single_group_for_the_whole_table(self, source_df):
+        wide = compute_metrics(source_df, table_name="avalanche_org", model=AvalancheOrg, overall=True)
+        assert wide.count() == 1
+        assert wide.collect()[0][FILE_DATE_COL] == OVERALL_FILE_DATE
+
+    def test_total_records_covers_every_row(self, source_df):
+        wide = compute_metrics(source_df, table_name="avalanche_org", model=AvalancheOrg, overall=True)
+        assert _value(wide, OVERALL_FILE_DATE, TOTAL_RECORDS_METRIC) == len(ROWS)
+
+    def test_file_date_iso_rule_is_not_applied(self, source_df):
+        wide = compute_metrics(source_df, table_name="avalanche_org", model=AvalancheOrg, overall=True)
+        assert f"{BAD_METRIC_PREFIX}file_date_iso" not in wide.columns
+        assert f"{BAD_METRIC_PREFIX}danger_level_domain" in wide.columns
+        assert f"{NULL_METRIC_PREFIX}{FILE_DATE_COL}" in wide.columns
+
+    def test_rates_aggregate_the_whole_table(self, source_df):
+        wide = compute_metrics(source_df, table_name="avalanche_org", model=AvalancheOrg, overall=True)
+        assert _value(wide, OVERALL_FILE_DATE, BAD_ROW_METRIC) == pytest.approx(2 / len(ROWS))
+        assert _value(wide, OVERALL_FILE_DATE, DUP_ROW_METRIC) == pytest.approx(1 / len(ROWS))
+        assert _value(wide, OVERALL_FILE_DATE, UNIQUE_ROW_METRIC) == pytest.approx(5 / len(ROWS))
+        assert _value(wide, OVERALL_FILE_DATE, f"{NULL_METRIC_PREFIX}forecast_start") == pytest.approx(2 / len(ROWS))
+
+    def test_row_layout_uses_the_overall_sentinel(self, source_df):
+        rows = data_quality_rows(source_df, table_name="avalanche_org", model=AvalancheOrg, overall=True).collect()
+        assert {row.file_date for row in rows} == {OVERALL_FILE_DATE}
+        assert len(rows) == METRICS_PER_DATE - 1  # one rule fewer than a dated run
+
+    def test_source_frame_keeps_its_own_file_dates(self, source_df):
+        compute_metrics(source_df, table_name="avalanche_org", model=AvalancheOrg, overall=True)
+        assert {row[FILE_DATE_COL] for row in source_df.select(FILE_DATE_COL).distinct().collect()} == {
+            "2026-09-01",
+            "2026-09-02",
+        }
+
+    def test_default_matches_a_normal_run(self, source_df):
+        assert data_quality_rows(source_df, table_name="avalanche_org", model=AvalancheOrg).columns == (
+            data_quality_rows(source_df, table_name="avalanche_org", model=AvalancheOrg, overall=False).columns
+        )
 
 
 class TestToMetricsRows:

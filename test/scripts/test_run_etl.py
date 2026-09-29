@@ -243,3 +243,56 @@ def test_create_log_keeps_raw_suffix(mock_logger, mock_create, mock_config, mock
 
     log_file_arg = mock_logger.call_args.kwargs.get("log_file") or mock_logger.call_args[0][1]
     assert "avalanche_org_raw" in log_file_arg
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_data_quality_passes_overall_flag(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "DATA_QUALITY", "avalanche_org", "--overall"]):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args.kwargs["overall"] is True
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_overall_defaults_to_false(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "DATA_QUALITY", "avalanche_org"]):
+        from run_etl import main
+
+        main()
+
+    assert "overall" not in job_mock.run.call_args.kwargs
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_overall_rejected_for_other_jobs(mock_logger, mock_create, mock_config, mock_spark):
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "CREATE", "t", "--overall"]):
+        from run_etl import main
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+
+    assert exc.value.code == 2
+    mock_create.assert_not_called()

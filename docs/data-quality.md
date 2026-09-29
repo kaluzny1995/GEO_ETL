@@ -9,6 +9,9 @@ conda activate geo_etl_311
 
 # Plain table name — no _raw suffix, metrics are measured on the typed table
 python run_etl.py DATA_QUALITY avalanche_org
+
+# Whole table as one snapshot, stored under file_date = 'overall'
+python run_etl.py DATA_QUALITY avalanche_org --overall
 ```
 
 > **Note:** `CREATE` and `INGESTION` append `_raw` internally for their own lookups; `DATA_QUALITY` does not — pass the plain table name.
@@ -102,9 +105,37 @@ Notes:
 DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org';
 ```
 
+## Overall mode
+
+`--overall` measures **every row of the table as one group**, regardless of `file_date`, and stores the result under the sentinel `file_date = 'overall'`:
+
+```bash
+python run_etl.py DATA_QUALITY avalanche_org --overall
+```
+
+| | Per-`file_date` run (default) | `--overall` run |
+|---|---|---|
+| Grouping | one metric set per `file_date` | one metric set for the whole table |
+| Stored `file_date` | the source date | `overall` |
+| Load type detection | HISTORICAL / INCREMENTAL | skipped |
+| Purge of vanished dates | yes | no |
+| Replaces | exactly its own `file_date` range | the stored `overall` rows |
+
+Notes:
+
+- The two modes own disjoint rows. A normal run never deletes `overall` rows — its stored-date probe, its purge and its delete all exclude them — and an `overall` run never touches the per-`file_date` rows.
+- Existing `overall` rows are deleted and recalculated on every `--overall` run, so the snapshot can never go stale or duplicate. To drop a snapshot instead of refreshing it:
+
+```sql
+DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org' AND file_date = 'overall';
+```
+
+- The `file_date_iso` rule does not apply here — the grouping key is the sentinel, not a date — so it is left out of the metric set and `bad_row_pct` is not inflated. `null_pct__file_date` is `0` by construction, and `distinct__file_date` is never emitted because `file_date` is the grouping key.
+- The stored-date probe ignores `overall` rows (they are not dates), so a table holding only a snapshot still measures as `HISTORICAL` on its first normal run.
+
 ## Metric families
 
-Each row of `geo.data_quality` is one metric value for one `file_date`:
+Each row of `geo.data_quality` is one metric value for one `file_date` (or for the [`overall` snapshot](#overall-mode)):
 
 | Metric | Meaning |
 |--------|---------|
@@ -175,6 +206,15 @@ Latest quality snapshot for a table:
 SELECT metric, round(value::numeric, 4) AS value
 FROM geo.data_quality
 WHERE table_name = 'avalanche_org' AND file_date = '2026-09-20'
+ORDER BY metric;
+```
+
+Whole-table snapshot (`--overall`):
+
+```sql
+SELECT metric, round(value::numeric, 4) AS value
+FROM geo.data_quality
+WHERE table_name = 'avalanche_org' AND file_date = 'overall'
 ORDER BY metric;
 ```
 
@@ -250,5 +290,5 @@ ORDER BY file_date;
 | `model/other/data_quality.py` | `DataQuality` model — the row layout of `geo.data_quality` |
 | `utils/jdbc_retry.py` | Bounded retry for transient pooler connection failures |
 | `utils/ddl_generator.py` | `execute_statement` runs the `DELETE`s over JDBC |
-| `test/jobs/test_data_quality.py` | Job flow for both load types, purge, empty/no-new-data paths |
+| `test/jobs/test_data_quality.py` | Job flow for both load types, `--overall` mode, purge, empty/no-new-data paths |
 | `test/util/test_dq_metrics.py` | Metrics verified against a real local Spark session |

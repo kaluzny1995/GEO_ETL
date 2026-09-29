@@ -125,6 +125,8 @@ Details of each step: [Upload pipeline](#upload-pipeline) · [Raw2Plain pipeline
 5. Reads the source table for the selected `file_date`s and computes all metrics in a single `groupBy(...).agg(...)` pass (`utils/dq_metrics.py`).
 6. Deletes the stored rows for exactly that range, then appends the freshly computed ones — re-running the job replaces instead of duplicating.
 
+`--overall` (`python run_etl.py DATA_QUALITY avalanche_org --overall`) skips steps 3 and 4 and measures the **whole table as one snapshot** stored under `file_date = 'overall'`; only previously stored `overall` rows are replaced, so the per-`file_date` history stays untouched (and normal runs never delete `overall` rows) — see [Overall mode](data-quality.md#overall-mode).
+
 Transient connection failures (socket timeout, unresolved host) are retried up to 3 times with a 5 s pause, and the delete and the append are retried as a single unit — `utils/jdbc_retry.py`.
 
 ```

@@ -49,8 +49,13 @@ def _setup_metrics(mock_dq, date_count=2):
 
 PURGE_SQL = (
     "DELETE FROM geo.data_quality AS q WHERE q.table_name = 'avalanche_org' "
+    "AND q.file_date <> 'overall' "
     "AND NOT EXISTS (SELECT 1 FROM geo.avalanche_org s WHERE s.file_date = q.file_date)"
 )
+
+HISTORICAL_DELETE_SQL = "DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org' AND file_date <> 'overall'"
+
+OVERALL_DELETE_SQL = "DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org' AND file_date = 'overall'"
 
 
 @pytest.fixture
@@ -181,7 +186,16 @@ class TestHistoricalRun:
         run(mock_spark, "avalanche_org")
 
         mock_delete.assert_called_once()
-        assert mock_delete.call_args[0][1] == "DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org'"
+        assert mock_delete.call_args[0][1] == HISTORICAL_DELETE_SQL
+
+    def test_does_not_pass_overall_to_metrics(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        _setup_metrics(mock_dq)
+
+        run(mock_spark, "avalanche_org")
+
+        assert mock_dq.call_args.kwargs["overall"] is False
 
     def test_writes_metrics(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
@@ -307,8 +321,8 @@ class TestIncrementalRun:
 
         assert mock_delete.call_count == 2
         assert (
-            mock_delete.call_args_list[1][0][1]
-            == "DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org' AND file_date > '2026-09-15'"
+            mock_delete.call_args_list[1][0][1] == "DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org' "
+            "AND file_date > '2026-09-15' AND file_date <> 'overall'"
         )
 
     def test_returns_incremental_success_message(
@@ -416,6 +430,131 @@ class TestIncrementalRun:
         metrics_df.write.jdbc.assert_called_once()
         assert metrics_df.write.jdbc.call_args.kwargs["mode"] == "append"
         mock_spark.createDataFrame.assert_not_called()
+
+
+@patch("jobs.data_quality.data_quality_rows")
+@patch("jobs.data_quality._max_stored_file_date", return_value=None)
+@patch("jobs.data_quality.execute_statement")
+@patch("jobs.data_quality.execute_ddl")
+@patch("jobs.data_quality.create_schema")
+@patch("jobs.data_quality.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.data_quality.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.data_quality.TableFactory.get", return_value=DummyModel)
+class TestOverallRun:
+    """``overall=True`` measures every row as one ``'overall'`` snapshot."""
+
+    def test_returns_overall_message(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        _setup_metrics(mock_dq)
+
+        result = run(mock_spark, "avalanche_org", overall=True)
+
+        assert "OVERALL" in result
+        assert "avalanche_org" in result
+        assert "data_quality" in result
+
+    def test_skips_load_type_detection(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        _setup_metrics(mock_dq)
+
+        run(mock_spark, "avalanche_org", overall=True)
+
+        mock_max.assert_not_called()
+
+    def test_does_not_purge_dated_rows(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        _setup_metrics(mock_dq)
+
+        run(mock_spark, "avalanche_org", overall=True)
+
+        assert mock_delete.call_count == 1
+
+    def test_replaces_only_stored_overall_rows(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        _setup_metrics(mock_dq)
+
+        run(mock_spark, "avalanche_org", overall=True)
+
+        mock_delete.assert_called_once()
+        assert mock_delete.call_args[0][1] == OVERALL_DELETE_SQL
+
+    def test_reads_the_whole_source_unfiltered(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        _setup_metrics(mock_dq)
+
+        run(mock_spark, "avalanche_org", overall=True)
+
+        assert mock_spark.read.jdbc.call_count == 1
+        assert mock_spark.read.jdbc.call_args.kwargs["table"] == "geo.avalanche_org"
+        mock_spark.read.jdbc.return_value.filter.assert_not_called()
+
+    def test_forwards_overall_to_metrics(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        _setup_metrics(mock_dq)
+
+        run(mock_spark, "avalanche_org", overall=True)
+
+        assert mock_dq.call_args.kwargs["overall"] is True
+
+    def test_writes_metrics(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        metrics_df = _setup_metrics(mock_dq)
+
+        result = run(mock_spark, "avalanche_org", overall=True)
+
+        metrics_df.write.jdbc.assert_called_once()
+        assert metrics_df.write.jdbc.call_args.kwargs["table"] == "geo.data_quality"
+        assert metrics_df.write.jdbc.call_args.kwargs["mode"] == "append"
+        metrics_df.unpersist.assert_called_once()
+        assert f"{_metric_row_count()} metrics" in result
+
+    def test_empty_source_returns_no_data_message(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        mock_spark.read.jdbc.return_value.head.return_value = []
+
+        result = run(mock_spark, "avalanche_org", overall=True)
+
+        assert "No data in geo.avalanche_org" in result
+        mock_dq.assert_not_called()
+        mock_delete.assert_not_called()
+
+    def test_logs_overall_steps(
+        self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
+    ):
+        _setup_metrics(mock_dq)
+        mock_logger = MagicMock()
+
+        run(mock_spark, "avalanche_org", overall=True, logger=mock_logger)
+
+        mock_logger.info.assert_any_call(
+            "OVERALL: measuring every row of geo.avalanche_org as a single 'overall' snapshot..."
+        )
+        mock_logger.info.assert_any_call(
+            f"Computed {_metric_row_count()} metrics for all rows of avalanche_org (OVERALL)"
+        )
+        mock_logger.info.assert_any_call("Replacing stored metrics for avalanche_org...")
+        mock_logger.info.assert_any_call("Writing to geo.data_quality...")
+
+
+def test_max_stored_file_date_ignores_overall_rows(mock_spark):
+    """The stored-date probe must never feed 'overall' to TO_DATE."""
+    from jobs.data_quality import _max_stored_file_date
+
+    mock_spark.read.jdbc.return_value.first.return_value = None
+
+    assert _max_stored_file_date(mock_spark, "jdbc:postgresql://db", {}, "geo", "avalanche_org") is None
+
+    subquery = mock_spark.read.jdbc.call_args.kwargs["table"]
+    assert "table_name = 'avalanche_org'" in subquery
+    assert "file_date <> 'overall'" in subquery
 
 
 def test_unknown_table_raises(mock_spark):

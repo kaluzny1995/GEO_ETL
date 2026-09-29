@@ -107,6 +107,9 @@ conda activate geo_etl_311
 # One table
 python run_etl.py DATA_QUALITY avalanche_org
 
+# One table — whole table as a single snapshot (file_date = 'overall')
+python run_etl.py DATA_QUALITY avalanche_org --overall
+
 # All plain tables
 for t in avalanche_org eonet_event gdacs_event ibtracs_cyclone nifc_fire openmeteo_flood usgs_earthquake usgs_nwis usgs_volcano; do
     python run_etl.py DATA_QUALITY "$t"
@@ -116,6 +119,8 @@ done
 > **Note:** Pass the plain table name — `DATA_QUALITY` does not add the `_raw` suffix, and the metrics are computed on the typed table.
 
 The first run measures every `file_date` (`HISTORICAL`); later runs measure only the `file_date`s added since (`INCREMENTAL`) and drop metrics for `file_date`s that no longer exist in the source. Run it after each INGESTION to keep `geo.data_quality` in step with the data — see [Data Quality job — Load type detection](data-quality.md#load-type-detection).
+
+Add `--overall` to measure the entire table as a single snapshot stored under `file_date = 'overall'` instead — it replaces a previously stored snapshot on every run and never touches the per-`file_date` rows — see [Data Quality job — Overall mode](data-quality.md#overall-mode).
 
 Expected output:
 

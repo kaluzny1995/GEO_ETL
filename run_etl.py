@@ -5,6 +5,7 @@ Usage::
     python run_etl.py CREATE <table_name>
     python run_etl.py INGESTION <table_name>
     python run_etl.py DATA_QUALITY <table_name>
+    python run_etl.py DATA_QUALITY <table_name> --overall
 """
 
 import argparse
@@ -135,7 +136,15 @@ def main() -> None:
     parser.add_argument(
         "table_name", help="Table name, e.g. avalanche_org (raw suffix added automatically for ingestion)"
     )
+    parser.add_argument(
+        "--overall",
+        action="store_true",
+        help="DATA_QUALITY only: measure the whole table as one snapshot stored under file_date = 'overall'",
+    )
     args = parser.parse_args()
+
+    if args.overall and args.job is not JobType.DATA_QUALITY:
+        parser.error("--overall can only be used with the DATA_QUALITY job")
 
     job_name = args.job.value.lower()
     table_name = args.table_name
@@ -173,7 +182,8 @@ def main() -> None:
         logger.info(f"Spark version: {spark.version}")
 
         # Execute the job (e.g. create table in Supabase)
-        result = job_module.run(spark, raw_table_name, logger=logger)
+        job_kwargs = {"overall": True} if args.overall else {}
+        result = job_module.run(spark, raw_table_name, logger=logger, **job_kwargs)
         logger.info(result)
     except Exception:
         logger.exception("ETL job failed")

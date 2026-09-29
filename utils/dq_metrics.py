@@ -33,6 +33,12 @@ that is entirely NULL that day — is omitted instead of stored as NULL, because
 Nulls are reported by ``null_pct__*`` only — a rule that cannot be evaluated
 because of a NULL does not count the row as incorrect, so the two metric
 families never double count.
+
+The job's ``--overall`` mode measures the *whole table* as a single group and
+stores the rows under ``file_date = 'overall'`` (``OVERALL_FILE_DATE``).  The
+``file_date_iso`` rule is dropped there — the grouping key is the sentinel,
+not a date — and ``overall=True`` is threaded through the rule/metric
+functions accordingly.
 """
 
 import types
@@ -44,6 +50,7 @@ from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
 FILE_DATE_COL = "file_date"
+OVERALL_FILE_DATE = "overall"
 METRICS_TABLE = "data_quality"
 
 TOTAL_RECORDS_METRIC = "total_records"
@@ -92,7 +99,7 @@ def _base_type(annotation: Any) -> Any:
     return annotation
 
 
-def model_rules(model: type[BaseModel], columns: list[str]) -> list[Rule]:
+def model_rules(model: type[BaseModel], columns: list[str], *, overall: bool = False) -> list[Rule]:
     """Build the rules implied by a Pydantic model.
 
     Required string columns must not be blank, and ``file_date`` must be
@@ -102,6 +109,9 @@ def model_rules(model: type[BaseModel], columns: list[str]) -> list[Rule]:
     Args:
         model: Pydantic model of the table being measured.
         columns: Columns actually present in the DataFrame.
+        overall: Measure the whole table as one group keyed by the
+            ``overall`` sentinel — the ``file_date_iso`` rule is then
+            meaningless and is left out.
 
     Returns:
         One :class:`Rule` per applicable model constraint.
@@ -113,7 +123,7 @@ def model_rules(model: type[BaseModel], columns: list[str]) -> list[Rule]:
             continue
         if _base_type(field_info.annotation) is str and field_info.is_required():
             rules.append(Rule(f"not_blank__{name}", F.trim(F.col(name)) != F.lit("")))
-    if FILE_DATE_COL in column_set:
+    if FILE_DATE_COL in column_set and not overall:
         rules.append(Rule("file_date_iso", F.col(FILE_DATE_COL).rlike(r"^\d{4}-\d{2}-\d{2}$")))
     return rules
 
@@ -197,27 +207,33 @@ def dataset_rules(table_name: str, columns: list[str]) -> list[Rule]:
     return rules
 
 
-def rules_for(table_name: str, model: type[BaseModel], columns: list[str]) -> list[Rule]:
+def rules_for(table_name: str, model: type[BaseModel], columns: list[str], *, overall: bool = False) -> list[Rule]:
     """Return model rules followed by dataset-specific rules for a table.
 
     Args:
         table_name: Registered table name.
         model: Pydantic model of the table being measured.
         columns: Columns actually present in the DataFrame.
+        overall: Measure the whole table as one ``overall`` group — the
+            ``file_date_iso`` model rule is left out.
 
     Returns:
         The combined list of :class:`Rule` objects.
     """
-    return model_rules(model, columns) + dataset_rules(table_name, columns)
+    return model_rules(model, columns, overall=overall) + dataset_rules(table_name, columns)
 
 
-def compute_metrics(df: DataFrame, *, table_name: str, model: type[BaseModel]) -> DataFrame:
+def compute_metrics(df: DataFrame, *, table_name: str, model: type[BaseModel], overall: bool = False) -> DataFrame:
     """Compute all quality metrics for *table_name*, one row per file_date.
 
     Args:
         df: DataFrame of the source table.
         table_name: Registered table name (selects the dataset rules).
         model: Pydantic model of the source table.
+        overall: Measure the whole table as a single group instead of one
+            group per ``file_date`` — ``file_date`` is stamped with the
+            ``overall`` sentinel and the ``file_date_iso`` rule is not
+            applied (the grouping key is not a date there).
 
     Returns:
         Wide frame: ``file_date`` plus one column per metric.
@@ -228,7 +244,10 @@ def compute_metrics(df: DataFrame, *, table_name: str, model: type[BaseModel]) -
     if FILE_DATE_COL not in df.columns:
         raise ValueError(f"Table '{table_name}' has no '{FILE_DATE_COL}' column — metrics cannot be grouped")
 
-    rules = rules_for(table_name, model, df.columns)
+    if overall:
+        df = df.withColumn(FILE_DATE_COL, F.lit(OVERALL_FILE_DATE))
+
+    rules = rules_for(table_name, model, df.columns, overall=overall)
     row_hash = F.xxhash64(*[F.col(column) for column in df.columns])
     total = F.count(F.lit(1))
     distinct_rows = F.countDistinct(row_hash)
@@ -310,16 +329,18 @@ def to_metrics_rows(wide: DataFrame, *, table_name: str) -> DataFrame:
     )
 
 
-def data_quality_rows(df: DataFrame, *, table_name: str, model: type[BaseModel]) -> DataFrame:
+def data_quality_rows(df: DataFrame, *, table_name: str, model: type[BaseModel], overall: bool = False) -> DataFrame:
     """Compute quality metrics for *df* in the ``DataQuality`` row layout.
 
     Args:
         df: DataFrame of the source table.
         table_name: Registered table name.
         model: Pydantic model of the source table.
+        overall: Measure the whole table as one group stored under
+            ``file_date = 'overall'``.
 
     Returns:
         One row per ``(table_name, file_date, metric)``.
     """
-    wide = compute_metrics(df, table_name=table_name, model=model)
+    wide = compute_metrics(df, table_name=table_name, model=model, overall=overall)
     return to_metrics_rows(wide, table_name=table_name)
