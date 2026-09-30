@@ -26,7 +26,7 @@ def run(
     Args:
         spark: Active Spark session.
         script_name: Script name as used on the CLI (file stem of a module in
-            ``single_etl/``, e.g. ``"template_etl"``).
+            ``single_etl/``, e.g. ``"avalanche_org_etl"``).
         logger: Optional logger; defaults to a module-level logger.
         load_type: Load type forced by the CLI (``--load-type``), or ``None``
             for automatic detection inside the script.

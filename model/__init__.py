@@ -1,5 +1,6 @@
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import JobType
+from model.etl.avalanche_org_etl import AvalancheOrgEtl
 from model.other.data_quality import DataQuality
 from model.plain.avalanche_org import AvalancheOrg
 from model.plain.eonet_event import EonetEvent
@@ -28,6 +29,7 @@ def _register_tables():
 
     TableFactory.register("avalanche_org_raw", AvalancheOrgRaw)
     TableFactory.register("avalanche_org", AvalancheOrg)
+    TableFactory.register("avalanche_org_etl", AvalancheOrgEtl)
     TableFactory.register("eonet_event_raw", EonetEventRaw)
     TableFactory.register("eonet_event", EonetEvent)
     TableFactory.register("gdacs_event_raw", GdacsEventRaw)
@@ -52,6 +54,7 @@ _register_tables()
 __all__ = [
     "AppConfig",
     "AvalancheOrg",
+    "AvalancheOrgEtl",
     "AvalancheOrgRaw",
     "DataQuality",
     "EonetEvent",

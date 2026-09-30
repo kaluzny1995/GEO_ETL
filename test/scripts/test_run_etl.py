@@ -307,7 +307,7 @@ def test_main_dispatches_single_etl_job(mock_logger, mock_create, mock_config, m
 
     import sys
 
-    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "template_etl"]):
+    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "avalanche_org_etl"]):
         from run_etl import main
 
         main()
@@ -343,7 +343,7 @@ def test_single_etl_defaults_to_auto_load_type(mock_logger, mock_create, mock_co
 
     import sys
 
-    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "template_etl"]):
+    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "avalanche_org_etl"]):
         from run_etl import main
 
         main()
@@ -361,7 +361,7 @@ def test_single_etl_passes_forced_load_type(mock_logger, mock_create, mock_confi
 
     import sys
 
-    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "template_etl", "--load-type", "historical"]):
+    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "avalanche_org_etl", "--load-type", "historical"]):
         from run_etl import main
 
         main()
@@ -379,7 +379,7 @@ def test_single_etl_incremental_load_type(mock_logger, mock_create, mock_config,
 
     import sys
 
-    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "template_etl", "--load-type", "incremental"]):
+    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "avalanche_org_etl", "--load-type", "incremental"]):
         from run_etl import main
 
         main()

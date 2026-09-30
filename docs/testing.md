@@ -48,6 +48,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/model/plain/test_usgs_nwis.py` | UsgsNwis model validation + Spark schema + DDL types |
 | `test/model/plain/test_usgs_volcano.py` | UsgsVolcano model validation + Spark schema + DDL types |
 | `test/model/other/test_data_quality.py` | DataQuality model validation + Spark schema + DDL types + registry |
+| `test/model/etl/test_avalanche_org_etl.py` | AvalancheOrgEtl canonical model (fields, Spark schema, DDL, registry) |
 | `test/ingestion/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload: historical, incremental, no files, logging) |
 | `test/ingestion/upload/test_eonet_event_upload.py` | EONET upload script (helpers + upload: historical, incremental, no files, logging) |
 | `test/ingestion/upload/test_gdacs_event_upload.py` | GDACS upload script (helpers + upload: historical, incremental, no files, logging) |
@@ -70,9 +71,10 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date, table derivation, skip on empty) |
-| `test/single_etl/test_template_etl.py` | Template ETL script (load type resolution, historical/incremental/no-rows runs) |
+| `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (load type resolution, historical/incremental/no-rows runs, column mapping) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_dq_metrics.py` | Rules, rate/variance metric computation, unpivoting — run on a real local Spark session |
+| `test/util/test_fetch_avalanche_zones.py` | utils/fetch_avalanche_zones.py (ring/polygon/multipolygon centroids, lookup rows) |
 | `test/util/test_jdbc_retry.py` | Connection-error detection, bounded retries, delay and warning per attempt |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
 | `test/util/test_spark_monitor.py` | Stage memory logger registration (Java bridge, directory creation, listener setup) |

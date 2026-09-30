@@ -12,7 +12,7 @@ class SingleEtlFactory:
 
     Scripts live in ``single_etl/`` and are registered at import time via
     ``jobs/__init__.py``, keyed by the script's file name without the ``.py``
-    extension (e.g. ``single_etl/template_etl.py`` → ``"template_etl"``).
+    extension (e.g. ``single_etl/avalanche_org_etl.py`` → ``"avalanche_org_etl"``).
     """
 
     _registry: ClassVar[dict[str, SingleEtlFn]] = {}
@@ -22,7 +22,7 @@ class SingleEtlFactory:
         """Register a single ETL script.
 
         Args:
-            script_name: Script name used on the CLI (file stem, e.g. ``"template_etl"``).
+            script_name: Script name used on the CLI (file stem, e.g. ``"avalanche_org_etl"``).
             etl_fn: Callable with the single ETL script signature.
         """
         cls._registry[script_name] = etl_fn

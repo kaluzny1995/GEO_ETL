@@ -59,12 +59,14 @@ python run_etl.py INGESTION avalanche_org
 python run_etl.py DATA_QUALITY avalanche_org
 
 # Run a standalone PySpark script from single_etl/ (load type auto-detected)
-python run_etl.py SINGLE_ETL template_etl
+python run_etl.py SINGLE_ETL avalanche_org_etl
 
 # Same, forcing the load type
-python run_etl.py SINGLE_ETL template_etl --load-type historical
-python run_etl.py SINGLE_ETL template_etl --load-type incremental
+python run_etl.py SINGLE_ETL avalanche_org_etl --load-type historical
+python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 ```
+
+`avalanche_org_etl` needs the zone centroid lookup (`cache/avalanche_zone_centroids.csv`) — build or refresh it with `python -m utils.fetch_avalanche_zones`, see [ETL jobs — avalanche_org_etl](etl_jobs/single-etl.md#avalanche_org_etl).
 
 **All registered tables:**
 
@@ -79,6 +81,9 @@ python run_etl.py CREATE openmeteo_flood
 python run_etl.py CREATE usgs_earthquake
 python run_etl.py CREATE usgs_nwis
 python run_etl.py CREATE usgs_volcano
+
+# Canonical ETL table (SINGLE_ETL target)
+python run_etl.py CREATE avalanche_org_etl
 
 # Ingest data (upload + transform)
 python run_etl.py INGESTION avalanche_org
@@ -126,9 +131,9 @@ done
 
 > **Note:** Pass the plain table name — `DATA_QUALITY` does not add the `_raw` suffix, and the metrics are computed on the typed table.
 
-The first run measures every `file_date` (`HISTORICAL`); later runs measure only the `file_date`s added since (`INCREMENTAL`) and drop metrics for `file_date`s that no longer exist in the source. Run it after each INGESTION to keep `geo.data_quality` in step with the data — see [Data Quality job — Load type detection](data-quality.md#load-type-detection).
+The first run measures every `file_date` (`HISTORICAL`); later runs measure only the `file_date`s added since (`INCREMENTAL`) and drop metrics for `file_date`s that no longer exist in the source. Run it after each INGESTION to keep `geo.data_quality` in step with the data — see [Load type detection](etl_jobs/load-types.md#data_quality).
 
-Add `--overall` to measure the entire table as a single snapshot stored under `file_date = 'overall'` instead — it replaces a previously stored snapshot on every run and never touches the per-`file_date` rows — see [Data Quality job — Overall mode](data-quality.md#overall-mode).
+Add `--overall` to measure the entire table as a single snapshot stored under `file_date = 'overall'` instead — it replaces a previously stored snapshot on every run and never touches the per-`file_date` rows — see [Overall mode](etl_jobs/data-quality.md#overall-mode).
 
 Expected output:
 
@@ -142,7 +147,7 @@ INFO Writing to geo.data_quality...
 INFO Data quality metrics complete: 657 rows written to geo.data_quality
 ```
 
-Results land in `geo.data_quality` (one row per metric and `file_date`). Re-running the job for the same table replaces its previous rows. Metrics, rules and example SQL: see [Data Quality job](data-quality.md).
+Results land in `geo.data_quality` (one row per metric and `file_date`). Re-running the job for the same table replaces its previous rows. Metrics, rules and example SQL: see [Data Quality metrics](data-quality-metrics.md).
 
 ## Verify Supabase connectivity
 
@@ -245,8 +250,8 @@ Delete complete: file_date=2026-09-22, raw=166, plain=166
 2. Delete latest `file_date` from both raw + plain tables using `run_delete_last_filedate_data.py`.
 3. Run INGESTION again — the script detects missing files and re-loads the deleted data.
 
-Load types and the detection logic are described in [ETL jobs — Load type detection](etl-jobs.md#load-type-detection).
+Load types and the detection logic are described in [ETL jobs — Load type detection](etl_jobs/load-types.md).
 
 ## Standalone pipelines
 
-`upload()` and `raw2plain()` can also be called directly instead of through `run_etl.py` — see [ETL jobs](etl-jobs.md#upload-pipeline) for examples and behavior.
+`upload()` and `raw2plain()` can also be called directly instead of through `run_etl.py` — see [Upload pipeline](etl_jobs/ingestion.md#upload-pipeline) for examples and behavior.

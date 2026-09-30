@@ -15,6 +15,7 @@ GEO_ETL/
 ├── run_delete_last_filedate_data.py  # Delete latest file_date from raw + plain tables
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
+├── cache/                           # Local artifacts (gitignored): zone centroid lookup CSV
 │
 ├── ingestion/                        # Ingestion scripts (CSV upload + raw-to-plain transforms)
 │   ├── __init__.py
@@ -58,7 +59,7 @@ GEO_ETL/
 │
 ├── single_etl/                       # Standalone PySpark ETL scripts (SINGLE_ETL job)
 │   ├── __init__.py
-│   └── template_etl.py               # Template: source -> convert -> target with historical/incremental load
+│   └── avalanche_org_etl.py           # geo.avalanche_org -> geo.avalanche_org_etl (canonical event structure)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
@@ -75,6 +76,9 @@ GEO_ETL/
 │   │   ├── usgs_earthquake_raw.py    # UsgsEarthquakeRaw — all-TEXT raw model
 │   │   ├── usgs_nwis_raw.py          # UsgsNwisRaw — all-TEXT raw model
 │   │   └── usgs_volcano_raw.py       # UsgsVolcanoRaw — all-TEXT raw model
+│   ├── etl/
+│   │   ├── event_etl.py               # EventEtl — canonical event structure shared by all *_etl tables
+│   │   └── avalanche_org_etl.py       # AvalancheOrgEtl — geo.avalanche_org_etl model
 │   ├── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
@@ -91,6 +95,7 @@ GEO_ETL/
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
 │   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
+│   ├── fetch_avalanche_zones.py      # Build the avalanche zone centroid lookup CSV
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
@@ -141,6 +146,8 @@ GEO_ETL/
     │   └── test_single_etl.py
     ├── model/
     │   ├── test_enums.py
+    │   ├── etl/
+    │   │   └── test_avalanche_org_etl.py
     │   ├── config/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
@@ -170,7 +177,8 @@ GEO_ETL/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
     │   ├── test_run_drop_schema.py
-    │   └── test_run_delete_last_filedate_data.py
+    │   ├── test_run_delete_last_filedate_data.py
+    │   └── test_fetch_avalanche_zones.py
     ├── ingestion/
     │   ├── upload/
     │   │   ├── test_avalanche_org_upload.py
@@ -193,7 +201,7 @@ GEO_ETL/
     │       ├── test_usgs_nwis_raw2plain.py
     │       └── test_usgs_volcano_raw2plain.py
     ├── single_etl/
-    │   └── test_template_etl.py
+    │   └── test_avalanche_org_etl.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
