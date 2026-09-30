@@ -2,7 +2,7 @@
 
 # Project Structure
 
-The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold per-table thin wrappers, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
+The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold per-table thin wrappers, `single_etl/` holds standalone per-dataset PySpark scripts run by the `SINGLE_ETL` job, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
 
 ```
 GEO_ETL/
@@ -46,16 +46,22 @@ GEO_ETL/
 │   ├── job_factory.py                # JobFactory: job type -> module registry
 │   ├── table_factory.py              # TableFactory: table_name -> Pydantic model
 │   ├── upload_script_factory.py      # UploadScriptFactory: table_name -> upload function
-│   └── raw2plain_script_factory.py   # Raw2PlainScriptFactory: table_name -> raw2plain function
+│   ├── raw2plain_script_factory.py   # Raw2PlainScriptFactory: table_name -> raw2plain function
+│   └── single_etl_factory.py         # SingleEtlFactory: script name -> run function
 │
 ├── jobs/                             # Job modules (the "what to do" layer)
-│   ├── __init__.py                   # Registers jobs in JobFactory
+│   ├── __init__.py                   # Registers jobs in JobFactory, scripts in the script factories
 │   ├── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
 │   ├── data_quality.py              # DATA_QUALITY job (per-file_date metrics -> geo.data_quality)
-│   └── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
+│   ├── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
+│   └── single_etl.py                 # SINGLE_ETL job (runs one script from single_etl/)
+│
+├── single_etl/                       # Standalone PySpark ETL scripts (SINGLE_ETL job)
+│   ├── __init__.py
+│   └── template_etl.py               # Template: source -> convert -> target with historical/incremental load
 │
 ├── model/                            # Data models and configuration
-│   ├── enums.py                      # JobType enum (CREATE, INGESTION, DATA_QUALITY)
+│   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
 │   ├── config/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
@@ -109,6 +115,7 @@ GEO_ETL/
 │   ├── memory/                       # Per-stage memory consumption logs
 │   ├── upload/                       # Standalone upload job logs
 │   ├── raw2plain/                    # Standalone raw2plain transform logs
+│   ├── single_etl/                   # SINGLE_ETL job logs
 │   ├── pyspark_csv_test/             # CSV test script logs
 │   └── pyspark_supabase_test/        # Supabase test script logs
 │
@@ -125,11 +132,13 @@ GEO_ETL/
     │   ├── test_job_factory.py
     │   ├── test_table_factory.py
     │   ├── test_upload_script_factory.py
-    │   └── test_raw2plain_script_factory.py
+    │   ├── test_raw2plain_script_factory.py
+    │   └── test_single_etl_factory.py
     ├── jobs/
     │   ├── test_create_table.py
     │   ├── test_data_quality.py
-    │   └── test_ingestion.py
+    │   ├── test_ingestion.py
+    │   └── test_single_etl.py
     ├── model/
     │   ├── test_enums.py
     │   ├── config/
@@ -183,6 +192,8 @@ GEO_ETL/
     │       ├── test_usgs_earthquake_raw2plain.py
     │       ├── test_usgs_nwis_raw2plain.py
     │       └── test_usgs_volcano_raw2plain.py
+    ├── single_etl/
+    │   └── test_template_etl.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py

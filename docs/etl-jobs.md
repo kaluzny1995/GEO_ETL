@@ -13,6 +13,7 @@
 | `CREATE` | `jobs/create_table.py` | Creates the schema and the tables from Pydantic DDL |
 | `INGESTION` | `jobs/ingestion.py` | Upload CSVs → raw table, then raw → typed table |
 | `DATA_QUALITY` | `jobs/data_quality.py` | Computes per-`file_date` quality metrics into `geo.data_quality` |
+| `SINGLE_ETL` | `jobs/single_etl.py` | Runs one standalone PySpark script from `single_etl/` |
 
 Every run:
 
@@ -25,6 +26,7 @@ Every run:
 python run_etl.py CREATE avalanche_org
 python run_etl.py INGESTION avalanche_org
 python run_etl.py DATA_QUALITY avalanche_org
+python run_etl.py SINGLE_ETL template_etl
 ```
 
 ## CREATE TABLE job
@@ -141,9 +143,39 @@ INFO Data quality metrics complete: 657 rows written to geo.data_quality
 
 Metric families, the rules behind `bad_pct__*`, load type details and example SQL: see [Data Quality job](data-quality.md).
 
+## SINGLE_ETL job
+
+`jobs/single_etl.py` runs **one standalone PySpark script** from `single_etl/` — a complete read → transform → write pipeline for a single dataset, independent of the CREATE/INGESTION table pairs:
+
+1. `run_etl.py` resolves `JobType.SINGLE_ETL` → `jobs/single_etl.py` and passes the second positional argument as the **script name** — the file stem of a module in `single_etl/` (e.g. `template_etl`).
+2. `SingleEtlFactory` (`factory/single_etl_factory.py`) looks that name up in its registry; scripts are registered by `jobs/__init__.py`.
+3. The job loads both configs and calls the script's `run(spark, config, db_config, load_type=..., logger=...)`.
+4. The script resolves its [load type](#load-type-detection), reads its source table, applies its own `_convert()` transformation and appends the result to its target table.
+
+```bash
+python run_etl.py SINGLE_ETL template_etl                        # auto load type
+python run_etl.py SINGLE_ETL template_etl --load-type historical
+python run_etl.py SINGLE_ETL template_etl --load-type incremental
+```
+
+`--load-type` accepts `auto` (default), `historical` or `incremental` and is rejected on any other job; the logs go to `logs/single_etl/single_etl_<script>_<timestamp>.log`. A run that finds nothing new warns and still exits `0` — the DATA_QUALITY behaviour, not the INGESTION one.
+
+### Adding a new script
+
+1. Copy `single_etl/template_etl.py` to `single_etl/<name>_etl.py` and fill in `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()` (the template's module docstring walks through it).
+2. Register it in `jobs/__init__.py`:
+
+```python
+from single_etl.<name>_etl import run as <name>_etl_run
+
+SingleEtlFactory.register("<name>_etl", <name>_etl_run)
+```
+
+3. Run it: `python run_etl.py SINGLE_ETL <name>_etl`.
+
 ## Load type detection
 
-The INGESTION pipelines and the DATA_QUALITY job decide their load type from the state of their target table — no manual flag is needed.
+The INGESTION pipelines, the DATA_QUALITY job and the SINGLE_ETL scripts decide their load type from the state of their target table — no manual flag is needed (`SINGLE_ETL` also accepts `--load-type` to force one).
 
 ### Upload
 
@@ -169,6 +201,18 @@ The INGESTION pipelines and the DATA_QUALITY job decide their load type from the
 | Metrics stored | `INCREMENTAL` | Measures only `file_date` > the stored maximum, and purges metrics whose `file_date` left the source |
 
 Details: [Data Quality job — Load type detection](data-quality.md#load-type-detection).
+
+### SINGLE_ETL
+
+| Condition | Load Type | Behavior |
+|-----------|-----------|----------|
+| Target table empty or missing | `HISTORICAL` | Processes every source row |
+| Target table has data | `INCREMENTAL` | Processes only rows with `file_date` > the target's maximum |
+| No row newer than the target's max | `INCREMENTAL` | Warns, writes nothing, reports `nothing to do` |
+| `--load-type historical` | `HISTORICAL` | Full reprocess even when the target has data |
+| `--load-type incremental` | `INCREMENTAL` | Same as auto; falls back to `HISTORICAL` when the target is empty |
+
+**SINGLE_ETL succeeds when there is nothing to do** — it warns and returns, so `run_etl.py` exits `0` (a script that wants the INGESTION behaviour can raise `RuntimeError` itself).
 
 **INGESTION fails when there is nothing to ingest** — both steps warn, and because neither wrote anything the job raises, so `run_etl.py` exits with code 1 (the E2E chain then logs a warning and skips `DATA_QUALITY`):
 

@@ -17,7 +17,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 - **Local PySpark client** — scripts run on the host, connecting to the cluster remotely
 - **Model-driven schema** — Pydantic models define table structures; DDL and PySpark schemas are generated automatically
 - **Data quality metrics** — per-`file_date` null/bad/duplicate rates plus field varyingness (min/max/range, mean/stddev, percentiles, distinct counts) in `geo.data_quality`, measured incrementally (HISTORICAL first, then only new dates)
-- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY) via a job registry
+- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY, SINGLE_ETL) via a job registry
 
 ## Tech Stack
 
@@ -42,7 +42,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 |----------|----------|
 | [Project structure](docs/architecture.md) | Directory layout — what each folder and entry-point script is for. |
 | [Usage](docs/usage.md) | Setup, creating tables, running ingestion, drop/delete scripts and expected output. |
-| [ETL jobs](docs/etl-jobs.md) | Job registry, CREATE and INGESTION pipelines, load type detection, upload/raw2plain internals. |
+| [ETL jobs](docs/etl-jobs.md) | Job registry, CREATE, INGESTION and SINGLE_ETL pipelines, load type detection, upload/raw2plain internals. |
 | [Data quality](docs/data-quality.md) | The DATA_QUALITY job — metric families, rules and querying `geo.data_quality`. |
 | [Data tables](docs/data-tables.md) | The `geo` schema — raw/plain table pairs, registered models, current data and how to add a table. |
 | [Configuration](docs/configuration.md) | `config.json` and `supabase_config.json` reference. |

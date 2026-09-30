@@ -57,6 +57,13 @@ python run_etl.py INGESTION avalanche_org
 
 # Measure data quality of the plain table (writes geo.data_quality)
 python run_etl.py DATA_QUALITY avalanche_org
+
+# Run a standalone PySpark script from single_etl/ (load type auto-detected)
+python run_etl.py SINGLE_ETL template_etl
+
+# Same, forcing the load type
+python run_etl.py SINGLE_ETL template_etl --load-type historical
+python run_etl.py SINGLE_ETL template_etl --load-type incremental
 ```
 
 **All registered tables:**
@@ -94,8 +101,9 @@ python run_etl.py INGESTION usgs_volcano
 3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model, executes it against Supabase
 4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories — **exits with code 1 when nothing was ingested** (no CSV newer than the raw table's max `file_date` and no raw row newer than the plain table's)
 5. For `DATA_QUALITY`: measures only the selected `file_date`s of the plain table and replaces those rows in `geo.data_quality`
+6. For `SINGLE_ETL`: resolves the script name (`single_etl/<name>.py`) via `SingleEtlFactory` and runs it with the selected load type
 
-See [ETL jobs](etl-jobs.md) for the job registry, the CREATE and INGESTION pipelines and their load-type logic.
+See [ETL jobs](etl-jobs.md) for the job registry, the CREATE, INGESTION and SINGLE_ETL pipelines and their load-type logic.
 
 **Exit codes:** `0` when the job wrote data (or `DATA_QUALITY` only had nothing new to measure and warned), `1` on any exception — including the `INGESTION` "no new data" case. A chained [GEO_E2E](../../GEO_E2E/docs/architecture.md) run reacts to a non-zero code by logging a warning and stopping the chain, so `DATA_QUALITY` never runs on a table that did not change.
 

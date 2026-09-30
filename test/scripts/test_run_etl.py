@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from model.enums import JobType
+from model.enums import JobType, LoadType
 
 
 def _mock_app_config():
@@ -289,6 +289,112 @@ def test_overall_rejected_for_other_jobs(mock_logger, mock_create, mock_config, 
     import sys
 
     with patch.object(sys, "argv", ["run_etl.py", "CREATE", "t", "--overall"]):
+        from run_etl import main
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+
+    assert exc.value.code == 2
+    mock_create.assert_not_called()
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_main_dispatches_single_etl_job(mock_logger, mock_create, mock_config, mock_spark):
+    mock_create.return_value = MagicMock(run=MagicMock(return_value="done"))
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "template_etl"]):
+        from run_etl import main
+
+        main()
+
+    mock_create.assert_called_once_with(JobType.SINGLE_ETL)
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_single_etl_passes_script_name(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "my_dataset_etl"]):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args[0][1] == "my_dataset_etl"
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_single_etl_defaults_to_auto_load_type(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "template_etl"]):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args.kwargs["load_type"] is None
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_single_etl_passes_forced_load_type(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "template_etl", "--load-type", "historical"]):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args.kwargs["load_type"] is LoadType.HISTORICAL
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_single_etl_incremental_load_type(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "SINGLE_ETL", "template_etl", "--load-type", "incremental"]):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args.kwargs["load_type"] is LoadType.INCREMENTAL
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_load_type_rejected_for_other_jobs(mock_logger, mock_create, mock_config, mock_spark):
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "INGESTION", "t", "--load-type", "historical"]):
         from run_etl import main
 
         with pytest.raises(SystemExit) as exc:
