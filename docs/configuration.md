@@ -62,4 +62,6 @@ Create `supabase_config.json` in the project root with your Supabase credentials
 jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postgres
 ```
 
+The properties also carry `prepareThreshold=0`, which disables server-side prepared statements. Supabase's pooler shares server connections between clients, so named statements (`S_1`, …) can otherwise be prepared twice and the write fails with `prepared statement "S_1" already exists`.
+
 See [Data tables](data-tables.md) for the tables it points at and [Usage](usage.md#verify-supabase-connectivity) for a connectivity test.

@@ -2,7 +2,7 @@
 
 # Project Structure
 
-The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `upload/` and `raw2plain/` hold per-table thin wrappers, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
+The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold per-table thin wrappers, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
 
 ```
 GEO_ETL/
@@ -16,29 +16,30 @@ GEO_ETL/
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
 │
-├── upload/                           # Data upload scripts (thin wrappers around utils/upload_utils.py)
+├── ingestion/                        # Ingestion scripts (CSV upload + raw-to-plain transforms)
 │   ├── __init__.py
-│   ├── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
-│   ├── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
-│   ├── gdacs_event_upload.py         # Upload GDACS CSVs -> Supabase via JDBC
-│   ├── ibtracs_cyclone_upload.py     # Upload IBTrACS CSVs -> Supabase via JDBC
-│   ├── nifc_fire_upload.py           # Upload NIFC CSVs -> Supabase via JDBC
-│   ├── openmeteo_flood_upload.py     # Upload OpenMeteo_Flood CSVs -> Supabase via JDBC
-│   ├── usgs_earthquake_upload.py     # Upload USGS_Earthquake CSVs -> Supabase via JDBC
-│   ├── usgs_nwis_upload.py           # Upload USGS_NWIS CSVs -> Supabase via JDBC
-│   └── usgs_volcano_upload.py        # Upload USGS_Volcano CSVs -> Supabase via JDBC
-│
-├── raw2plain/                        # Raw-to-final transformation scripts (thin wrappers around utils/raw2plain_utils.py)
-│   ├── __init__.py
-│   ├── avalanche_org_raw2plain.py    # Transform Avalanche_ORG raw -> typed data
-│   ├── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
-│   ├── gdacs_event_raw2plain.py      # Transform GDACS raw -> typed data
-│   ├── ibtracs_cyclone_raw2plain.py  # Transform IBTrACS raw -> typed data
-│   ├── nifc_fire_raw2plain.py        # Transform NIFC raw -> typed data
-│   ├── openmeteo_flood_raw2plain.py  # Transform OpenMeteo_Flood raw -> typed data
-│   ├── usgs_earthquake_raw2plain.py  # Transform USGS_Earthquake raw -> typed data
-│   ├── usgs_nwis_raw2plain.py        # Transform USGS_NWIS raw -> typed data
-│   └── usgs_volcano_raw2plain.py     # Transform USGS_Volcano raw -> typed data
+│   ├── upload/                       # Data upload scripts (thin wrappers around utils/upload_utils.py)
+│   │   ├── __init__.py
+│   │   ├── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
+│   │   ├── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
+│   │   ├── gdacs_event_upload.py         # Upload GDACS CSVs -> Supabase via JDBC
+│   │   ├── ibtracs_cyclone_upload.py     # Upload IBTrACS CSVs -> Supabase via JDBC
+│   │   ├── nifc_fire_upload.py           # Upload NIFC CSVs -> Supabase via JDBC
+│   │   ├── openmeteo_flood_upload.py     # Upload OpenMeteo_Flood CSVs -> Supabase via JDBC
+│   │   ├── usgs_earthquake_upload.py     # Upload USGS_Earthquake CSVs -> Supabase via JDBC
+│   │   ├── usgs_nwis_upload.py           # Upload USGS_NWIS CSVs -> Supabase via JDBC
+│   │   └── usgs_volcano_upload.py        # Upload USGS_Volcano CSVs -> Supabase via JDBC
+│   └── raw2plain/                    # Raw-to-final transforms (thin wrappers around utils/raw2plain_utils.py)
+│       ├── __init__.py
+│       ├── avalanche_org_raw2plain.py    # Transform Avalanche_ORG raw -> typed data
+│       ├── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
+│       ├── gdacs_event_raw2plain.py      # Transform GDACS raw -> typed data
+│       ├── ibtracs_cyclone_raw2plain.py  # Transform IBTrACS raw -> typed data
+│       ├── nifc_fire_raw2plain.py        # Transform NIFC raw -> typed data
+│       ├── openmeteo_flood_raw2plain.py  # Transform OpenMeteo_Flood raw -> typed data
+│       ├── usgs_earthquake_raw2plain.py  # Transform USGS_Earthquake raw -> typed data
+│       ├── usgs_nwis_raw2plain.py        # Transform USGS_NWIS raw -> typed data
+│       └── usgs_volcano_raw2plain.py     # Transform USGS_Volcano raw -> typed data
 │
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports all factories (lazy imports)
@@ -50,10 +51,11 @@ GEO_ETL/
 ├── jobs/                             # Job modules (the "what to do" layer)
 │   ├── __init__.py                   # Registers jobs in JobFactory
 │   ├── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
+│   ├── data_quality.py              # DATA_QUALITY job (per-file_date metrics -> geo.data_quality)
 │   └── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
 │
 ├── model/                            # Data models and configuration
-│   ├── enums.py                      # JobType enum (CREATE, INGESTION)
+│   ├── enums.py                      # JobType enum (CREATE, INGESTION, DATA_QUALITY)
 │   ├── config/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
@@ -67,7 +69,7 @@ GEO_ETL/
 │   │   ├── usgs_earthquake_raw.py    # UsgsEarthquakeRaw — all-TEXT raw model
 │   │   ├── usgs_nwis_raw.py          # UsgsNwisRaw — all-TEXT raw model
 │   │   └── usgs_volcano_raw.py       # UsgsVolcanoRaw — all-TEXT raw model
-│   └── plain/
+│   ├── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
 │       ├── gdacs_event.py            # GdacsEvent — typed model (float, int, datetime, bool)
@@ -77,9 +79,13 @@ GEO_ETL/
 │       ├── usgs_earthquake.py        # UsgsEarthquake — typed model (float, int, datetime)
 │       ├── usgs_nwis.py              # UsgsNwis — typed model (date, float, double)
 │       └── usgs_volcano.py           # UsgsVolcano — typed model (int, timestamp)
+│   └── other/
+│       └── data_quality.py           # DataQuality — metric row (str, float, datetime)
 │
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
+│   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
+│   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
 │   ├── schema_converter.py           # Pydantic -> PySpark StructType schemas
@@ -96,6 +102,7 @@ GEO_ETL/
 ├── logs/                             # Runtime log output (gitignored)
 │   ├── ingestion/                    # INGESTION job logs
 │   ├── create_table/                 # CREATE TABLE job logs
+│   ├── data_quality/                 # DATA_QUALITY job logs
 │   ├── drop_table/                   # Drop table job logs
 │   ├── drop_schema/                  # Drop schema job logs
 │   ├── delete_last_filedate/         # Delete last file_date job logs
@@ -113,7 +120,7 @@ GEO_ETL/
 │       └── postgresql-42.7.4.jar
 │
 └── test/                             # Unit tests (pytest)
-    ├── conftest.py                   # Shared test fixtures (mock_F, mock_app_config, mock_db_config, mock_spark)
+    ├── conftest.py                   # Shared test fixtures (mock_F, mock_app_config, mock_db_config, mock_spark, spark_session)
     ├── factory/
     │   ├── test_job_factory.py
     │   ├── test_table_factory.py
@@ -121,6 +128,7 @@ GEO_ETL/
     │   └── test_raw2plain_script_factory.py
     ├── jobs/
     │   ├── test_create_table.py
+    │   ├── test_data_quality.py
     │   └── test_ingestion.py
     ├── model/
     │   ├── test_enums.py
@@ -137,43 +145,47 @@ GEO_ETL/
     │   │   ├── test_usgs_earthquake.py
     │   │   ├── test_usgs_nwis.py
     │   │   └── test_usgs_volcano.py
-    │   └── raw/
-    │       ├── test_avalanche_org_raw.py
-    │       ├── test_eonet_event_raw.py
-    │       ├── test_gdacs_event_raw.py
-    │       ├── test_ibtracs_cyclone_raw.py
-    │       ├── test_nifc_fire_raw.py
-    │       ├── test_openmeteo_flood_raw.py
-    │       ├── test_usgs_earthquake_raw.py
-    │       ├── test_usgs_nwis_raw.py
-    │       └── test_usgs_volcano_raw.py
+    │   ├── raw/
+    │   │   ├── test_avalanche_org_raw.py
+    │   │   ├── test_eonet_event_raw.py
+    │   │   ├── test_gdacs_event_raw.py
+    │   │   ├── test_ibtracs_cyclone_raw.py
+    │   │   ├── test_nifc_fire_raw.py
+    │   │   ├── test_openmeteo_flood_raw.py
+    │   │   ├── test_usgs_earthquake_raw.py
+    │   │   ├── test_usgs_nwis_raw.py
+    │   │   └── test_usgs_volcano_raw.py
+    │   └── other/
+    │       └── test_data_quality.py
     ├── scripts/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
     │   ├── test_run_drop_schema.py
     │   └── test_run_delete_last_filedate_data.py
-    ├── upload/
-    │   ├── test_avalanche_org_upload.py
-    │   ├── test_eonet_event_upload.py
-    │   ├── test_gdacs_event_upload.py
-    │   ├── test_ibtracs_cyclone_upload.py
-    │   ├── test_nifc_fire_upload.py
-    │   ├── test_openmeteo_flood_upload.py
-    │   ├── test_usgs_earthquake_upload.py
-    │   ├── test_usgs_nwis_upload.py
-    │   └── test_usgs_volcano_upload.py
-    ├── raw2plain/
-    │   ├── test_avalanche_org_raw2plain.py
-    │   ├── test_eonet_event_raw2plain.py
-    │   ├── test_gdacs_event_raw2plain.py
-    │   ├── test_ibtracs_cyclone_raw2plain.py
-    │   ├── test_nifc_fire_raw2plain.py
-    │   ├── test_openmeteo_flood_raw2plain.py
-    │   ├── test_usgs_earthquake_raw2plain.py
-    │   ├── test_usgs_nwis_raw2plain.py
-    │   └── test_usgs_volcano_raw2plain.py
+    ├── ingestion/
+    │   ├── upload/
+    │   │   ├── test_avalanche_org_upload.py
+    │   │   ├── test_eonet_event_upload.py
+    │   │   ├── test_gdacs_event_upload.py
+    │   │   ├── test_ibtracs_cyclone_upload.py
+    │   │   ├── test_nifc_fire_upload.py
+    │   │   ├── test_openmeteo_flood_upload.py
+    │   │   ├── test_usgs_earthquake_upload.py
+    │   │   ├── test_usgs_nwis_upload.py
+    │   │   └── test_usgs_volcano_upload.py
+    │   └── raw2plain/
+    │       ├── test_avalanche_org_raw2plain.py
+    │       ├── test_eonet_event_raw2plain.py
+    │       ├── test_gdacs_event_raw2plain.py
+    │       ├── test_ibtracs_cyclone_raw2plain.py
+    │       ├── test_nifc_fire_raw2plain.py
+    │       ├── test_openmeteo_flood_raw2plain.py
+    │       ├── test_usgs_earthquake_raw2plain.py
+    │       ├── test_usgs_nwis_raw2plain.py
+    │       └── test_usgs_volcano_raw2plain.py
     └── util/
         ├── test_ddl_generator.py
+        ├── test_dq_metrics.py
         ├── test_logger.py
         └── test_schema_converter.py
 ```

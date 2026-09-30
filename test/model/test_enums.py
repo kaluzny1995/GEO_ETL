@@ -9,6 +9,10 @@ def test_job_type_ingestion_value():
     assert JobType.INGESTION.value == "INGESTION"
 
 
+def test_job_type_data_quality_value():
+    assert JobType.DATA_QUALITY.value == "DATA_QUALITY"
+
+
 def test_job_type_create_is_instance():
     assert isinstance(JobType.CREATE, JobType)
 
@@ -17,13 +21,18 @@ def test_job_type_ingestion_is_instance():
     assert isinstance(JobType.INGESTION, JobType)
 
 
-def test_job_type_has_two_members():
-    assert len(JobType) == 2
+def test_job_type_data_quality_is_instance():
+    assert isinstance(JobType.DATA_QUALITY, JobType)
+
+
+def test_job_type_has_three_members():
+    assert len(JobType) == 3
 
 
 def test_job_type_from_value():
     assert JobType("CREATE") is JobType.CREATE
     assert JobType("INGESTION") is JobType.INGESTION
+    assert JobType("DATA_QUALITY") is JobType.DATA_QUALITY
 
 
 def test_job_type_invalid_value_raises():

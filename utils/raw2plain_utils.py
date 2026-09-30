@@ -59,7 +59,7 @@ def raw2plain(
     plain_table: str,
     convert_fn: Callable[[DataFrame], DataFrame],
     logger: logging.Logger | None = None,
-) -> None:
+) -> bool:
     """Read new rows from a raw table, convert them, and write to a plain table.
 
     Automatically detects whether to run a **HISTORICAL** load (all raw data)
@@ -77,8 +77,10 @@ def raw2plain(
         logger: Optional logger; when ``None`` a file-based logger is created.
 
     Returns:
-        ``None``. If no new raw rows exist for an incremental load, a warning
-        is logged and nothing is written (the table is already up to date).
+        ``True`` when converted rows were written to the plain table, ``False``
+        when there was nothing to transform (no raw row newer than the plain
+        table's latest ``file_date``). The caller turns ``False`` from every
+        step into a job failure.
     """
     schema = config.database.db_schema
     jdbc_url = db_config.get_jdbc_url()
@@ -111,9 +113,10 @@ def raw2plain(
 
     if not raw_df.head(1):
         logger.warning(f"No new records to process for {plain_table} — nothing to do, table is up to date")
-        return
+        return False
 
     plain_df = convert_fn(raw_df)
     logger.info(f"Writing to {schema}.{plain_table}...")
     plain_df.write.jdbc(url=jdbc_url, table=f"{schema}.{plain_table}", mode="append", properties=properties)
     logger.info(f"Raw2Plain complete: written to {schema}.{plain_table}")
+    return True

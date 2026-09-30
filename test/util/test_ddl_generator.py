@@ -4,7 +4,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import BaseModel
 
-from utils.ddl_generator import _schema_has_tables, create_schema, drop_schema, drop_table, execute_ddl, pydantic_to_ddl
+from utils.ddl_generator import (
+    _schema_has_tables,
+    create_schema,
+    drop_schema,
+    drop_table,
+    execute_ddl,
+    execute_statement,
+    pydantic_to_ddl,
+)
 
 
 class SimpleModel(BaseModel):
@@ -207,4 +215,16 @@ def test_execute_ddl(mock_get_conn):
     execute_ddl(mock_spark, "CREATE TABLE t (id INT);", "jdbc:url", {"user": "u", "password": "p"})
 
     stmt.execute.assert_called_once_with("CREATE TABLE t (id INT);")
+    conn.close.assert_called_once()
+
+
+@patch("utils.ddl_generator._get_jdbc_connection")
+def test_execute_statement(mock_get_conn):
+    conn, stmt = _mock_conn()
+    mock_get_conn.return_value = conn
+
+    mock_spark = MagicMock()
+    execute_statement(mock_spark, "DELETE FROM geo.data_quality WHERE table_name = 't'", "jdbc:url", {"user": "u"})
+
+    stmt.execute.assert_called_once_with("DELETE FROM geo.data_quality WHERE table_name = 't'")
     conn.close.assert_called_once()

@@ -10,10 +10,10 @@ class Raw2PlainScriptFactory:
     Raw2plain functions are registered at import time via ``jobs/__init__.py``.
     """
 
-    _registry: ClassVar[dict[str, Callable[..., None]]] = {}
+    _registry: ClassVar[dict[str, Callable[..., bool]]] = {}
 
     @classmethod
-    def register(cls, table_name: str, raw2plain_fn: Callable[..., None]) -> None:
+    def register(cls, table_name: str, raw2plain_fn: Callable[..., bool]) -> None:
         """Register a table name with its raw2plain function.
 
         Args:
@@ -23,7 +23,7 @@ class Raw2PlainScriptFactory:
         cls._registry[table_name] = raw2plain_fn
 
     @classmethod
-    def get(cls, table_name: str) -> Callable[..., None]:
+    def get(cls, table_name: str) -> Callable[..., bool]:
         """Retrieve the raw2plain function for a table name.
 
         Args:

@@ -57,14 +57,21 @@ class SupabaseConnectionConfig(BaseModel):
     def get_jdbc_properties(self, jdbc_driver: str) -> dict[str, str]:
         """Build the JDBC connection properties dictionary.
 
+        ``prepareThreshold=0`` turns off server-side prepared statements: the
+        Supabase transaction pooler reuses one server connection for many
+        clients, so named statements (``S_1`` …) can be prepared twice and fail
+        with ``prepared statement "S_1" already exists``.
+
         Args:
             jdbc_driver: Fully qualified JDBC driver class name.
 
         Returns:
-            A dictionary with ``user``, ``password``, and ``driver`` keys.
+            A dictionary with ``user``, ``password``, ``driver`` and
+            ``prepareThreshold`` keys.
         """
         return {
             "user": self.username,
             "password": self.password,
             "driver": jdbc_driver,
+            "prepareThreshold": "0",
         }

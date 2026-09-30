@@ -16,6 +16,8 @@ logs/
 │   └── ingestion_avalanche_org_2026-09-21T10:42:00.777888.log
 ├── create_table/
 │   └── create_table_avalanche_org_raw_2026-09-21T10:30:00.123456.log
+├── data_quality/
+│   └── data_quality_avalanche_org_2026-09-21T10:32:00.654321.log
 ├── drop_table/
 │   └── drop_table_avalanche_org_raw_2026-09-21T10:35:00.654321.log
 ├── drop_schema/

@@ -10,10 +10,10 @@ class UploadScriptFactory:
     Upload functions are registered at import time via ``jobs/__init__.py``.
     """
 
-    _registry: ClassVar[dict[str, Callable[..., None]]] = {}
+    _registry: ClassVar[dict[str, Callable[..., bool]]] = {}
 
     @classmethod
-    def register(cls, table_name: str, upload_fn: Callable[..., None]) -> None:
+    def register(cls, table_name: str, upload_fn: Callable[..., bool]) -> None:
         """Register a table name with its upload function.
 
         Args:
@@ -23,7 +23,7 @@ class UploadScriptFactory:
         cls._registry[table_name] = upload_fn
 
     @classmethod
-    def get(cls, table_name: str) -> Callable[..., None]:
+    def get(cls, table_name: str) -> Callable[..., bool]:
         """Retrieve the upload function for a table name.
 
         Args:
