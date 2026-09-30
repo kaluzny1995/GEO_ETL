@@ -15,9 +15,10 @@ Run::
 
 ``--day`` is repeatable and the days are merged: zones come and go (the
 ``Whitefish Range`` zone left the map layer after 2026-09-25), so a window of
-days covers zones that are absent from today's feed. Refresh the lookup whenever
-avalanche.org adds or renames a zone; the ETL fails with a clear error while the
-lookup file is missing.
+days covers zones that are absent from today's feed. Without ``--day`` the
+window from :func:`lookup_days` (today, 10 and 30 days back) is fetched.
+``single_etl/avalanche_org_etl.py`` calls :func:`build_lookup` with the same
+window when the file is missing, so the ETL can also build the lookup itself.
 """
 
 from __future__ import annotations
@@ -169,32 +170,71 @@ def _lookup_rows(features: list[dict]) -> list[dict]:
     return sorted(rows.values(), key=lambda row: (row["state"], row["place_location"]))
 
 
+def lookup_days(today: dt.date | None = None) -> list[str]:
+    """Forecast days that together cover every zone of the lookup.
+
+    Zones come and go, so a spaced window keeps zones that are absent from
+    today's feed covered: today, 10 days back and 30 days back.
+
+    Args:
+        today: Reference day, or ``None`` for the current local date.
+
+    Returns:
+        Three forecast days in ``YYYY-MM-DD``, newest first.
+    """
+    reference = today or dt.date.today()
+    return [(reference - dt.timedelta(days=offset)).isoformat() for offset in (0, 10, 30)]
+
+
+def build_lookup(days: list[str], api_url: str = DEFAULT_API_URL, output: str = DEFAULT_OUTPUT) -> int:
+    """Download the map-layer features of *days* and write the centroid lookup CSV.
+
+    The output directory is created when it does not exist yet.
+
+    Args:
+        days: Forecast days in ``YYYY-MM-DD``, fetched in the given order.
+        api_url: Avalanche.org map-layer endpoint.
+        output: Lookup CSV to write.
+
+    Returns:
+        The number of zone rows written.
+
+    Raises:
+        RuntimeError: When the days yield no usable zone geometry; nothing is
+            written in that case.
+    """
+    rows = _lookup_rows(_fetch(api_url, days))
+    if not rows:
+        raise RuntimeError(f"No zone geometries returned for {', '.join(days)} — nothing written")
+
+    os.makedirs(os.path.dirname(output) or ".", exist_ok=True)
+    with open(output, "w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=OUTPUT_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    return len(rows)
+
+
 def main() -> None:
-    """Download one day of zone polygons and write the centroid lookup CSV."""
+    """Download zone polygons and write the centroid lookup CSV."""
     parser = argparse.ArgumentParser(description="Build the avalanche zone centroid lookup")
     parser.add_argument(
         "--day",
         action="append",
         dest="days",
-        help="map-layer day (YYYY-MM-DD); repeatable, defaults to today",
+        help="map-layer day (YYYY-MM-DD); repeatable, defaults to today, 10 and 30 days back",
     )
     parser.add_argument("--api-url", default=DEFAULT_API_URL, help="avalanche.org map-layer endpoint")
     parser.add_argument("--output", default=DEFAULT_OUTPUT, help="lookup CSV to write")
     args = parser.parse_args()
-    days = args.days or [dt.date.today().isoformat()]
+    days = args.days or lookup_days()
 
-    features = _fetch(args.api_url, days)
-    rows = _lookup_rows(features)
-    if not rows:
-        raise SystemExit(f"No zone geometries returned for {', '.join(days)} — nothing written")
+    try:
+        written = build_lookup(days, args.api_url, args.output)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
 
-    os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    with open(args.output, "w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=OUTPUT_FIELDS)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    print(f"{len(rows)} zone centroids from {len(features)} features over {len(days)} day(s) -> {args.output}")
+    print(f"{written} zone centroids over {len(days)} day(s) -> {args.output}")
 
 
 if __name__ == "__main__":

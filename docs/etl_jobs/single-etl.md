@@ -57,7 +57,7 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 | `event_start` / `event_end` | `forecast_start` / `forecast_end` |
 | `other_metrics` | `NULL` (zone ids and links are not metrics) |
 
-The centroid lookup is built once by `python -m utils.fetch_avalanche_zones --day <day> [--day <day> …]` and must exist — the ETL fails with a `FileNotFoundError` when it does. Repeat `--day` to cover zones that have left the avalanche.org feed, and rerun it whenever a zone is added or renamed. The CSV is parsed on the driver and embedded as literal columns, because the Spark containers only mount `GEO_Download/data`.
+When `cache/avalanche_zone_centroids.csv` is missing, the ETL builds it itself through `utils/fetch_avalanche_zones.py` — fetching today plus 10 and 30 days back, so zones that have left the avalanche.org feed stay covered — and only fails when that build fails (no network). To refresh the lookup or to pick the days yourself, run `python -m utils.fetch_avalanche_zones --day <day> [--day <day> …]` and rerun it whenever a zone is added or renamed. The CSV is parsed on the driver and embedded as literal columns, because the Spark containers only mount `GEO_Download/data`.
 
 ## Adding a new script
 

@@ -1,6 +1,15 @@
+import datetime as dt
+
 import pytest
 
-from utils.fetch_avalanche_zones import _geometry_centroid, _lookup_rows, _polygon_centroid, _ring_centroid
+from utils.fetch_avalanche_zones import (
+    _geometry_centroid,
+    _lookup_rows,
+    _polygon_centroid,
+    _ring_centroid,
+    build_lookup,
+    lookup_days,
+)
 
 SQUARE = [[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]
 
@@ -124,3 +133,40 @@ class TestLookupRows:
 
         assert len(rows) == 1
         assert rows[0]["longitude"] == pytest.approx(0.5)
+
+
+class TestLookupDays:
+    def test_window_is_today_then_10_and_30_days_back(self):
+        days = lookup_days(today=dt.date(2026, 9, 30))
+
+        assert days == ["2026-09-30", "2026-09-20", "2026-08-31"]
+
+    def test_defaults_to_today(self):
+        assert lookup_days()[0] == dt.date.today().isoformat()
+
+
+class TestBuildLookup:
+    @staticmethod
+    def _feature(name: str = "Tetons", state: str = "WY"):
+        return {"properties": {"name": name, "state": state}, "geometry": {"type": "Polygon", "coordinates": [SQUARE]}}
+
+    def test_writes_the_csv_and_creates_the_directory(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("utils.fetch_avalanche_zones._fetch", lambda url, days: [self._feature()])
+        output = tmp_path / "cache" / "lookup.csv"
+
+        written = build_lookup(["2026-09-30"], output=str(output))
+
+        assert written == 1
+        assert output.read_text().splitlines() == [
+            "place_location,state,latitude,longitude",
+            "Tetons,WY,0.5,0.5",
+        ]
+
+    def test_no_usable_geometry_raises_and_writes_nothing(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("utils.fetch_avalanche_zones._fetch", lambda url, days: [])
+        output = tmp_path / "cache" / "lookup.csv"
+
+        with pytest.raises(RuntimeError, match="No zone geometries"):
+            build_lookup(["2026-09-30"], output=str(output))
+
+        assert not output.exists()

@@ -1,4 +1,5 @@
 import datetime as dt
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -134,8 +135,9 @@ class TestRun:
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
     @patch("single_etl.avalanche_org_etl.get_max_file_date", return_value=None)
-    def test_missing_zone_lookup_fails_the_run(self, mock_max, spark_session, tmp_path, monkeypatch):
+    def test_unbuildable_zone_lookup_fails_the_run(self, mock_max, spark_session, tmp_path, monkeypatch):
         monkeypatch.setattr(avalanche_org_etl, "ZONE_COORDS_FILE", str(tmp_path / "missing.csv"))
+        monkeypatch.setattr(avalanche_org_etl, "build_lookup", MagicMock(side_effect=OSError("no network")))
         spark = _spark_with_rows()
 
         with pytest.raises(FileNotFoundError, match="fetch_avalanche_zones"):
@@ -143,26 +145,58 @@ class TestRun:
 
 
 class TestCoordsMap:
-    def test_parses_the_lookup_file(self):
+    @staticmethod
+    def _write_lookup(path: Path) -> str:
+        path.write_text("place_location,state,latitude,longitude\nTetons,WY,43.75,-110.5\nBridgeport,CA,38.5,-119.5\n")
+        return str(path)
+
+    def test_parses_the_lookup_file(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(avalanche_org_etl, "ZONE_COORDS_FILE", self._write_lookup(tmp_path / "lookup.csv"))
+
         coords = avalanche_org_etl._coords_map()
 
-        assert len(coords) > 0
-        for key, (latitude, longitude) in coords.items():
-            assert key.count("|") == 1
-            assert -90.0 <= latitude <= 90.0
-            assert -180.0 <= longitude <= 180.0
+        assert coords == {"Tetons|WY": (43.75, -110.5), "Bridgeport|CA": (38.5, -119.5)}
 
-    def test_missing_file_raises(self, tmp_path, monkeypatch):
+    def test_missing_file_is_built_over_the_coverage_window(self, tmp_path, monkeypatch):
+        lookup = tmp_path / "avalanche_zone_centroids.csv"
+        built: dict = {}
+
+        def _fake_build(days, api_url=None, output=None):
+            built["days"] = days
+            Path(output).write_text("place_location,state,latitude,longitude\nTetons,WY,43.75,-110.5\n")
+            return 1
+
+        monkeypatch.setattr(avalanche_org_etl, "ZONE_COORDS_FILE", str(lookup))
+        monkeypatch.setattr(avalanche_org_etl, "build_lookup", _fake_build)
+
+        coords = avalanche_org_etl._coords_map()
+
+        assert coords == {"Tetons|WY": (43.75, -110.5)}
+        assert lookup.exists()
+        assert built["days"] == avalanche_org_etl.lookup_days()
+        assert built["days"][0] == dt.date.today().isoformat()
+        assert len(built["days"]) == 3
+
+    def test_failed_build_raises_with_the_manual_command(self, tmp_path, monkeypatch):
         monkeypatch.setattr(avalanche_org_etl, "ZONE_COORDS_FILE", str(tmp_path / "missing.csv"))
+        monkeypatch.setattr(avalanche_org_etl, "build_lookup", MagicMock(side_effect=OSError("no network")))
 
-        with pytest.raises(FileNotFoundError, match="fetch_avalanche_zones"):
+        with pytest.raises(FileNotFoundError, match=r"python -m utils\.fetch_avalanche_zones"):
             avalanche_org_etl._coords_map()
+
+    def test_existing_file_is_not_built(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(avalanche_org_etl, "ZONE_COORDS_FILE", self._write_lookup(tmp_path / "lookup.csv"))
+        mock_build = MagicMock()
+        monkeypatch.setattr(avalanche_org_etl, "build_lookup", mock_build)
+
+        assert len(avalanche_org_etl._coords_map()) == 2
+        mock_build.assert_not_called()
 
 
 class TestConvert:
     @pytest.fixture(autouse=True)
     def _zone_lookup(self, monkeypatch):
-        monkeypatch.setattr(avalanche_org_etl, "_coords_map", lambda: {"Bridgeport|CA": (38.5, -119.5)})
+        monkeypatch.setattr(avalanche_org_etl, "_coords_map", lambda *args, **kwargs: {"Bridgeport|CA": (38.5, -119.5)})
 
     def test_column_order_matches_the_model(self, spark_session):
         df = avalanche_org_etl._convert(spark_session.createDataFrame([_source_row()]))
@@ -217,7 +251,7 @@ class TestConvert:
         assert row.longitude is None
 
     def test_lookup_key_includes_the_state(self, monkeypatch, spark_session):
-        monkeypatch.setattr(avalanche_org_etl, "_coords_map", lambda: {"Bridgeport|NV": (39.0, -117.0)})
+        monkeypatch.setattr(avalanche_org_etl, "_coords_map", lambda *args, **kwargs: {"Bridgeport|NV": (39.0, -117.0)})
         (row,) = _convert(spark_session, _source_row())
 
         assert row.latitude is None

@@ -66,7 +66,7 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type historical
 python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 ```
 
-`avalanche_org_etl` needs the zone centroid lookup (`cache/avalanche_zone_centroids.csv`) — build or refresh it with `python -m utils.fetch_avalanche_zones`, see [ETL jobs — avalanche_org_etl](etl_jobs/single-etl.md#avalanche_org_etl).
+`avalanche_org_etl` reads the zone centroid lookup (`cache/avalanche_zone_centroids.csv`), which it builds automatically on the first run — refresh it with `python -m utils.fetch_avalanche_zones`, see [ETL jobs — avalanche_org_etl](etl_jobs/single-etl.md#avalanche_org_etl).
 
 **All registered tables:**
 

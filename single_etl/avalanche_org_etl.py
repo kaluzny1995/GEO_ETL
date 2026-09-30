@@ -4,8 +4,9 @@ Reads the typed plain table ``geo.avalanche_org`` and writes every forecast
 zone/day into ``geo.avalanche_org_etl`` using the schema from
 ``model/etl/event_etl.py``, so it can be merged with the other ``*_etl`` tables.
 Zone coordinates come from the centroid lookup
-``cache/avalanche_zone_centroids.csv`` (built by
-``utils/fetch_avalanche_zones.py``).
+``cache/avalanche_zone_centroids.csv``; when that file is missing the script
+builds it itself with ``utils.fetch_avalanche_zones.build_lookup`` (today, 10
+and 30 days back).
 
 Run::
 
@@ -43,6 +44,7 @@ from pyspark.sql import functions as F
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
+from utils.fetch_avalanche_zones import build_lookup, lookup_days
 from utils.raw2plain_utils import get_max_file_date
 
 SOURCE_TABLE = "avalanche_org"
@@ -57,24 +59,40 @@ ZONE_COORDS_FILE = os.path.join(
 )
 
 
-def _coords_map() -> dict[str, tuple[float, float]]:
-    """Parse the zone centroid lookup written by ``utils.fetch_avalanche_zones``.
+def _coords_map(logger: logging.Logger | None = None) -> dict[str, tuple[float, float]]:
+    """Parse the zone centroid lookup, building it first when it is missing.
 
     The CSV is read on the driver: the Spark containers only mount
     ``GEO_Download/data``, so nothing under ``single_etl/`` is reachable from
     the executors. The coordinates are therefore embedded as column literals
     instead of being read as a file (see :func:`_coordinates`).
 
+    A missing file is rebuilt through :func:`utils.fetch_avalanche_zones.build_lookup`
+    with the coverage window from :func:`utils.fetch_avalanche_zones.lookup_days`,
+    which also creates ``cache/`` when needed.
+
+    Args:
+        logger: Logger for the rebuild messages; defaults to the module logger.
+
     Returns:
         ``"<place_location>|<state>" -> (latitude, longitude)`` for every zone.
 
     Raises:
-        FileNotFoundError: When the lookup CSV is missing.
+        FileNotFoundError: When the lookup is missing and rebuilding it fails.
     """
     if not os.path.exists(ZONE_COORDS_FILE):
-        raise FileNotFoundError(
-            f"Missing zone centroid lookup {ZONE_COORDS_FILE} — run `python -m utils.fetch_avalanche_zones`"
-        )
+        log = logger or logging.getLogger(__name__)
+        days = lookup_days()
+        log.info(f"Zone centroid lookup missing — building it from avalanche.org for {', '.join(days)}...")
+        try:
+            written = build_lookup(days=days, output=ZONE_COORDS_FILE)
+        except Exception as exc:
+            raise FileNotFoundError(
+                f"Zone centroid lookup {ZONE_COORDS_FILE} could not be built ({exc}) — "
+                "run `python -m utils.fetch_avalanche_zones` manually"
+            ) from exc
+        log.info(f"Zone centroid lookup built: {written} zones -> {ZONE_COORDS_FILE}")
+
     with open(ZONE_COORDS_FILE, newline="") as handle:
         return {
             f"{row['place_location'].strip()}|{row['state'].strip()}": (float(row["latitude"]), float(row["longitude"]))
@@ -82,15 +100,18 @@ def _coords_map() -> dict[str, tuple[float, float]]:
         }
 
 
-def _coordinates() -> tuple[Column, Column]:
+def _coordinates(logger: logging.Logger | None = None) -> tuple[Column, Column]:
     """Zone centroids embedded as a literal map keyed by ``zone|state``.
+
+    Args:
+        logger: Logger handed to :func:`_coords_map`.
 
     Returns:
         ``(latitude, longitude)`` columns; a zone missing from the lookup
         resolves to ``NULL``.
     """
     entries: list[Column] = []
-    for zone, (latitude, longitude) in _coords_map().items():
+    for zone, (latitude, longitude) in _coords_map(logger).items():
         entries.append(F.lit(zone))
         entries.append(F.struct(F.lit(latitude).alias("lat"), F.lit(longitude).alias("lon")))
     centroid = F.create_map(*entries)[F.concat_ws("|", F.trim(F.col("zone_name")), F.trim(F.col("state")))]
@@ -116,7 +137,7 @@ def _statement() -> Column:
     )
 
 
-def _convert(df: DataFrame) -> DataFrame:
+def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     """Map ``geo.avalanche_org`` columns onto the canonical ETL structure.
 
     Every zone gets its polygon centroid as ``latitude``/``longitude``
@@ -127,11 +148,12 @@ def _convert(df: DataFrame) -> DataFrame:
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
+        logger: Logger handed to the centroid lookup build.
 
     Returns:
         The DataFrame in :data:`TARGET_TABLE` column order.
     """
-    latitude, longitude = _coordinates()
+    latitude, longitude = _coordinates(logger)
 
     return df.select(
         F.lit(SOURCE_NAME).alias("source_name"),
@@ -237,7 +259,7 @@ def run(
         logger.warning(f"No new records for {TARGET_TABLE} — nothing to do, table is up to date")
         return f"{resolved.value}: nothing to do — {TARGET_TABLE} is up to date"
 
-    result_df = _convert(source_df)
+    result_df = _convert(source_df, logger)
     logger.info(f"Writing to {schema}.{TARGET_TABLE}...")
     result_df.write.jdbc(url=jdbc_url, table=f"{schema}.{TARGET_TABLE}", mode="append", properties=properties)
     logger.info(f"Single ETL complete: written to {schema}.{TARGET_TABLE}")
