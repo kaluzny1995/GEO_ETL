@@ -82,7 +82,7 @@ When `cache/avalanche_zone_centroids.csv` is missing, the ETL builds it itself t
 | `last_latitude` / `last_longitude` | `last_latitude` / `last_longitude` — the latest position |
 | `file_date` | `file_date` |
 
-Coordinates missing from `cache/reverse_geocode.csv` are reverse-geocoded on the driver through `utils/reverse_geocode.py` (BigDataCloud, keyless) the first time they appear: successful answers are written back to the cache and reused by every later run, while a failed fetch stops the run before anything is written. The CSV is read on the driver and embedded as literal columns, because the Spark containers only mount `GEO_Download/data`. The API answers open water with an empty country (the `ZZ` fallback) and Antarctic coordinates with the continent, which maps to `AQ`.
+Coordinates missing from `cache/reverse_geocode.csv` are reverse-geocoded on the driver through `utils/reverse_geocode.py` (Nominatim / OpenStreetMap, keyless, paced to one request per second) the first time they appear: successful answers are written back to the cache and reused by every later run, while a failed fetch stops the run before anything is written. The CSV is read on the driver and embedded as literal columns, because the Spark containers only mount `GEO_Download/data`. The API answers open water with an empty country (the `ZZ` fallback).
 
 ## gdacs_event_etl
 
@@ -110,6 +110,31 @@ Coordinates missing from `cache/reverse_geocode.csv` are reverse-geocoded on the
 | `file_date` | `file_date` |
 
 The source's alpha-3 country code wins because GDACS knows the affected country better than a centroid lookup; blank and unknown codes fall through to the same `cache/reverse_geocode.csv` lookup the EONET ETL uses — and since GDACS has no subdivision at all, **every** distinct coordinate of the run is reverse-geocoded on the driver through `utils/reverse_geocode.py` to fill `state_province` (a one-time cost per coordinate, kept in the shared cache). The CSV is read on the driver and embedded as literal columns, because the Spark containers only mount `GEO_Download/data`.
+
+## ibtracs_cyclone_etl
+
+`single_etl/ibtracs_cyclone_etl.py`: `geo.ibtracs_cyclone` (IBTrACS best track, one row per storm position per `file_date`) → `geo.ibtracs_cyclone_etl` (the 23-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `subsource_name` | `basin` — the storm's basin (`NA`, `EP`, `WP`, `NI`), `NULL` when blank |
+| `event_name` | `name` (e.g. `EDOUARD`; the source writes `UNNAMED` for unnamed systems), `NULL` when blank |
+| `event_category` | always `storm` |
+| `event_subcategory` | the ATCF system status `usa_status` (`hurricane`, `typhoon`, `tropical storm`, `tropical depression`, `disturbance`, `low`, …), falling back to the cross-agency `nature` (`tropical`, `disturbance`, `extratropical`, `subtropical`, `contradictory`) when no US agency reported a status; `NULL` when neither states a type (`nature = NR` in non-US basins) |
+| `event_description` / `statement` | `NULL` — a best track carries no advisory prose |
+| `latitude` / `longitude` | `lat` / `lon` — the position itself |
+| `country_code` / `state_province` | the reverse-geocoded position of every point within 100 km of land (`cache/reverse_geocode.csv`), else `ZZ` / `NULL` (open water) — the source carries no country at all |
+| `place_location` | full basin name extended with the sub-basin (`North Atlantic - Gulf of Mexico`, `Eastern North Pacific - Central Pacific`, `North Indian - Bay of Bengal`, …); just the basin name for the unnamed sub-basins (`NA`, `MM`) |
+| `metric_name` | always `wind speed` |
+| `metric_value` | `coalesce(wmo_wind, usa_wind)` — WMO values are absent in real-time data, so the US agency's knots win today |
+| `metric_unit` | always `kts` |
+| `danger_rating` | the Saffir-Simpson label of `usa_sshs` (`category 5` … `category 1`, `tropical storm`, `tropical depression`, `disturbance`, `subtropical`, `post-tropical`, `unknown`) |
+| `other_metrics` | `{"pressure": …, "pressure_unit": "mb", "speed": …, "speed_unit": "kts", "direction": …, "direction_unit": "degrees", "gust": …, "gust_unit": "kts", "dist2land": …, "dist2land_unit": "km", "landfall": …, "landfall_unit": "km"}` — `usa_pres`, `storm_speed`, `storm_dir`, `usa_gust`, `dist2land` / `landfall`; every measurement is paired with its `<name>_unit` companion key, and one the position does not report is omitted together with its unit; `NULL` when it reports none |
+| `event_start_date` / `event_start` / `event_end` | `date(iso_time)` / `iso_time` — one row = one track position |
+| `last_latitude` / `last_longitude` | `lat` / `lon` of the maximum `iso_time` per `sid` — the storm's latest position |
+| `file_date` | `file_date` |
+
+The source knows no country, so geocoding is scoped to the points where it can answer: only positions with `dist2land ≤ 100 km` are looked up (open ocean resolves to `ZZ` anyway; a one-time cost per coordinate, kept in the shared cache), while already-cached answers of any other point are still embedded. `last_*` is a window maximum over `iso_time` per `sid`, which stays correct under `INCREMENTAL`: the newest points always arrive in the newest `file_date`, and storms that stopped reporting keep their previous `last_*` values.
 
 ## Adding a new script
 

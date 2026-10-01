@@ -20,7 +20,10 @@ Field conventions (identical for every source, so the tables can be merged):
   ``NULL`` when the source has no rating.
 * ``statement`` — advisory prose: travel advice, warning text, notice.
 * ``other_metrics`` — remaining metrics as a JSON object string, e.g.
-  ``{"affected_area": "120 km2", "deaths": "3 persons"}``.
+  ``{"affected_area": "120 km2", "deaths": "3 persons"}``; a numeric measurement
+  carries its unit in a companion ``<name>_unit`` key (``{"pressure": 985,
+  "pressure_unit": "mb"}``), and both keys are omitted when the source reports
+  no value.
 * ``event_start_date`` — date-only start (``YYYY-MM-DD``), when the source partitions
   by calendar day; ``event_start`` / ``event_end`` — when the event (or forecast)
   started and ended as timestamps, ``event_end`` optional for open-ended events.

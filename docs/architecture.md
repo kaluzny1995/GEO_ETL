@@ -61,7 +61,8 @@ GEO_ETL/
 │   ├── __init__.py
 │   ├── avalanche_org_etl.py           # geo.avalanche_org -> geo.avalanche_org_etl (canonical event structure)
 │   ├── eonet_event_etl.py             # geo.eonet_event -> geo.eonet_event_etl (canonical event structure)
-│   └── gdacs_event_etl.py             # geo.gdacs_event -> geo.gdacs_event_etl (canonical event structure)
+│   ├── gdacs_event_etl.py             # geo.gdacs_event -> geo.gdacs_event_etl (canonical event structure)
+│   └── ibtracs_cyclone_etl.py         # geo.ibtracs_cyclone -> geo.ibtracs_cyclone_etl (canonical event structure)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
@@ -82,7 +83,8 @@ GEO_ETL/
 │   │   ├── event_etl.py               # EventEtl — canonical event structure shared by all *_etl tables
 │   │   ├── avalanche_org_etl.py       # AvalancheOrgEtl — geo.avalanche_org_etl model
 │   │   ├── eonet_event_etl.py         # EonetEventEtl — geo.eonet_event_etl model
-│   │   └── gdacs_event_etl.py         # GdacsEventEtl — geo.gdacs_event_etl model
+│   │   ├── gdacs_event_etl.py         # GdacsEventEtl — geo.gdacs_event_etl model
+│   │   └── ibtracs_cyclone_etl.py     # IbtracsCycloneEtl — geo.ibtracs_cyclone_etl model
 │   ├── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
@@ -154,7 +156,8 @@ GEO_ETL/
     │   ├── etl/
     │   │   ├── test_avalanche_org_etl.py
     │   │   ├── test_eonet_event_etl.py
-    │   │   └── test_gdacs_event_etl.py
+    │   │   ├── test_gdacs_event_etl.py
+    │   │   └── test_ibtracs_cyclone_etl.py
     │   ├── config/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
@@ -209,7 +212,8 @@ GEO_ETL/
     ├── single_etl/
     │   ├── test_avalanche_org_etl.py
     │   ├── test_eonet_event_etl.py
-    │   └── test_gdacs_event_etl.py
+    │   ├── test_gdacs_event_etl.py
+    │   └── test_ibtracs_cyclone_etl.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py

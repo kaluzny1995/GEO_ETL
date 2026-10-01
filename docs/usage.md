@@ -88,6 +88,7 @@ python run_etl.py CREATE usgs_volcano
 python run_etl.py CREATE avalanche_org_etl
 python run_etl.py CREATE eonet_event_etl
 python run_etl.py CREATE gdacs_event_etl
+python run_etl.py CREATE ibtracs_cyclone_etl
 
 # Ingest data (upload + transform)
 python run_etl.py INGESTION avalanche_org
@@ -173,7 +174,7 @@ JDBC URL:       jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postg
 +------------------+------+
 |auth              |27    |
 |extensions        |2     |
-|geo               |18    |
+|geo               |23    |
 |information_schema|69    |
 |public            |2     |
 |realtime          |3     |

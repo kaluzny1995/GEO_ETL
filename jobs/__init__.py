@@ -21,6 +21,10 @@ def _register():
 
     SingleEtlFactory.register("gdacs_event_etl", gdacs_event_etl_run)
 
+    from single_etl.ibtracs_cyclone_etl import run as ibtracs_cyclone_etl_run
+
+    SingleEtlFactory.register("ibtracs_cyclone_etl", ibtracs_cyclone_etl_run)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain as avalanche_org_raw2plain
     from ingestion.upload.avalanche_org_upload import upload as avalanche_org_upload
 

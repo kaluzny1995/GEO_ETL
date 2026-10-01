@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from utils.reverse_geocode import (
+    USER_AGENT,
     coord_key,
     geocode_map,
     load_cache,
@@ -27,20 +28,26 @@ class TestCoordKey:
 
 class TestParseResponse:
     def test_us_coordinates(self):
-        data = {"countryCode": "US", "principalSubdivisionCode": "US-MT", "continentCode": "NA"}
+        data = {"address": {"country_code": "us", "ISO3166-2-lvl4": "US-MT"}}
         assert parse_response(data) == ("US", "MT")
 
     def test_non_us_subdivision_keeps_its_suffix(self):
-        data = {"countryCode": "MX", "principalSubdivisionCode": "MX-GRO", "continentCode": "NA"}
+        data = {"address": {"country_code": "mx", "ISO3166-2-lvl4": "MX-GRO"}}
         assert parse_response(data) == ("MX", "GRO")
 
-    def test_open_water_has_no_country(self):
-        data = {"countryCode": "", "principalSubdivisionCode": "", "continentCode": ""}
-        assert parse_response(data) == ("", "")
+    def test_state_level_wins_over_the_district(self):
+        data = {"address": {"country_code": "us", "ISO3166-2-lvl4": "US-TX", "ISO3166-2-lvl6": "US-48167"}}
+        assert parse_response(data) == ("US", "TX")
 
-    def test_antarctica_uses_the_continent_code(self):
-        data = {"countryCode": "", "principalSubdivisionCode": "", "continentCode": "AN"}
-        assert parse_response(data) == ("AQ", "")
+    def test_falls_back_to_the_deeper_administrative_level(self):
+        data = {"address": {"country_code": "de", "ISO3166-2-lvl6": "DE-03115"}}
+        assert parse_response(data) == ("DE", "03115")
+
+    def test_open_water_has_no_country(self):
+        assert parse_response({"address": {}}) == ("", "")
+
+    def test_antarctica_answers_with_its_iso_country_code(self):
+        assert parse_response({"address": {"country_code": "aq"}}) == ("AQ", "")
 
     def test_missing_fields(self):
         assert parse_response({}) == ("", "")
@@ -49,15 +56,16 @@ class TestParseResponse:
 class TestReverseGeocode:
     @patch("utils.reverse_geocode.urllib.request.urlopen")
     def test_queries_the_api_and_parses_the_answer(self, mock_urlopen):
-        body = json.dumps({"countryCode": "MX", "principalSubdivisionCode": "MX-GRO"}).encode()
+        body = json.dumps({"address": {"country_code": "mx", "ISO3166-2-lvl4": "MX-GRO"}}).encode()
         mock_urlopen.return_value = BytesIO(body)
 
         assert reverse_geocode(17.0, -99.0) == ("MX", "GRO")
 
-        url = mock_urlopen.call_args.args[0]
-        assert "latitude=17.0" in url
-        assert "longitude=-99.0" in url
-        assert "localityLanguage=en" in url
+        request = mock_urlopen.call_args.args[0]
+        assert "lat=17.0" in request.full_url
+        assert "lon=-99.0" in request.full_url
+        assert "format=jsonv2" in request.full_url
+        assert USER_AGENT in request.headers.values()
 
     @patch("utils.reverse_geocode.urllib.request.urlopen")
     def test_custom_endpoint(self, mock_urlopen):
@@ -65,7 +73,7 @@ class TestReverseGeocode:
 
         reverse_geocode(1.0, 2.0, api_url="https://example.org/reverse")
 
-        assert mock_urlopen.call_args.args[0].startswith("https://example.org/reverse?")
+        assert mock_urlopen.call_args.args[0].full_url.startswith("https://example.org/reverse?")
 
 
 class TestCacheFile:
