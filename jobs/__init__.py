@@ -13,6 +13,10 @@ def _register():
 
     SingleEtlFactory.register("avalanche_org_etl", avalanche_org_etl_run)
 
+    from single_etl.eonet_event_etl import run as eonet_event_etl_run
+
+    SingleEtlFactory.register("eonet_event_etl", eonet_event_etl_run)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain as avalanche_org_raw2plain
     from ingestion.upload.avalanche_org_upload import upload as avalanche_org_upload
 

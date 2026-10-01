@@ -59,7 +59,8 @@ GEO_ETL/
 │
 ├── single_etl/                       # Standalone PySpark ETL scripts (SINGLE_ETL job)
 │   ├── __init__.py
-│   └── avalanche_org_etl.py           # geo.avalanche_org -> geo.avalanche_org_etl (canonical event structure)
+│   ├── avalanche_org_etl.py           # geo.avalanche_org -> geo.avalanche_org_etl (canonical event structure)
+│   └── eonet_event_etl.py             # geo.eonet_event -> geo.eonet_event_etl (canonical event structure)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
@@ -78,7 +79,8 @@ GEO_ETL/
 │   │   └── usgs_volcano_raw.py       # UsgsVolcanoRaw — all-TEXT raw model
 │   ├── etl/
 │   │   ├── event_etl.py               # EventEtl — canonical event structure shared by all *_etl tables
-│   │   └── avalanche_org_etl.py       # AvalancheOrgEtl — geo.avalanche_org_etl model
+│   │   ├── avalanche_org_etl.py       # AvalancheOrgEtl — geo.avalanche_org_etl model
+│   │   └── eonet_event_etl.py         # EonetEventEtl — geo.eonet_event_etl model
 │   ├── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
@@ -99,6 +101,7 @@ GEO_ETL/
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
+│   ├── reverse_geocode.py            # Cached reverse geocode lookup (country/state from coordinates)
 │   ├── schema_converter.py           # Pydantic -> PySpark StructType schemas
 │   ├── spark_monitor.py              # Stage memory logging via Java SparkListener
 │   ├── spark_listener/               # Compiled Java SparkListener classes
@@ -147,7 +150,8 @@ GEO_ETL/
     ├── model/
     │   ├── test_enums.py
     │   ├── etl/
-    │   │   └── test_avalanche_org_etl.py
+    │   │   ├── test_avalanche_org_etl.py
+    │   │   └── test_eonet_event_etl.py
     │   ├── config/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
@@ -177,8 +181,7 @@ GEO_ETL/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
     │   ├── test_run_drop_schema.py
-    │   ├── test_run_delete_last_filedate_data.py
-    │   └── test_fetch_avalanche_zones.py
+    │   └── test_run_delete_last_filedate_data.py
     ├── ingestion/
     │   ├── upload/
     │   │   ├── test_avalanche_org_upload.py
@@ -201,10 +204,15 @@ GEO_ETL/
     │       ├── test_usgs_nwis_raw2plain.py
     │       └── test_usgs_volcano_raw2plain.py
     ├── single_etl/
-    │   └── test_avalanche_org_etl.py
+    │   ├── test_avalanche_org_etl.py
+    │   └── test_eonet_event_etl.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
+        ├── test_fetch_avalanche_zones.py
+        ├── test_jdbc_retry.py
         ├── test_logger.py
-        └── test_schema_converter.py
+        ├── test_reverse_geocode.py
+        ├── test_schema_converter.py
+        └── test_spark_monitor.py
 ```

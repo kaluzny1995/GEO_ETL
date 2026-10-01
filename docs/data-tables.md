@@ -19,6 +19,7 @@ DDL is generated from the Pydantic models instead of being written by hand — s
 | `avalanche_org_etl` | `AvalancheOrgEtl` | `model/etl/` | Avalanche zone/day in the canonical event structure (str, float, datetime) |
 | `eonet_event_raw` | `EonetEventRaw` | `model/raw/` | NASA EONET event data — all fields as TEXT |
 | `eonet_event` | `EonetEvent` | `model/plain/` | NASA EONET event data — typed (float, int, datetime, date) |
+| `eonet_event_etl` | `EonetEventEtl` | `model/etl/` | NASA EONET event in the canonical event structure (str, float, datetime) |
 | `gdacs_event_raw` | `GdacsEventRaw` | `model/raw/` | GDACS disaster event data — all fields as TEXT |
 | `gdacs_event` | `GdacsEvent` | `model/plain/` | GDACS disaster event data — typed (float, int, datetime, bool) |
 | `ibtracs_cyclone_raw` | `IbtacsCycloneRaw` | `model/raw/` | IBTrACS cyclone track data — all fields as TEXT |
@@ -37,7 +38,7 @@ DDL is generated from the Pydantic models instead of being written by hand — s
 
 > **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org` to the CLI, not `avalanche_org_raw`.
 
-> **Note:** `data_quality` is metadata rather than a data source — it is created and filled by the [`DATA_QUALITY` job](etl_jobs/data-quality.md), not by `CREATE` + `INGESTION`. It appears in the schema after the job's first run, so the table count in [Verifying the schema](#verifying-the-schema) goes from 18 to 19.
+> **Note:** `data_quality` is metadata rather than a data source — it is created and filled by the [`DATA_QUALITY` job](etl_jobs/data-quality.md), not by `CREATE` + `INGESTION`. It appears in the schema after the job's first run, so the table count in [Verifying the schema](#verifying-the-schema) goes from 20 to 21.
 
 Models are registered in `model/__init__.py` via `TableFactory.register()` and looked up by `factory/table_factory.py`.
 
@@ -48,7 +49,7 @@ Downloaded CSV files from [GEO_Download](../../GEO_Download) are the input. Curr
 | Source | Raw Table | Final Table | Records | Load Type |
 |--------|-----------|-------------|---------|-----------|
 | Avalanche_ORG | `geo.avalanche_org_raw` | `geo.avalanche_org` | 3,485 | HISTORICAL |
-| EONET | `geo.eonet_event_raw` | `geo.eonet_event` | 109 | HISTORICAL |
+| EONET | `geo.eonet_event_raw` | `geo.eonet_event` | 145 | HISTORICAL |
 | GDACS | `geo.gdacs_event_raw` | `geo.gdacs_event` | 8,031 | HISTORICAL |
 | IBTrACS | `geo.ibtracs_cyclone_raw` | `geo.ibtracs_cyclone` | 424 | HISTORICAL |
 | NIFC | `geo.nifc_fire_raw` | `geo.nifc_fire` | 190 | HISTORICAL |
