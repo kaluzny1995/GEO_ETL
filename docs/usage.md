@@ -87,6 +87,7 @@ python run_etl.py CREATE usgs_volcano
 # Canonical ETL table (SINGLE_ETL target)
 python run_etl.py CREATE avalanche_org_etl
 python run_etl.py CREATE eonet_event_etl
+python run_etl.py CREATE gdacs_event_etl
 
 # Ingest data (upload + transform)
 python run_etl.py INGESTION avalanche_org
