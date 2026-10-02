@@ -162,6 +162,32 @@ The source knows no country, so geocoding is scoped to the points where it can a
 
 Both lookups run on the driver and are embedded as literal map columns (the Spark containers only mount `GEO_Download/data`): the unit names come from `utils/fetch_nifc_units.py`, which builds `cache/nifc_unit_names.csv` when it is missing and refreshes it automatically when the data carries a code the file does not know — one request per new code. The reverse geocoding answers only the rows with a blank `state` (the pre-state vintage, ~127 coordinates today), the source's own subdivision always wins.
 
+## openmeteo_flood_etl
+
+`single_etl/openmeteo_flood_etl.py`: `geo.openmeteo_flood` (Open-Meteo/GloFAS river discharge, one row per river per `date` per `file_date`) → `geo.openmeteo_flood_etl` (the 23-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `source_name` | always `OPENMETEO` |
+| `subsource_name` | always `GLOFAS` (the Copernicus GloFAS model the discharge is simulated with) |
+| `event_name` | `"<river_name> discharge"` (`Amazon discharge`), `NULL` when the river name is blank |
+| `event_category` | always `flood` |
+| `event_subcategory` / `event_description` / `statement` / `danger_rating` | `NULL` — the daily value carries no subtype, prose or alert level |
+| `latitude` / `longitude` | the `rivers.json` reference point of the river (stable per river; the GloFAS cell actually used is the nearest 0.05°/~5 km grid cell) |
+| `country_code` | the source `country` name mapped through the script's 54-entry ISO map (`USA` → `US`, `UK` → `GB`, `DRC` → `CD`); an unknown name falls back to the reverse-geocoded reference point, an empty geocode resolves to `ZZ` |
+| `state_province` | the reverse-geocoded reference point (`cache/reverse_geocode.csv`), `NULL` when the API found no subdivision |
+| `place_location` | `"<river_name> - <country>"` (`Amazon - Brazil`); a blank part is dropped, both blank is `NULL` |
+| `metric_name` | always `discharge` |
+| `metric_value` | `discharge_m3s` — the GloFAS 24-h mean in m³/s, counting a missing value as `0` (the source skips null-discharge days, so none occur) |
+| `metric_unit` | always `m³/s` |
+| `event_start_date` / `event_start` | `date` at midnight / `date` itself — the GMT+0 day of the 24-h mean |
+| `event_end` | `NULL` — a daily value has no end |
+| `last_latitude` / `last_longitude` | `NULL` — the reference point is fixed, there is no latest position |
+| `other_metrics` | `NULL` — the daily mean is the single measurement (the lead time `date - file_date` is derivable) |
+| `file_date` | `file_date` |
+
+Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so no deduplication is needed. The country map and both geocode lookups run on the driver and are embedded as literal map columns (the Spark containers only mount `GEO_Download/data`); every distinct reference point of the plain table is reverse-geocoded once into the shared `cache/reverse_geocode.csv` (~111 coordinates) and reused by every later run.
+
 ## Adding a new script
 
 1. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py` and rewrite `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()` for the new source (the module docstring walks through it).
