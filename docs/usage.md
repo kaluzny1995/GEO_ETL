@@ -76,6 +76,8 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 
 `usgs_earthquake_etl` parses the country from the `place` suffix and reverse-geocodes only the ~93 remote places that have no usable suffix into the shared `cache/reverse_geocode.csv`, see [ETL jobs — usgs_earthquake_etl](etl_jobs/single-etl.md#usgs_earthquake_etl).
 
+`usgs_nwis_etl` parses the river and place names out of `site_name` and reverse-geocodes the gauge point of every site once into the shared `cache/reverse_geocode.csv` (1 coordinate today), see [ETL jobs — usgs_nwis_etl](etl_jobs/single-etl.md#usgs_nwis_etl).
+
 **All registered tables:**
 
 ```bash
@@ -98,6 +100,7 @@ python run_etl.py CREATE ibtracs_cyclone_etl
 python run_etl.py CREATE nifc_fire_etl
 python run_etl.py CREATE openmeteo_flood_etl
 python run_etl.py CREATE usgs_earthquake_etl
+python run_etl.py CREATE usgs_nwis_etl
 
 # Ingest data (upload + transform)
 python run_etl.py INGESTION avalanche_org
@@ -183,7 +186,7 @@ JDBC URL:       jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postg
 +------------------+------+
 |auth              |27    |
 |extensions        |2     |
-|geo               |26    |
+|geo               |27    |
 |information_schema|69    |
 |public            |2     |
 |realtime          |3     |

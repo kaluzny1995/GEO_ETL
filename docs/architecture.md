@@ -65,7 +65,8 @@ GEO_ETL/
 │   ├── ibtracs_cyclone_etl.py         # geo.ibtracs_cyclone -> geo.ibtracs_cyclone_etl (canonical event structure)
 │   ├── nifc_fire_etl.py               # geo.nifc_fire -> geo.nifc_fire_etl (canonical event structure)
 │   ├── openmeteo_flood_etl.py         # geo.openmeteo_flood -> geo.openmeteo_flood_etl (canonical event structure)
-│   └── usgs_earthquake_etl.py         # geo.usgs_earthquake -> geo.usgs_earthquake_etl (canonical event structure)
+│   ├── usgs_earthquake_etl.py         # geo.usgs_earthquake -> geo.usgs_earthquake_etl (canonical event structure)
+│   └── usgs_nwis_etl.py               # geo.usgs_nwis -> geo.usgs_nwis_etl (canonical event structure)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
@@ -90,7 +91,8 @@ GEO_ETL/
 │   │   ├── ibtracs_cyclone_etl.py     # IbtracsCycloneEtl — geo.ibtracs_cyclone_etl model
 │   │   ├── nifc_fire_etl.py           # NifcFireEtl — geo.nifc_fire_etl model
 │   │   ├── openmeteo_flood_etl.py     # OpenMeteoFloodEtl — geo.openmeteo_flood_etl model
-│   │   └── usgs_earthquake_etl.py     # UsgsEarthquakeEtl — geo.usgs_earthquake_etl model
+│   │   ├── usgs_earthquake_etl.py     # UsgsEarthquakeEtl — geo.usgs_earthquake_etl model
+│   │   └── usgs_nwis_etl.py           # UsgsNwisEtl — geo.usgs_nwis_etl model
 │   ├── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
@@ -167,7 +169,8 @@ GEO_ETL/
     │   │   ├── test_ibtracs_cyclone_etl.py
     │   │   ├── test_nifc_fire_etl.py
     │   │   ├── test_openmeteo_flood_etl.py
-    │   │   └── test_usgs_earthquake_etl.py
+    │   │   ├── test_usgs_earthquake_etl.py
+    │   │   └── test_usgs_nwis_etl.py
     │   ├── config/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
@@ -226,7 +229,8 @@ GEO_ETL/
     │   ├── test_ibtracs_cyclone_etl.py
     │   ├── test_nifc_fire_etl.py
     │   ├── test_openmeteo_flood_etl.py
-    │   └── test_usgs_earthquake_etl.py
+    │   ├── test_usgs_earthquake_etl.py
+    │   └── test_usgs_nwis_etl.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py

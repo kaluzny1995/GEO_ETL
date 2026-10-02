@@ -37,6 +37,10 @@ def _register():
 
     SingleEtlFactory.register("usgs_earthquake_etl", usgs_earthquake_etl_run)
 
+    from single_etl.usgs_nwis_etl import run as usgs_nwis_etl_run
+
+    SingleEtlFactory.register("usgs_nwis_etl", usgs_nwis_etl_run)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain as avalanche_org_raw2plain
     from ingestion.upload.avalanche_org_upload import upload as avalanche_org_upload
 

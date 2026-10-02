@@ -216,6 +216,33 @@ Each downloaded file holds the analysis day plus the next day's forecast (222 ro
 
 Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `magError`, `magNst`, `updated`, `locationSource`, `magSource`. The country parse needs no network for ~99% of rows — only the ~93 places without a usable suffix are reverse-geocoded once into the shared `cache/reverse_geocode.csv` and embedded as literal map columns (the Spark containers only mount `GEO_Download/data`).
 
+## usgs_nwis_etl
+
+`single_etl/usgs_nwis_etl.py`: `geo.usgs_nwis` (USGS NWIS streamflow, one row per gauge per `date` per `file_date`) → `geo.usgs_nwis_etl` (the 23-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `source_name` | always `USGS` |
+| `subsource_name` | `site_id` verbatim (`USGS-01646500`) |
+| `event_name` | `"Streamflow - <river name>"` — the `site_name` up to its first `NEAR`/`AT` marker, lower-cased with only the first letter upper-cased (`Streamflow - Potomac river`); `Streamflow` alone when the name is missing or blank |
+| `event_category` | always `flood` (the same category the OpenMeteo discharge snapshots use) |
+| `event_subcategory` | `NULL` — a gauge day has no subtype |
+| `event_description` | the `qualifiers` expanded to their full names (`P` → `provisional`, `A,e` → `approved for publication, estimated`); an unknown code is kept verbatim, a blank qualifier is `NULL` |
+| `latitude` / `longitude` | the gauge point (WGS84 decimal degrees) |
+| `country_code` | always `US` — the network publishes US gauges |
+| `state_province` | the reverse-geocoded gauge point (`cache/reverse_geocode.csv`), `NULL` when the API found no subdivision |
+| `place_location` | `"<river name>, <place text>"` — both parts extracted from `site_name` around its first `NEAR`/`AT` marker (`Potomac river, WASH, DC LITTLE FALLS PUMP STA`); without a marker only the sentence-cased name remains, a missing name is `NULL` |
+| `metric_name` | always `discharge` (parameter `00060`) |
+| `metric_value` | `value` — the daily mean, counting a missing reading as `0` (none occur) |
+| `metric_unit` | `unit` verbatim (`ft3/s`; a metric parameter fetch would carry `m³/s`) |
+| `event_start_date` / `event_start` | `date` at midnight — the source reports a day, not a datetime |
+| `event_end` | `NULL` — a daily mean has no end |
+| `last_latitude` / `last_longitude` | `NULL` — the gauge is fixed |
+| `danger_rating` / `statement` / `other_metrics` | `NULL` — the qualifiers live in the description |
+| `file_date` | `file_date` |
+
+Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Each downloaded file holds the measurement day plus sometimes the next day (45 rows over 28 files for one gauge), so a `(site, date)` pair can appear in two files — yesterday's next-day row is today's reading — and the ETL keeps every snapshot as its own row; `(site, date, file_date)` is unique, so no deduplication is needed. The gauge point is reverse-geocoded once into the shared `cache/reverse_geocode.csv` (1 coordinate today) and embedded as a literal map column (the Spark containers only mount `GEO_Download/data`).
+
 ## Adding a new script
 
 1. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py` and rewrite `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()` for the new source (the module docstring walks through it).
