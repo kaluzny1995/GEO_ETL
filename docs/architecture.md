@@ -62,7 +62,8 @@ GEO_ETL/
 │   ├── avalanche_org_etl.py           # geo.avalanche_org -> geo.avalanche_org_etl (canonical event structure)
 │   ├── eonet_event_etl.py             # geo.eonet_event -> geo.eonet_event_etl (canonical event structure)
 │   ├── gdacs_event_etl.py             # geo.gdacs_event -> geo.gdacs_event_etl (canonical event structure)
-│   └── ibtracs_cyclone_etl.py         # geo.ibtracs_cyclone -> geo.ibtracs_cyclone_etl (canonical event structure)
+│   ├── ibtracs_cyclone_etl.py         # geo.ibtracs_cyclone -> geo.ibtracs_cyclone_etl (canonical event structure)
+│   └── nifc_fire_etl.py               # geo.nifc_fire -> geo.nifc_fire_etl (canonical event structure)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
@@ -84,7 +85,8 @@ GEO_ETL/
 │   │   ├── avalanche_org_etl.py       # AvalancheOrgEtl — geo.avalanche_org_etl model
 │   │   ├── eonet_event_etl.py         # EonetEventEtl — geo.eonet_event_etl model
 │   │   ├── gdacs_event_etl.py         # GdacsEventEtl — geo.gdacs_event_etl model
-│   │   └── ibtracs_cyclone_etl.py     # IbtracsCycloneEtl — geo.ibtracs_cyclone_etl model
+│   │   ├── ibtracs_cyclone_etl.py     # IbtracsCycloneEtl — geo.ibtracs_cyclone_etl model
+│   │   └── nifc_fire_etl.py           # NifcFireEtl — geo.nifc_fire_etl model
 │   ├── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
@@ -102,6 +104,7 @@ GEO_ETL/
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
 │   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
 │   ├── fetch_avalanche_zones.py      # Build the avalanche zone centroid lookup CSV
+│   ├── fetch_nifc_units.py           # Build the NIFC jurisdiction unit-name lookup CSV
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
@@ -157,7 +160,8 @@ GEO_ETL/
     │   │   ├── test_avalanche_org_etl.py
     │   │   ├── test_eonet_event_etl.py
     │   │   ├── test_gdacs_event_etl.py
-    │   │   └── test_ibtracs_cyclone_etl.py
+    │   │   ├── test_ibtracs_cyclone_etl.py
+    │   │   └── test_nifc_fire_etl.py
     │   ├── config/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
@@ -213,11 +217,13 @@ GEO_ETL/
     │   ├── test_avalanche_org_etl.py
     │   ├── test_eonet_event_etl.py
     │   ├── test_gdacs_event_etl.py
-    │   └── test_ibtracs_cyclone_etl.py
+    │   ├── test_ibtracs_cyclone_etl.py
+    │   └── test_nifc_fire_etl.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
         ├── test_fetch_avalanche_zones.py
+        ├── test_fetch_nifc_units.py
         ├── test_jdbc_retry.py
         ├── test_logger.py
         ├── test_reverse_geocode.py

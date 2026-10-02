@@ -70,6 +70,8 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 
 `eonet_event_etl` reverse-geocodes the coordinates it has not seen before into `cache/reverse_geocode.csv` (built automatically, one entry per new coordinate), see [ETL jobs — eonet_event_etl](etl_jobs/single-etl.md#eonet_event_etl).
 
+`nifc_fire_etl` resolves jurisdiction unit codes into `cache/nifc_unit_names.csv` (built automatically on the first run, refreshed when the data carries an unknown code) and reverse-geocodes the perimeters that predate the `state` field into the shared `cache/reverse_geocode.csv`, see [ETL jobs — nifc_fire_etl](etl_jobs/single-etl.md#nifc_fire_etl).
+
 **All registered tables:**
 
 ```bash
@@ -89,6 +91,7 @@ python run_etl.py CREATE avalanche_org_etl
 python run_etl.py CREATE eonet_event_etl
 python run_etl.py CREATE gdacs_event_etl
 python run_etl.py CREATE ibtracs_cyclone_etl
+python run_etl.py CREATE nifc_fire_etl
 
 # Ingest data (upload + transform)
 python run_etl.py INGESTION avalanche_org
@@ -174,7 +177,7 @@ JDBC URL:       jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postg
 +------------------+------+
 |auth              |27    |
 |extensions        |2     |
-|geo               |23    |
+|geo               |24    |
 |information_schema|69    |
 |public            |2     |
 |realtime          |3     |

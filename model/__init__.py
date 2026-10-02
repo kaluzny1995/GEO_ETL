@@ -4,6 +4,7 @@ from model.etl.avalanche_org_etl import AvalancheOrgEtl
 from model.etl.eonet_event_etl import EonetEventEtl
 from model.etl.gdacs_event_etl import GdacsEventEtl
 from model.etl.ibtracs_cyclone_etl import IbtracsCycloneEtl
+from model.etl.nifc_fire_etl import NifcFireEtl
 from model.other.data_quality import DataQuality
 from model.plain.avalanche_org import AvalancheOrg
 from model.plain.eonet_event import EonetEvent
@@ -44,6 +45,7 @@ def _register_tables():
     TableFactory.register("ibtracs_cyclone_etl", IbtracsCycloneEtl)
     TableFactory.register("nifc_fire_raw", NifcFireRaw)
     TableFactory.register("nifc_fire", NifcFire)
+    TableFactory.register("nifc_fire_etl", NifcFireEtl)
     TableFactory.register("openmeteo_flood_raw", OpenMeteoFloodRaw)
     TableFactory.register("openmeteo_flood", OpenMeteoFlood)
     TableFactory.register("usgs_earthquake_raw", UsgsEarthquakeRaw)
@@ -74,6 +76,7 @@ __all__ = [
     "IbtracsCycloneEtl",
     "JobType",
     "NifcFire",
+    "NifcFireEtl",
     "NifcFireRaw",
     "OpenMeteoFlood",
     "OpenMeteoFloodRaw",

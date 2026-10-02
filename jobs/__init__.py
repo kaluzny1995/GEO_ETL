@@ -25,6 +25,10 @@ def _register():
 
     SingleEtlFactory.register("ibtracs_cyclone_etl", ibtracs_cyclone_etl_run)
 
+    from single_etl.nifc_fire_etl import run as nifc_fire_etl_run
+
+    SingleEtlFactory.register("nifc_fire_etl", nifc_fire_etl_run)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain as avalanche_org_raw2plain
     from ingestion.upload.avalanche_org_upload import upload as avalanche_org_upload
 

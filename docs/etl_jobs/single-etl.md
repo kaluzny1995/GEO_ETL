@@ -136,6 +136,32 @@ The source's alpha-3 country code wins because GDACS knows the affected country 
 
 The source knows no country, so geocoding is scoped to the points where it can answer: only positions with `dist2land ≤ 100 km` are looked up (open ocean resolves to `ZZ` anyway; a one-time cost per coordinate, kept in the shared cache), while already-cached answers of any other point are still embedded. `last_*` is a window maximum over `iso_time` per `sid`, which stays correct under `INCREMENTAL`: the newest points always arrive in the newest `file_date`, and storms that stopped reporting keep their previous `last_*` values.
 
+## nifc_fire_etl
+
+`single_etl/nifc_fire_etl.py`: `geo.nifc_fire` (NIFC/WFIGS fire perimeters, one row per perimeter per `file_date`) → `geo.nifc_fire_etl` (the 23-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `subsource_name` | always `WFIGS` (the Wildland Fire Interagency Geospatial Services layer the perimeters come from) |
+| `event_name` | `incident_name`, `NULL` when blank |
+| `event_category` | always `fire` |
+| `event_subcategory` | `fire_type`: `WF` → `wildfire`, `RX` → `prescribed fire`; `NULL` when the source states no type |
+| `event_description` / `statement` / `danger_rating` | `NULL` — the perimeter layer carries no advisory prose or alert level |
+| `latitude` / `longitude` | the feature centroid of the perimeter |
+| `country_code` | always `US` — the layer only publishes US perimeters |
+| `state_province` | `state` when present (the 2026-09-18 vintage on), else the reverse-geocoded centroid (`cache/reverse_geocode.csv`), `NULL` when neither resolves |
+| `place_location` | the full name of `jurisdiction_label` resolved through `cache/nifc_unit_names.csv` (`WAOWF` → `Okanogan-Wenatchee National Forest`, `CAYNP` → `Yosemite National Park`, `TXTXS` → `Texas A & M Forest Service`, …); a code the lookup does not know keeps its raw value, a blank one is `NULL` — the agency codes in `jurisdiction` have no published domain and are not used |
+| `metric_name` | always `area` |
+| `metric_value` | `acres`, counting a missing acreage as `0` (the pre-2026-09-18 vintage predates the field) |
+| `metric_unit` | always `acres` |
+| `other_metrics` | `{"percent_contained": …, "percent_contained_unit": "%"}` — always present: a missing `percent_contained` counts as `0` (nothing reported yet), so both keys stay valid |
+| `event_start_date` / `event_start` | `date(created_on)` / `created_on` |
+| `event_end` | `NULL` — the layer carries no fire-out datetime |
+| `last_latitude` / `last_longitude` | `NULL` — the layer carries no latest position |
+| `file_date` | `file_date` |
+
+Both lookups run on the driver and are embedded as literal map columns (the Spark containers only mount `GEO_Download/data`): the unit names come from `utils/fetch_nifc_units.py`, which builds `cache/nifc_unit_names.csv` when it is missing and refreshes it automatically when the data carries a code the file does not know — one request per new code. The reverse geocoding answers only the rows with a blank `state` (the pre-state vintage, ~127 coordinates today), the source's own subdivision always wins.
+
 ## Adding a new script
 
 1. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py` and rewrite `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()` for the new source (the module docstring walks through it).
