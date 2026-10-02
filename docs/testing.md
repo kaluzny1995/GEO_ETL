@@ -56,6 +56,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/model/etl/test_openmeteo_flood_etl.py` | OpenMeteoFloodEtl canonical model (fields, Spark schema, DDL, registry) |
 | `test/model/etl/test_usgs_earthquake_etl.py` | UsgsEarthquakeEtl canonical model (fields, Spark schema, DDL, registry) |
 | `test/model/etl/test_usgs_nwis_etl.py` | UsgsNwisEtl canonical model (fields, Spark schema, DDL, registry) |
+| `test/model/etl/test_usgs_volcano_etl.py` | UsgsVolcanoEtl canonical model (fields, Spark schema, DDL, registry) |
 | `test/ingestion/upload/test_avalanche_org_upload.py` | Upload script (helpers + upload: historical, incremental, no files, logging) |
 | `test/ingestion/upload/test_eonet_event_upload.py` | EONET upload script (helpers + upload: historical, incremental, no files, logging) |
 | `test/ingestion/upload/test_gdacs_event_upload.py` | GDACS upload script (helpers + upload: historical, incremental, no files, logging) |
@@ -86,10 +87,12 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/single_etl/test_openmeteo_flood_etl.py` | OpenMeteo SINGLE_ETL script (load type resolution, runs, country/state/place mapping, reverse-geocode lookup, discharge metric) |
 | `test/single_etl/test_usgs_earthquake_etl.py` | USGS SINGLE_ETL script (load type resolution, runs, place-suffix country parse, net-based state, event name/description, depth/station metrics) |
 | `test/single_etl/test_usgs_nwis_etl.py` | USGS NWIS SINGLE_ETL script (load type resolution, runs, site-name event/place parse, qualifier expansion, reverse-geocode state, discharge metric) |
+| `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (load type resolution, runs, notice enrichment, alert-scale metric, subcategory/place/state fallbacks) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_dq_metrics.py` | Rules, rate/variance metric computation, unpivoting — run on a real local Spark session |
 | `test/util/test_fetch_avalanche_zones.py` | utils/fetch_avalanche_zones.py (centroids, lookup rows, coverage window, `build_lookup` CSV write) |
 | `test/util/test_fetch_nifc_units.py` | utils/fetch_nifc_units.py (distinct fetch, code→name collapse, CSV cache, refresh-on-missing) |
+| `test/util/test_fetch_volcano_notices.py` | utils/fetch_volcano_notices.py (notice keys, section parsing, CSV cache, one fetch per notice, failed fetches) |
 | `test/util/test_reverse_geocode.py` | utils/reverse_geocode.py (coord keys, API parsing, cache round-trip, failed fetches) |
 | `test/util/test_jdbc_retry.py` | Connection-error detection, bounded retries, delay and warning per attempt |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |

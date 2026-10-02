@@ -243,6 +243,36 @@ Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `ma
 
 Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Each downloaded file holds the measurement day plus sometimes the next day (45 rows over 28 files for one gauge), so a `(site, date)` pair can appear in two files — yesterday's next-day row is today's reading — and the ETL keeps every snapshot as its own row; `(site, date, file_date)` is unique, so no deduplication is needed. The gauge point is reverse-geocoded once into the shared `cache/reverse_geocode.csv` (1 coordinate today) and embedded as a literal map column (the Spark containers only mount `GEO_Download/data`).
 
+## usgs_volcano_etl
+
+`single_etl/usgs_volcano_etl.py`: `geo.usgs_volcano` (USGS HANS volcanic activity notices, one row per volcano per notice per `file_date`) → `geo.usgs_volcano_etl` (the 23-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `source_name` | always `USGS` |
+| `subsource_name` | `observatory_name` verbatim (`Alaska Volcano Observatory`, `Hawaiian Volcano Observatory`, `Northern Mariana Islands`) |
+| `event_name` | `"Volcano - <volcano_name>"` (`Volcano - Great Sitkin`); `Volcano` alone when the name is missing or blank |
+| `event_category` | always `volcano` |
+| `event_subcategory` | the notice type's full name from the notice API (`Daily Update`, `Weekly Update`, `Volcano Activity Notification`), falling back to the feed's code (`DU`, `WU`, `VV`) when the API carried no name |
+| `event_description` | `NULL` — the full notice type already names the update kind |
+| `latitude` / `longitude` | the volcano's coordinates from the notice API's `notice_sections` entry matched by `vnum` — the feed itself carries no location |
+| `country_code` | always `US` — the three observatories are US |
+| `state_province` | the reverse-geocoded volcano point (`cache/reverse_geocode.csv`), `ZZ` when the geocode found no subdivision (the Ahyi Seamount is an ocean point) |
+| `place_location` | `"<volcano_name>, <region>"` (`Great Sitkin, Aleutians`); without a region only the name remains, a blank name is `NULL` |
+| `metric_name` | always `alert_level` |
+| `metric_value` | the USGS alert scale as a number — `NORMAL` 0, `ADVISORY` 1, `WATCH` 2, `WARNING` 3 (case-insensitive); an unknown code stays `NULL` (an unknown level is not `NORMAL`) |
+| `metric_unit` | `NULL` — a scale index has no unit |
+| `danger_rating` | the source `alert_level` text verbatim (`WATCH`, `ADVISORY`) |
+| `statement` | the notice section's `synopsis` status line (`AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …`), `NULL` when blank |
+| `event_start_date` / `event_start` | `date(notice_date)` / `notice_date` — when the notice was issued |
+| `event_end` | `NULL` — a notice is an instant |
+| `last_latitude` / `last_longitude` / `other_metrics` | `NULL` — the volcano is fixed and the notice carries no extra metrics |
+| `file_date` | `file_date` |
+
+Dropped from the ETL: `vnum`, `observatory`, `color_code`, `notice_type`, `notice_identifier`, `notice_url`, `notice_data_url` — the identifier/vnum pair is only the join key into the cache, the color repeats `alert_level`, and the URLs are document references rather than data.
+
+The feed itself carries no coordinates, region or status line — those live behind the notice API referenced by `notice_data_url`. Every distinct `notice_identifier|vnum` pair is resolved on the driver through `utils/fetch_volcano_notices.py` into `cache/usgs_volcano_notices.csv` (one request per notice, however many of its volcanoes appear — an AVO notice covers both Great Sitkin and Shishaldin; notices are immutable once published, so a cached entry never goes stale), and the coordinates found there are reverse-geocoded once into the shared `cache/reverse_geocode.csv` (4 volcano points today). Both fetches are strict: a failure raises and fails the build instead of leaving holes in the cache, while successful answers are persisted for every later run. The CSVs are read on the driver and embedded as literal map columns, because the Spark containers only mount `GEO_Download/data`.
+
 ## Adding a new script
 
 1. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py` and rewrite `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()` for the new source (the module docstring walks through it).

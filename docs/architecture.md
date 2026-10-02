@@ -66,7 +66,8 @@ GEO_ETL/
 │   ├── nifc_fire_etl.py               # geo.nifc_fire -> geo.nifc_fire_etl (canonical event structure)
 │   ├── openmeteo_flood_etl.py         # geo.openmeteo_flood -> geo.openmeteo_flood_etl (canonical event structure)
 │   ├── usgs_earthquake_etl.py         # geo.usgs_earthquake -> geo.usgs_earthquake_etl (canonical event structure)
-│   └── usgs_nwis_etl.py               # geo.usgs_nwis -> geo.usgs_nwis_etl (canonical event structure)
+│   ├── usgs_nwis_etl.py               # geo.usgs_nwis -> geo.usgs_nwis_etl (canonical event structure)
+│   └── usgs_volcano_etl.py            # geo.usgs_volcano -> geo.usgs_volcano_etl (canonical event structure)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
@@ -92,7 +93,8 @@ GEO_ETL/
 │   │   ├── nifc_fire_etl.py           # NifcFireEtl — geo.nifc_fire_etl model
 │   │   ├── openmeteo_flood_etl.py     # OpenMeteoFloodEtl — geo.openmeteo_flood_etl model
 │   │   ├── usgs_earthquake_etl.py     # UsgsEarthquakeEtl — geo.usgs_earthquake_etl model
-│   │   └── usgs_nwis_etl.py           # UsgsNwisEtl — geo.usgs_nwis_etl model
+│   │   ├── usgs_nwis_etl.py           # UsgsNwisEtl — geo.usgs_nwis_etl model
+│   │   └── usgs_volcano_etl.py        # UsgsVolcanoEtl — geo.usgs_volcano_etl model
 │   ├── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
@@ -111,6 +113,7 @@ GEO_ETL/
 │   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
 │   ├── fetch_avalanche_zones.py      # Build the avalanche zone centroid lookup CSV
 │   ├── fetch_nifc_units.py           # Build the NIFC jurisdiction unit-name lookup CSV
+│   ├── fetch_volcano_notices.py      # Build the USGS HANS notice detail lookup CSV
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
@@ -170,7 +173,8 @@ GEO_ETL/
     │   │   ├── test_nifc_fire_etl.py
     │   │   ├── test_openmeteo_flood_etl.py
     │   │   ├── test_usgs_earthquake_etl.py
-    │   │   └── test_usgs_nwis_etl.py
+    │   │   ├── test_usgs_nwis_etl.py
+    │   │   └── test_usgs_volcano_etl.py
     │   ├── config/
     │   │   ├── test_config.py
     │   │   └── test_supabase_config.py
@@ -230,12 +234,14 @@ GEO_ETL/
     │   ├── test_nifc_fire_etl.py
     │   ├── test_openmeteo_flood_etl.py
     │   ├── test_usgs_earthquake_etl.py
-    │   └── test_usgs_nwis_etl.py
+    │   ├── test_usgs_nwis_etl.py
+    │   └── test_usgs_volcano_etl.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
         ├── test_fetch_avalanche_zones.py
         ├── test_fetch_nifc_units.py
+        ├── test_fetch_volcano_notices.py
         ├── test_jdbc_retry.py
         ├── test_logger.py
         ├── test_reverse_geocode.py

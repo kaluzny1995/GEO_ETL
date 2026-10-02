@@ -78,6 +78,8 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 
 `usgs_nwis_etl` parses the river and place names out of `site_name` and reverse-geocodes the gauge point of every site once into the shared `cache/reverse_geocode.csv` (1 coordinate today), see [ETL jobs — usgs_nwis_etl](etl_jobs/single-etl.md#usgs_nwis_etl).
 
+`usgs_volcano_etl` fetches the coordinates, region, status line and full notice type of every notice once into `cache/usgs_volcano_notices.csv` (built automatically on the first run, immutable notices are never refetched) and reverse-geocodes the volcano points into the shared `cache/reverse_geocode.csv` (4 coordinates today), see [ETL jobs — usgs_volcano_etl](etl_jobs/single-etl.md#usgs_volcano_etl).
+
 **All registered tables:**
 
 ```bash
@@ -101,6 +103,7 @@ python run_etl.py CREATE nifc_fire_etl
 python run_etl.py CREATE openmeteo_flood_etl
 python run_etl.py CREATE usgs_earthquake_etl
 python run_etl.py CREATE usgs_nwis_etl
+python run_etl.py CREATE usgs_volcano_etl
 
 # Ingest data (upload + transform)
 python run_etl.py INGESTION avalanche_org
@@ -186,7 +189,7 @@ JDBC URL:       jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postg
 +------------------+------+
 |auth              |27    |
 |extensions        |2     |
-|geo               |27    |
+|geo               |28    |
 |information_schema|69    |
 |public            |2     |
 |realtime          |3     |

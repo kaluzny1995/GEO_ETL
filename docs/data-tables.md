@@ -40,11 +40,12 @@ DDL is generated from the Pydantic models instead of being written by hand — s
 | `usgs_nwis_etl` | `UsgsNwisEtl` | `model/etl/` | USGS stream gauge reading snapshot in the canonical event structure (str, float, datetime) |
 | `usgs_volcano_raw` | `UsgsVolcanoRaw` | `model/raw/` | USGS volcanic activity data — all fields as TEXT |
 | `usgs_volcano` | `UsgsVolcano` | `model/plain/` | USGS volcanic activity data — typed (int, timestamp) |
+| `usgs_volcano_etl` | `UsgsVolcanoEtl` | `model/etl/` | USGS volcanic activity notice in the canonical event structure (str, float, timestamp) |
 | `data_quality` | `DataQuality` | `model/other/` | Quality metrics per `file_date` — long format (str, float, timestamp) |
 
 > **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org` to the CLI, not `avalanche_org_raw`.
 
-> **Note:** `data_quality` is metadata rather than a data source — it is created and filled by the [`DATA_QUALITY` job](etl_jobs/data-quality.md), not by `CREATE` + `INGESTION`. It appears in the schema after the job's first run, so the table count in [Verifying the schema](#verifying-the-schema) goes from 26 to 27.
+> **Note:** `data_quality` is metadata rather than a data source — it is created and filled by the [`DATA_QUALITY` job](etl_jobs/data-quality.md), not by `CREATE` + `INGESTION`. It appears in the schema after the job's first run, so the table count in [Verifying the schema](#verifying-the-schema) goes from 27 to 28.
 
 Models are registered in `model/__init__.py` via `TableFactory.register()` and looked up by `factory/table_factory.py`.
 
@@ -61,7 +62,7 @@ Downloaded CSV files from [GEO_Download](../../GEO_Download) are the input. Curr
 | NIFC | `geo.nifc_fire_raw` | `geo.nifc_fire` | 233 | HISTORICAL |
 | OpenMeteo_Flood | `geo.openmeteo_flood_raw` | `geo.openmeteo_flood` | 6,438 | HISTORICAL |
 | USGS_Earthquake | `geo.usgs_earthquake_raw` | `geo.usgs_earthquake` | 8,725 | HISTORICAL |
-| USGS_Volcano | `geo.usgs_volcano_raw` | `geo.usgs_volcano` | 24 | HISTORICAL |
+| USGS_Volcano | `geo.usgs_volcano_raw` | `geo.usgs_volcano` | 47 | HISTORICAL |
 | USGS_NWIS | `geo.usgs_nwis_raw` | `geo.usgs_nwis` | 45 | HISTORICAL |
 
 Load type is decided per run — see [ETL jobs — Load type detection](etl_jobs/load-types.md).
