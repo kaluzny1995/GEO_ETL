@@ -188,6 +188,34 @@ Both lookups run on the driver and are embedded as literal map columns (the Spar
 
 Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so no deduplication is needed. The country map and both geocode lookups run on the driver and are embedded as literal map columns (the Spark containers only mount `GEO_Download/data`); every distinct reference point of the plain table is reverse-geocoded once into the shared `cache/reverse_geocode.csv` (~111 coordinates) and reused by every later run.
 
+## usgs_earthquake_etl
+
+`single_etl/usgs_earthquake_etl.py`: `geo.usgs_earthquake` (USGS/FDSN seismic events, one row per event — `event_id` is globally unique) → `geo.usgs_earthquake_etl` (the 23-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `source_name` | always `USGS` |
+| `subsource_name` | `net` verbatim — the preferred origin's network (`ak`, `nc`, `ci`, …) |
+| `event_name` | `"Earthquake - <country name>"` — `United States` for a US state suffix, the `place` suffix itself for international events (`Earthquake - Chile`), the reverse-geocoded country for places the suffix does not cover; `Earthquake` alone when no country resolves |
+| `event_category` | always `earthquake` |
+| `event_subcategory` | `event_type`: `earthquake`, `quarry blast`, `explosion`, `ice quake` |
+| `event_description` | `"<event_type> <status>"` (`earthquake reviewed`, `quarry blast automatic`) |
+| `latitude` / `longitude` | the epicentre (WGS84 decimal degrees) |
+| `country_code` | from the `place` suffix: a US state (2-letter code or full name) → `US`, an international suffix → the 60-entry name→ISO map (`Chile` → `CL`, `MX` → `MX`, `Japan region` → `JP`, `Guam` → `US`), otherwise the reverse-geocoded epicentre; `ZZ` when nothing resolves |
+| `state_province` | `net` uppercased (`ak` → `AK`, `ci` → `CI`), the reverse-geocoded epicentre when `net` is blank, `NULL` when neither resolves |
+| `place_location` | `place` verbatim (`9 km WSW of Idyllwild, CA`) |
+| `metric_name` | always `magnitude` |
+| `metric_value` | `mag`, counting a missing magnitude as `0` (none occur) |
+| `metric_unit` | `magType` per row (`ml`, `mb`, `mww`, …) — a magnitude is only meaningful with its type |
+| `other_metrics` | `{"depth", "depth_unit": "km", "nst", "nst_unit": "stations"}`; the `nst` keys are omitted when the network reports no station count |
+| `event_start_date` / `event_start` | `date(time)` / `time` — the rupture origin time (millisecond precision) |
+| `event_end` | `NULL` — an instant has no end |
+| `last_latitude` / `last_longitude` | `NULL` — the epicentre is fixed |
+| `danger_rating` / `statement` | `NULL` — `status` is QC, not severity |
+| `file_date` | `file_date` |
+
+Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `magError`, `magNst`, `updated`, `locationSource`, `magSource`. The country parse needs no network for ~99% of rows — only the ~93 places without a usable suffix are reverse-geocoded once into the shared `cache/reverse_geocode.csv` and embedded as literal map columns (the Spark containers only mount `GEO_Download/data`).
+
 ## Adding a new script
 
 1. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py` and rewrite `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()` for the new source (the module docstring walks through it).
