@@ -19,7 +19,7 @@ class TestUsgsVolcanoEtlValid:
             event_name="Volcano - Great Sitkin",
             event_category="volcano",
             event_subcategory="Daily Update",
-            event_description=None,
+            event_description="AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues.",
             latitude=52.0765,
             longitude=-176.1109,
             country_code="US",
@@ -29,7 +29,7 @@ class TestUsgsVolcanoEtlValid:
             metric_value=2.0,
             metric_unit=None,
             danger_rating="WATCH",
-            statement="AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues.",
+            statement=None,
             other_metrics=None,
             event_start_date=dt.date(2026, 9, 29),
             event_start=dt.datetime(2026, 9, 29, 18, 26, 19),
@@ -43,12 +43,13 @@ class TestUsgsVolcanoEtlValid:
         assert row.event_name == "Volcano - Great Sitkin"
         assert row.event_category == "volcano"
         assert row.event_subcategory == "Daily Update"
-        assert row.event_description is None
+        assert row.event_description == "AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues."
         assert row.state_province == "AK"
         assert row.place_location == "Great Sitkin, Aleutians"
         assert row.metric_name == "alert_level"
         assert row.metric_value == 2.0
         assert row.danger_rating == "WATCH"
+        assert row.statement is None
         assert row.other_metrics is None
         assert row.event_end is None
 

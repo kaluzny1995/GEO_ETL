@@ -179,7 +179,7 @@ class TestConvert:
         assert row.event_name == "Volcano - Great Sitkin"
         assert row.event_category == "volcano"
         assert row.event_subcategory == "Daily Update"
-        assert row.event_description is None
+        assert row.event_description == "AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues."
         assert row.latitude == 52.0765
         assert row.longitude == -176.1109
         assert row.country_code == "US"
@@ -189,7 +189,7 @@ class TestConvert:
         assert row.metric_value == 2.0
         assert row.metric_unit is None
         assert row.danger_rating == "WATCH"
-        assert row.statement == "AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues."
+        assert row.statement is None
         assert row.other_metrics is None
         assert row.event_start_date == dt.date(2026, 9, 29)
         assert row.event_start == dt.datetime(2026, 9, 29, 18, 26, 19)
@@ -279,13 +279,14 @@ class TestConvert:
         assert row.place_location is None
 
     @pytest.mark.parametrize("synopsis", [None, "", "   "])
-    def test_blank_synopsis_has_no_statement(self, monkeypatch, spark_session, synopsis):
+    def test_blank_synopsis_has_no_description(self, monkeypatch, spark_session, synopsis):
         monkeypatch.setattr(
             usgs_volcano_etl, "notice_map", _fake_notices({**DEFAULT_NOTICE, "synopsis": synopsis or ""})
         )
 
         (row,) = _convert(spark_session, _source_row())
 
+        assert row.event_description is None
         assert row.statement is None
 
     @pytest.mark.parametrize("notice_identifier", [None, "", "   "])
@@ -297,6 +298,7 @@ class TestConvert:
         assert row.event_subcategory == "DU"
         assert row.latitude is None and row.longitude is None
         assert row.state_province == "ZZ"
+        assert row.event_description is None
         assert row.statement is None
         assert row.place_location == "Great Sitkin"
         assert row.metric_value == 2.0

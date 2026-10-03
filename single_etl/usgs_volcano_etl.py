@@ -210,7 +210,7 @@ def _state_province(state: Column) -> Column:
     return F.coalesce(F.when(state != "", state), F.lit(UNKNOWN_CODE))
 
 
-def _statement(synopsis: Column) -> Column:
+def _description(synopsis: Column) -> Column:
     """The notice's one-line status (``synopsis``), ``NULL`` when blank.
 
     Args:
@@ -249,7 +249,7 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
         _event_name().alias("event_name"),
         F.lit(EVENT_CATEGORY).alias("event_category"),
         _event_subcategory(enriched["notice_type"]).alias("event_subcategory"),
-        F.lit(None).cast("string").alias("event_description"),
+        _description(enriched["synopsis"]).alias("event_description"),
         F.when(enriched["latitude"] != "", enriched["latitude"].cast("double")).alias("latitude"),
         F.when(enriched["longitude"] != "", enriched["longitude"].cast("double")).alias("longitude"),
         F.lit(COUNTRY_CODE).alias("country_code"),
@@ -259,7 +259,7 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
         _metric_value().alias("metric_value"),
         F.lit(None).cast("string").alias("metric_unit"),
         F.col("alert_level").alias("danger_rating"),
-        _statement(enriched["synopsis"]).alias("statement"),
+        F.lit(None).cast("string").alias("statement"),
         F.lit(None).cast("string").alias("other_metrics"),
         F.col("notice_date").cast("date").alias("event_start_date"),
         F.col("notice_date").alias("event_start"),

@@ -18,8 +18,9 @@ class UsgsVolcanoEtl(EventEtl):
       notice type's full name from the notice API (``Daily Update``,
       ``Weekly Update``, ``Volcano Activity Notification``), falling back to
       the feed's code when the API carried no name.
-    * ``event_description`` — ``NULL`` (the full notice type already names
-      the update kind).
+    * ``event_description`` — the notice section's ``synopsis`` status line
+      (``AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …``), ``NULL``
+      when blank.
     * ``latitude`` / ``longitude`` — the volcano's coordinates parsed from
       the notice API's ``notice_sections`` entry matched by ``vnum``
       (the feed itself carries no location).
@@ -35,8 +36,8 @@ class UsgsVolcanoEtl(EventEtl):
       ``WARNING`` 3); an unknown code stays ``NULL`` (an unknown level is
       not ``NORMAL``); ``metric_unit`` — ``NULL`` (a scale index has no
       unit); ``danger_rating`` — the source ``alert_level`` text verbatim.
-    * ``statement`` — the notice section's ``synopsis`` status line
-      (``AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …``).
+    * ``statement`` — ``NULL`` (the notice's prose lives in
+      ``event_description``).
     * ``event_start_date`` / ``event_start`` — ``date(notice_date)`` /
       ``notice_date`` (when the notice was issued, full precision);
       ``event_end`` — ``NULL`` (a notice is an instant).
