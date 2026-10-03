@@ -72,11 +72,19 @@ def _convert(df: DataFrame) -> DataFrame:
     ``metric_value`` and ``metric_unit`` stay ``NULL`` and unrated zones
     (``danger_level = -1``) additionally get a ``NULL`` ``danger_rating``.
 
+    Each source file holds the analysis day plus the next day's forecast (the
+    shared ``[D, D+1]`` download range), and ``date`` is not part of the
+    canonical structure — while both rows share one forecast window (the
+    off-season "no rating" product), they project to identical rows. The
+    trailing :meth:`DataFrame.distinct` collapses such copies, so the target
+    keeps one row per forecast statement per ``file_date``; rows that differ
+    (e.g. the next day's own validity window) are kept as their own snapshot.
+
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
 
     Returns:
-        The DataFrame in :data:`TARGET_TABLE` column order.
+        The DataFrame in :data:`TARGET_TABLE` column order, without duplicate rows.
     """
     return df.select(
         F.lit(SOURCE_NAME).alias("source_name"),
@@ -100,7 +108,7 @@ def _convert(df: DataFrame) -> DataFrame:
         F.lit(None).cast("double").alias("last_latitude"),
         F.lit(None).cast("double").alias("last_longitude"),
         F.col(FILE_DATE_COL),
-    )
+    ).distinct()
 
 
 def _resolve_load_type(max_file_date: dt.date | None, requested: LoadType | None) -> LoadType:

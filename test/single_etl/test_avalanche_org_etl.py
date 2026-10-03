@@ -192,3 +192,32 @@ class TestConvert:
 
         assert row.latitude == 43.75
         assert row.longitude == -110.5
+
+    def test_analysis_day_and_next_day_rows_collapse_to_one(self, spark_session):
+        rows = [
+            _source_row(date=dt.date(2026, 1, 10)),
+            _source_row(date=dt.date(2026, 1, 11)),
+        ]
+
+        out = _convert(spark_session, *rows)
+
+        assert len(out) == 1
+        assert out[0].file_date == "2026-01-10"
+
+    def test_rows_with_different_forecast_window_are_kept(self, spark_session):
+        rows = [
+            _source_row(),
+            _source_row(
+                date=dt.date(2026, 1, 11),
+                forecast_start=dt.datetime(2026, 1, 11, 6, 0, 0),
+                forecast_end=dt.datetime(2026, 1, 12, 6, 0, 0),
+            ),
+        ]
+
+        out = _convert(spark_session, *rows)
+
+        assert len(out) == 2
+        assert {row.event_start for row in out} == {
+            dt.datetime(2026, 1, 10, 6, 0, 0),
+            dt.datetime(2026, 1, 11, 6, 0, 0),
+        }
