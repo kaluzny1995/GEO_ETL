@@ -147,7 +147,7 @@ The source knows no country, so geocoding is scoped to the points where it can a
 | `latitude` / `longitude` | the feature centroid of the perimeter |
 | `country_code` | always `US` — the layer only publishes US perimeters |
 | `state_province` | `state` when present (the 2026-09-18 vintage on), else the reverse-geocoded centroid (`cache/reverse_geocode.csv`), `NULL` when neither resolves |
-| `place_location` | the full name of `jurisdiction_label` resolved through `cache/nifc_unit_names.csv` (`WAOWF` → `Okanogan-Wenatchee National Forest`, `CAYNP` → `Yosemite National Park`, `TXTXS` → `Texas A & M Forest Service`, …); a code the lookup does not know keeps its raw value, a blank one is `NULL` — the agency codes in `jurisdiction` have no published domain and are not used |
+| `place_location` | the full name as it ships with the source row in `unit_name` (GEO_Download resolves `jurisdiction_label` through its `data/nifc_unit_names.csv` lookup when the daily CSVs are written: `WAOWF` → `Okanogan-Wenatchee National Forest`, `CAYNP` → `Yosemite National Park`, `TXTXS` → `Texas A & M Forest Service`, …); a code the lookup does not know keeps its raw value, a blank one is `NULL` — the agency codes in `jurisdiction` have no published domain and are not used |
 | `metric_name` | always `area` |
 | `metric_value` | `acres`, counting a missing acreage as `0` (the pre-2026-09-18 vintage predates the field) |
 | `metric_unit` | always `acres` |
@@ -157,7 +157,7 @@ The source knows no country, so geocoding is scoped to the points where it can a
 | `last_latitude` / `last_longitude` | `NULL` — the layer carries no latest position |
 | `file_date` | `file_date` |
 
-Both lookups run on the driver and are embedded as literal map columns (the Spark containers only mount `GEO_Download/data`): the unit names come from `utils/fetch_nifc_units.py`, which builds `cache/nifc_unit_names.csv` when it is missing and refreshes it automatically when the data carries a code the file does not know — one request per new code. The reverse geocoding answers only the rows with a blank `state` (the pre-state vintage, ~127 coordinates today), the source's own subdivision always wins.
+The jurisdiction's full name ships with every source row — GEO_Download resolves it at download time through its consolidated `data/nifc_unit_names.csv` lookup, so this ETL performs no unit lookup and no network request for it. The one remaining lookup (reverse geocoding) runs on the driver and is embedded as literal map columns (the Spark containers only mount `GEO_Download/data`): it answers only the rows with a blank `state` (the pre-state vintage, ~127 coordinates today), the source's own subdivision always wins.
 
 ## openmeteo_flood_etl
 

@@ -20,13 +20,14 @@ class NifcFireEtl(EventEtl):
       otherwise the reverse-geocoded centroid (``cache/reverse_geocode.csv``,
       covering the ~127 rows whose vintage predates the ``state`` field),
       ``NULL`` when neither resolves.
-    * ``place_location`` — the jurisdiction unit's full name resolved from
-      ``attr_POOJurisdictionalUnit`` through ``cache/nifc_unit_names.csv``
-      (``WAOWF`` → ``Okanogan-Wenatchee National Forest``, ``CAYNP`` →
-      ``Yosemite National Park``); a code the lookup does not know falls
-      back to the raw code, a blank one is ``NULL``. The agency codes
-      (``attr_POOJurisdictionalAgency``) have no published domain, so they
-      are not used.
+    * ``place_location`` — the jurisdiction unit's full name as it ships
+      with the source row in ``unit_name`` (GEO_Download resolves
+      ``attr_POOJurisdictionalUnit`` through its ``data/nifc_unit_names.csv``
+      lookup at download time: ``WAOWF`` → ``Okanogan-Wenatchee National
+      Forest``, ``CAYNP`` → ``Yosemite National Park``; a code the lookup
+      does not know keeps its raw value, a blank one is ``NULL``). The
+      agency codes (``attr_POOJurisdictionalAgency``) have no published
+      domain, so they are not used.
     * ``metric_name`` — always ``area``; ``metric_value`` — the perimeter
       ``acres``, counting a missing acreage as ``0`` (the pre-2026-09-18
       vintage predates the field); ``metric_unit`` — always ``acres``.

@@ -11,8 +11,6 @@ from model.plain.nifc_fire import NifcFire
 from single_etl import nifc_fire_etl
 from utils.schema_converter import pydantic_to_spark_schema
 
-UNIT_NAMES = {"WAOWF": "Okanogan-Wenatchee National Forest"}
-
 
 def _mock_config():
     cfg = MagicMock()
@@ -45,6 +43,7 @@ def _source_row(**overrides):
         "fire_type_label": "Wildfire Daily Fire Perimeter",
         "jurisdiction": "USFS",
         "jurisdiction_label": "WAOWF",
+        "unit_name": "Okanogan-Wenatchee National Forest",
         "state": "UT",
         "po_method": "US-UT",
         "latitude": 40.017760846821886,
@@ -125,15 +124,6 @@ class TestRun:
         with pytest.raises(RuntimeError, match="reverse geocode"):
             nifc_fire_etl.run(spark, _mock_config(), _mock_db_config())
 
-    @patch("single_etl.nifc_fire_etl._unit_names", side_effect=RuntimeError("unit lookup failed"))
-    @patch("single_etl.nifc_fire_etl._geocode_map", return_value={})
-    @patch("single_etl.nifc_fire_etl.get_max_file_date", return_value=None)
-    def test_unbuildable_unit_lookup_fails_the_run(self, mock_max, mock_geocode, mock_units, spark_session):
-        spark = _spark_with_rows()
-
-        with pytest.raises(RuntimeError, match="unit lookup"):
-            nifc_fire_etl.run(spark, _mock_config(), _mock_db_config())
-
 
 class TestGeocodeMap:
     @patch("single_etl.nifc_fire_etl.geocode_map")
@@ -176,7 +166,6 @@ class TestConvert:
     @pytest.fixture(autouse=True)
     def _lookups(self, monkeypatch):
         monkeypatch.setattr(nifc_fire_etl, "_geocode_map", lambda *args, **kwargs: {})
-        monkeypatch.setattr(nifc_fire_etl, "_unit_names", lambda *args, **kwargs: UNIT_NAMES)
 
     def test_column_order_matches_the_model(self, spark_session):
         df = nifc_fire_etl._convert(_source_df(spark_session, _source_row()))
@@ -251,19 +240,19 @@ class TestConvert:
 
         assert row.state_province is None
 
-    def test_known_unit_code_resolves_to_the_full_name(self, spark_session):
-        (row,) = _convert(spark_session, _source_row(jurisdiction_label="WAOWF"))
+    def test_unit_name_passes_through_unchanged(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(jurisdiction_label="NVNV0100", unit_name="Okanogan NF"))
 
-        assert row.place_location == "Okanogan-Wenatchee National Forest"
+        assert row.place_location == "Okanogan NF"
 
-    def test_unknown_unit_code_keeps_the_raw_value(self, spark_session):
-        (row,) = _convert(spark_session, _source_row(jurisdiction_label="NVNV0100"))
+    def test_stamped_raw_code_passes_through(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(jurisdiction_label="NVNV0100", unit_name="NVNV0100"))
 
         assert row.place_location == "NVNV0100"
 
-    @pytest.mark.parametrize("jurisdiction_label", [None, "", "   "])
-    def test_blank_unit_code_is_null(self, spark_session, jurisdiction_label):
-        (row,) = _convert(spark_session, _source_row(jurisdiction_label=jurisdiction_label))
+    @pytest.mark.parametrize("unit_name", [None, "", "   "])
+    def test_blank_unit_name_is_null(self, spark_session, unit_name):
+        (row,) = _convert(spark_session, _source_row(unit_name=unit_name))
 
         assert row.place_location is None
 

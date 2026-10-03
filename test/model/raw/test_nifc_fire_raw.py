@@ -15,6 +15,7 @@ VALID_ROW = {
     "fire_type_label": "",
     "jurisdiction": "",
     "jurisdiction_label": "",
+    "unit_name": "",
     "state": "",
     "po_method": "",
     "latitude": "47.84370529048297",
@@ -39,6 +40,7 @@ CSV_HEADER_ORDER = [
     "fire_type_label",
     "jurisdiction",
     "jurisdiction_label",
+    "unit_name",
     "state",
     "po_method",
     "latitude",
@@ -63,7 +65,7 @@ class TestNifcFireRawValid:
         assert model.incident_name is None
         assert model.latitude is None
 
-    def test_all_16_fields_accepted(self):
+    def test_all_17_fields_accepted(self):
         model = NifcFireRaw(**VALID_ROW)
         for name in VALID_ROW:
             assert getattr(model, name) == VALID_ROW[name]
@@ -79,7 +81,7 @@ class TestNifcFireRawMissing:
 class TestNifcFireRawSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(NifcFireRaw)
-        assert len(schema.fields) == 17
+        assert len(schema.fields) == 18
 
     def test_all_fields_are_string_type(self):
         schema = pydantic_to_spark_schema(NifcFireRaw)

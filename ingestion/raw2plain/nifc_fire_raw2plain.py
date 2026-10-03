@@ -27,6 +27,7 @@ def _convert(df):
         F.col("fire_type_label"),
         F.col("jurisdiction"),
         F.col("jurisdiction_label"),
+        F.col("unit_name"),
         F.col("state"),
         F.col("po_method"),
         F.col("latitude").cast("double"),

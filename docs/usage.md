@@ -70,7 +70,7 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 
 `eonet_event_etl` reverse-geocodes the coordinates it has not seen before into `cache/reverse_geocode.csv` (built automatically, one entry per new coordinate), see [ETL jobs — eonet_event_etl](etl_jobs/single-etl.md#eonet_event_etl).
 
-`nifc_fire_etl` resolves jurisdiction unit codes into `cache/nifc_unit_names.csv` (built automatically on the first run, refreshed when the data carries an unknown code) and reverse-geocodes the perimeters that predate the `state` field into the shared `cache/reverse_geocode.csv`, see [ETL jobs — nifc_fire_etl](etl_jobs/single-etl.md#nifc_fire_etl).
+`nifc_fire_etl` needs no unit lookup: the full jurisdiction name ships with every source row (`unit_name`, resolved by GEO_Download through its `data/nifc_unit_names.csv` lookup when the daily CSVs are written). It reverse-geocodes the perimeters that predate the `state` field into the shared `cache/reverse_geocode.csv`, see [ETL jobs — nifc_fire_etl](etl_jobs/single-etl.md#nifc_fire_etl).
 
 `openmeteo_flood_etl` maps the source's country names to ISO codes in-script and reverse-geocodes every river reference point once into the shared `cache/reverse_geocode.csv` (~111 coordinates), see [ETL jobs — openmeteo_flood_etl](etl_jobs/single-etl.md#openmeteo_flood_etl).
 

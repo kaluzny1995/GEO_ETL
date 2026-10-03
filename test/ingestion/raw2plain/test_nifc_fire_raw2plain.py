@@ -95,7 +95,7 @@ def test_reads_from_raw_table(mock_logger):
 
 
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_col_methods=["__truediv__"], extra_f_methods=["to_timestamp"]))
-def test_convert_selects_17_columns():
+def test_convert_selects_18_columns():
     from ingestion.raw2plain.nifc_fire_raw2plain import _convert
 
     input_df = MagicMock()
@@ -105,7 +105,7 @@ def test_convert_selects_17_columns():
 
     input_df.select.assert_called_once()
     select_args = input_df.select.call_args[0]
-    assert len(select_args) == 17
+    assert len(select_args) == 18
 
 
 @patch(f"{MODULE}.setup_logger")

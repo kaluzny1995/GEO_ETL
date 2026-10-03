@@ -17,6 +17,7 @@ class NifcFire(BaseModel):
     fire_type_label: str | None = None
     jurisdiction: str | None = None
     jurisdiction_label: str | None = None
+    unit_name: str | None = None
     state: str | None = None
     po_method: str | None = None
     latitude: float | None = None

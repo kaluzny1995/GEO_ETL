@@ -3,12 +3,13 @@
 Reads the typed plain table ``geo.nifc_fire`` and writes every fire
 perimeter snapshot into ``geo.nifc_fire_etl`` using the schema from
 ``model/etl/event_etl.py``, so it can be merged with the other ``*_etl``
-tables. Both lookups run on the driver and are embedded as literal map
+tables. The jurisdiction's full name ships with every source row
+(``unit_name``, resolved by GEO_Download through its consolidated
+``data/nifc_unit_names.csv`` lookup when the daily CSVs are written), so
+this ETL performs no unit lookup and needs no network for it. The one
+remaining lookup runs on the driver and is embedded as literal map
 columns, because the Spark containers only mount ``GEO_Download/data``:
 
-- the jurisdiction's full name comes from ``cache/nifc_unit_names.csv``
-  (``utils/fetch_nifc_units.py``; refreshed automatically when the data
-  carries a code the file does not know),
 - the ``state`` of the pre-state vintage comes from the shared
   ``cache/reverse_geocode.csv`` — only rows with a blank ``state`` are
   reverse-geocoded, the source's own subdivision always wins.
@@ -41,7 +42,6 @@ from pyspark.sql import functions as F
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
-from utils.fetch_nifc_units import unit_name_map
 from utils.raw2plain_utils import get_max_file_date
 from utils.reverse_geocode import coord_key, geocode_map
 
@@ -60,7 +60,6 @@ FIRE_TYPE_MAP = {
     "RX": "prescribed fire",
 }
 GEOCODE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache", "reverse_geocode.csv")
-UNITS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache", "nifc_unit_names.csv")
 
 
 def _needs_geocode() -> Column:
@@ -125,32 +124,6 @@ def _state_geocode_column(df: DataFrame, logger: logging.Logger | None = None) -
     return geocode
 
 
-def _unit_names(df: DataFrame, logger: logging.Logger | None = None) -> dict[str, str]:
-    """Full names for every jurisdiction unit code in *df*.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the fetch messages.
-
-    Returns:
-        ``unit_code → full name`` from :func:`utils.fetch_nifc_units.unit_name_map`,
-        which builds ``cache/nifc_unit_names.csv`` when missing and refreshes
-        it when the data carries an unknown code.
-
-    Raises:
-        RuntimeError: When the refresh is needed and the layer fetch fails.
-    """
-    codes = {
-        str(row["jurisdiction_label"]).strip()
-        for row in df.select("jurisdiction_label").distinct().collect()
-        if row["jurisdiction_label"] and str(row["jurisdiction_label"]).strip()
-    }
-    names = unit_name_map(codes, output=UNITS_FILE)
-    if logger:
-        logger.info(f"Jurisdiction unit-name lookup resolved {len(names)} of {len(codes)} distinct codes")
-    return names
-
-
 def _event_subcategory() -> Column:
     """``event_subcategory`` from ``fire_type`` (``FIRE_TYPE_MAP``), ``NULL`` when blank or unknown."""
     known = F.create_map(*[F.lit(item) for pair in FIRE_TYPE_MAP.items() for item in pair])
@@ -172,21 +145,17 @@ def _state_province(geocode_state: Column) -> Column:
     return F.when(source != "", source).when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
 
 
-def _place_location(names: dict[str, str]) -> Column:
-    """The jurisdiction unit's full name, falling back to the raw code.
-
-    Args:
-        names: ``unit_code → full name`` resolved on the driver.
+def _place_location() -> Column:
+    """The jurisdiction unit's full name as it ships with the source row.
 
     Returns:
-        The trimmed ``jurisdiction_label`` mapped through *names*; a code
-        not in the map keeps its raw value, a blank one is ``NULL``.
+        The trimmed ``unit_name`` that GEO_Download resolved from
+        ``jurisdiction_label`` at download time (a code the lookup does
+        not know keeps its raw value); a blank or ``NULL`` value — no
+        unit code — maps to ``NULL``.
     """
-    trimmed = F.trim(F.col("jurisdiction_label"))
-    if not names:
-        return F.when(trimmed != "", trimmed).otherwise(F.lit(None).cast("string"))
-    mapping = F.create_map(*[F.lit(item) for pair in names.items() for item in pair])
-    return F.when(trimmed != "", F.coalesce(mapping[trimmed], trimmed)).otherwise(F.lit(None).cast("string"))
+    trimmed = F.trim(F.col("unit_name"))
+    return F.when(trimmed != "", trimmed).otherwise(F.lit(None).cast("string"))
 
 
 def _event_name() -> Column:
@@ -214,18 +183,19 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     jurisdiction, acres, containment) describes the perimeter while the
     centroid and ``created_on`` place it in space and time.
     The source's ``state`` wins; the pre-state vintage resolves from the
-    reverse-geocoded centroid.
+    reverse-geocoded centroid. ``unit_name`` ships with the row, so no
+    unit lookup runs here.
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the lookup fetches.
+        logger: Logger handed to :func:`_state_geocode_column`.
 
     Returns:
         The DataFrame in :data:`TARGET_TABLE` column order.
     """
     logger = logger or logging.getLogger(__name__)
     geocode_state = _state_geocode_column(df, logger)
-    place_location = _place_location(_unit_names(df, logger))
+    place_location = _place_location()
 
     return df.select(
         F.lit(SOURCE_NAME).alias("source_name"),
