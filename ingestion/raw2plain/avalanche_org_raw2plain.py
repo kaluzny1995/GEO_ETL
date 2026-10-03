@@ -33,6 +33,8 @@ def _convert(df):
         F.to_timestamp("forecast_end").alias("forecast_end"),
         F.col("warning"),
         F.col("link"),
+        F.col("latitude").cast("double"),
+        F.col("longitude").cast("double"),
         F.to_date("date").alias("date"),
         F.col("file_date"),
     )

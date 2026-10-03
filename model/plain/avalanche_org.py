@@ -19,5 +19,7 @@ class AvalancheOrg(BaseModel):
     forecast_end: dt.datetime | None = None
     warning: str | None = None
     link: str
+    latitude: float | None = None
+    longitude: float | None = None
     date: dt.date
     file_date: str

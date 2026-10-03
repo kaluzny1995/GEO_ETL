@@ -66,7 +66,7 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type historical
 python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 ```
 
-`avalanche_org_etl` reads the zone centroid lookup (`cache/avalanche_zone_centroids.csv`), which it builds automatically on the first run — refresh it with `python -m utils.fetch_avalanche_zones`, see [ETL jobs — avalanche_org_etl](etl_jobs/single-etl.md#avalanche_org_etl).
+`avalanche_org_etl` needs no lookup and no network access: the zone coordinates ship with every source row (`latitude`/`longitude`, polygon centroids computed by GEO_Download), see [ETL jobs — avalanche_org_etl](etl_jobs/single-etl.md#avalanche_org_etl).
 
 `eonet_event_etl` reverse-geocodes the coordinates it has not seen before into `cache/reverse_geocode.csv` (built automatically, one entry per new coordinate), see [ETL jobs — eonet_event_etl](etl_jobs/single-etl.md#eonet_event_etl).
 

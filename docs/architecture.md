@@ -15,7 +15,7 @@ GEO_ETL/
 ├── run_delete_last_filedate_data.py  # Delete latest file_date from raw + plain tables
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
-├── cache/                           # Local artifacts (gitignored): zone centroid lookup CSV
+├── cache/                           # Local lookup caches (gitignored): reverse geocode, NIFC units, volcano notices
 │
 ├── ingestion/                        # Ingestion scripts (CSV upload + raw-to-plain transforms)
 │   ├── __init__.py
@@ -111,7 +111,6 @@ GEO_ETL/
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
 │   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
-│   ├── fetch_avalanche_zones.py      # Build the avalanche zone centroid lookup CSV
 │   ├── fetch_nifc_units.py           # Build the NIFC jurisdiction unit-name lookup CSV
 │   ├── fetch_volcano_notices.py      # Build the USGS HANS notice detail lookup CSV
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
@@ -239,7 +238,6 @@ GEO_ETL/
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
-        ├── test_fetch_avalanche_zones.py
         ├── test_fetch_nifc_units.py
         ├── test_fetch_volcano_notices.py
         ├── test_jdbc_retry.py

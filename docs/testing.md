@@ -79,7 +79,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date, table derivation, skip on empty) |
-| `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (load type resolution, historical/incremental/no-rows runs, column mapping, centroid lookup auto-build) |
+| `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (load type resolution, historical/incremental/no-rows runs, column mapping, source coordinate pass-through) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (load type resolution, runs, category/place/country mapping, reverse-geocode lookup) |
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (load type resolution, runs, category/metric/country mapping, reverse-geocode lookup) |
 | `test/single_etl/test_ibtracs_cyclone_etl.py` | IBTrACS SINGLE_ETL script (load type resolution, runs, near-land geocode scope, status/nature/place/metric/danger mapping, latest position) |
@@ -90,7 +90,6 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (load type resolution, runs, notice enrichment, alert-scale metric, subcategory/place/state fallbacks) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_dq_metrics.py` | Rules, rate/variance metric computation, unpivoting — run on a real local Spark session |
-| `test/util/test_fetch_avalanche_zones.py` | utils/fetch_avalanche_zones.py (centroids, lookup rows, coverage window, `build_lookup` CSV write) |
 | `test/util/test_fetch_nifc_units.py` | utils/fetch_nifc_units.py (distinct fetch, code→name collapse, CSV cache, refresh-on-missing) |
 | `test/util/test_fetch_volcano_notices.py` | utils/fetch_volcano_notices.py (notice keys, section parsing, CSV cache, one fetch per notice, failed fetches) |
 | `test/util/test_reverse_geocode.py` | utils/reverse_geocode.py (coord keys, API parsing, cache round-trip, failed fetches) |

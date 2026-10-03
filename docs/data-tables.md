@@ -55,7 +55,7 @@ Downloaded CSV files from [GEO_Download](../../GEO_Download) are the input. Curr
 
 | Source | Raw Table | Final Table | Records | Load Type |
 |--------|-----------|-------------|---------|-----------|
-| Avalanche_ORG | `geo.avalanche_org_raw` | `geo.avalanche_org` | 3,485 | HISTORICAL |
+| Avalanche_ORG | `geo.avalanche_org_raw` | `geo.avalanche_org` | 4,824 | HISTORICAL |
 | EONET | `geo.eonet_event_raw` | `geo.eonet_event` | 145 | HISTORICAL |
 | GDACS | `geo.gdacs_event_raw` | `geo.gdacs_event` | 9,118 | HISTORICAL |
 | IBTrACS | `geo.ibtracs_cyclone_raw` | `geo.ibtracs_cyclone` | 897 | HISTORICAL |
