@@ -252,9 +252,9 @@ Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Ea
 | `subsource_name` | `observatory_name` verbatim (`Alaska Volcano Observatory`, `Hawaiian Volcano Observatory`, `Northern Mariana Islands`) |
 | `event_name` | `"Volcano - <volcano_name>"` (`Volcano - Great Sitkin`); `Volcano` alone when the name is missing or blank |
 | `event_category` | always `volcano` |
-| `event_subcategory` | the notice type's full name from the notice API (`Daily Update`, `Weekly Update`, `Volcano Activity Notification`), falling back to the feed's code (`DU`, `WU`, `VV`) when the API carried no name |
-| `event_description` | the notice section's `synopsis` status line (`AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …`), `NULL` when blank |
-| `latitude` / `longitude` | the volcano's coordinates from the notice API's `notice_sections` entry matched by `vnum` — the feed itself carries no location |
+| `event_subcategory` | the notice type's full name the downloader stamped as `notice_type_name` (`Daily Update`, `Weekly Update`, `Volcano Activity Notification`), falling back to the feed's own code (`DU`, `WU`, `VV`) when the name is missing |
+| `event_description` | the stamped `synopsis` status line (`AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …`), `NULL` when blank |
+| `latitude` / `longitude` | the volcano's coordinates the downloader stamped into the CSV — the HANS feed itself carries no location |
 | `country_code` | always `US` — the three observatories are US |
 | `state_province` | the reverse-geocoded volcano point (`cache/reverse_geocode.csv`), `ZZ` when the geocode found no subdivision (the Ahyi Seamount is an ocean point) |
 | `place_location` | `"<volcano_name>, <region>"` (`Great Sitkin, Aleutians`); without a region only the name remains, a blank name is `NULL` |
@@ -267,9 +267,9 @@ Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Ea
 | `last_latitude` / `last_longitude` / `other_metrics` | `NULL` — the volcano is fixed and the notice carries no extra metrics |
 | `file_date` | `file_date` |
 
-Dropped from the ETL: `vnum`, `observatory`, `color_code`, `notice_type`, `notice_identifier`, `notice_url`, `notice_data_url` — the identifier/vnum pair is only the join key into the cache, the color repeats `alert_level`, and the URLs are document references rather than data.
+Dropped from the ETL: `vnum`, `observatory`, `color_code`, `notice_type`, `notice_identifier`, `notice_url`, `notice_data_url` — the stamped detail columns carry the enrichment instead (`notice_type` only remains as the fallback for `event_subcategory`), the color repeats `alert_level`, and the URLs are document references rather than data.
 
-The feed itself carries no coordinates, region or status line — those live behind the notice API referenced by `notice_data_url`. Every distinct `notice_identifier|vnum` pair is resolved on the driver through `utils/fetch_volcano_notices.py` into `cache/usgs_volcano_notices.csv` (one request per notice, however many of its volcanoes appear — an AVO notice covers both Great Sitkin and Shishaldin; notices are immutable once published, so a cached entry never goes stale), and the coordinates found there are reverse-geocoded once into the shared `cache/reverse_geocode.csv` (4 volcano points today). Both fetches are strict: a failure raises and fails the build instead of leaving holes in the cache, while successful answers are persisted for every later run. The CSVs are read on the driver and embedded as literal map columns, because the Spark containers only mount `GEO_Download/data`.
+The coordinates, region, status line and full notice type arrive with every row: the GEO_Download downloader resolves them through `data/usgs_volcano_notices.csv` at download time and stamps them into the CSVs, so this ETL performs a single driver-side lookup — the volcano point of every row is reverse-geocoded once into the shared `cache/reverse_geocode.csv` (4 volcano points today) and embedded as a literal map column keyed by `struct(latitude, longitude)` (the Spark containers only mount `GEO_Download/data`). The geocode is strict: a failure raises and fails the build instead of leaving holes, while successful answers are persisted for every later run.
 
 ## Adding a new script
 

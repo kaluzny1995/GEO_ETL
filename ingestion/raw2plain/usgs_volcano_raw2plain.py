@@ -29,6 +29,11 @@ def _convert(df):
         F.to_timestamp("notice_date").alias("notice_date"),
         F.col("notice_url"),
         F.col("notice_data_url"),
+        F.col("notice_type_name"),
+        F.col("latitude").cast("double"),
+        F.col("longitude").cast("double"),
+        F.col("region"),
+        F.col("synopsis"),
         F.col("file_date"),
     )
 

@@ -111,7 +111,6 @@ GEO_ETL/
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
 │   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
-│   ├── fetch_volcano_notices.py      # Build the USGS HANS notice detail lookup CSV
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
@@ -237,7 +236,6 @@ GEO_ETL/
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
-        ├── test_fetch_volcano_notices.py
         ├── test_jdbc_retry.py
         ├── test_logger.py
         ├── test_reverse_geocode.py

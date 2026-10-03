@@ -11,14 +11,6 @@ from model.plain.usgs_volcano import UsgsVolcano
 from single_etl import usgs_volcano_etl
 from utils.schema_converter import pydantic_to_spark_schema
 
-DEFAULT_NOTICE = {
-    "notice_type": "Daily Update",
-    "latitude": "52.0765",
-    "longitude": "-176.1109",
-    "region": "Aleutians",
-    "synopsis": "AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues.",
-}
-
 
 def _mock_config():
     cfg = MagicMock()
@@ -53,6 +45,11 @@ def _source_row(**overrides):
         "notice_date": dt.datetime(2026, 9, 29, 18, 26, 19),
         "notice_url": "https://volcanoes.usgs.gov/hans-public/notice/DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
         "notice_data_url": "https://volcanoes.usgs.gov/hans-public/api/notice/getNotice/DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
+        "notice_type_name": "Daily Update",
+        "latitude": 52.0765,
+        "longitude": -176.1109,
+        "region": "Aleutians",
+        "synopsis": "AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues.",
         "file_date": "2026-09-29",
     }
     row.update(overrides)
@@ -66,13 +63,6 @@ def _source_df(spark, *rows):
 
 def _convert(spark, *rows):
     return usgs_volcano_etl._convert(_source_df(spark, *rows)).collect()
-
-
-def _fake_notices(notice):
-    def notice_map(keys, **kwargs):
-        return {usgs_volcano_etl.notice_key(identifier, vnum): dict(notice) for identifier, vnum in keys}
-
-    return notice_map
 
 
 class TestResolveLoadType:
@@ -124,19 +114,18 @@ class TestRun:
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.usgs_volcano"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
-    @patch("single_etl.usgs_volcano_etl.notice_map")
+    @patch("single_etl.usgs_volcano_etl.geocode_map")
     @patch("single_etl.usgs_volcano_etl.get_max_file_date", return_value=None)
-    def test_unfetchable_notice_fails_the_run(self, mock_max, mock_notice, spark_session):
-        mock_notice.side_effect = RuntimeError("volcano notice fetch failed")
+    def test_unfetchable_geocode_fails_the_run(self, mock_max, mock_geocode, spark_session):
+        mock_geocode.side_effect = RuntimeError("geocode fetch failed")
         spark = _spark_with_rows()
 
-        with pytest.raises(RuntimeError, match="volcano notice fetch failed"):
+        with pytest.raises(RuntimeError, match="geocode fetch failed"):
             usgs_volcano_etl.run(spark, _mock_config(), _mock_db_config())
 
 
-class TestEnrichment:
+class TestGeocode:
     def test_geocodes_the_notice_coordinates(self, monkeypatch, spark_session):
-        monkeypatch.setattr(usgs_volcano_etl, "notice_map", _fake_notices(DEFAULT_NOTICE))
         geocoded = MagicMock(return_value={usgs_volcano_etl.coord_key(52.0765, -176.1109): ("US", "AK")})
         monkeypatch.setattr(usgs_volcano_etl, "geocode_map", geocoded)
 
@@ -146,15 +135,10 @@ class TestEnrichment:
         assert geocoded.call_args.kwargs["output"] == usgs_volcano_etl.GEOCODE_FILE
 
     def test_a_notice_without_coordinates_skips_the_geocode(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            usgs_volcano_etl,
-            "notice_map",
-            _fake_notices({**DEFAULT_NOTICE, "latitude": "", "longitude": ""}),
-        )
         geocoded = MagicMock(return_value={})
         monkeypatch.setattr(usgs_volcano_etl, "geocode_map", geocoded)
 
-        (row,) = _convert(spark_session, _source_row())
+        (row,) = _convert(spark_session, _source_row(latitude=None, longitude=None))
 
         assert geocoded.call_args.args[0] == set()
         assert row.latitude is None and row.longitude is None
@@ -164,7 +148,6 @@ class TestEnrichment:
 class TestConvert:
     @pytest.fixture(autouse=True)
     def _lookups(self, monkeypatch):
-        monkeypatch.setattr(usgs_volcano_etl, "notice_map", _fake_notices(DEFAULT_NOTICE))
         monkeypatch.setattr(usgs_volcano_etl, "geocode_map", lambda *args, **kwargs: {})
 
     def test_column_order_matches_the_model(self, spark_session):
@@ -237,35 +220,31 @@ class TestConvert:
         assert row.country_code == "US"
 
     @pytest.mark.parametrize(
-        ("notice_type", "expected_subcategory"),
+        ("notice_type_name", "expected_subcategory"),
         [
             ("Daily Update", "Daily Update"),
             ("Volcano Activity Notification", "Volcano Activity Notification"),
             ("", "DU"),
+            (None, "DU"),
         ],
     )
     def test_subcategory_is_the_full_notice_type_with_code_fallback(
-        self, monkeypatch, spark_session, notice_type, expected_subcategory
+        self, spark_session, notice_type_name, expected_subcategory
     ):
-        monkeypatch.setattr(
-            usgs_volcano_etl, "notice_map", _fake_notices({**DEFAULT_NOTICE, "notice_type": notice_type})
-        )
-
-        (row,) = _convert(spark_session, _source_row())
+        (row,) = _convert(spark_session, _source_row(notice_type_name=notice_type_name))
 
         assert row.event_subcategory == expected_subcategory
 
     @pytest.mark.parametrize(
-        ("notice_overrides", "expected_place"),
+        ("overrides", "expected_place"),
         [
             ({}, "Great Sitkin, Aleutians"),
             ({"region": ""}, "Great Sitkin"),
+            ({"region": None}, "Great Sitkin"),
         ],
     )
-    def test_place_is_volcano_and_region(self, monkeypatch, spark_session, notice_overrides, expected_place):
-        monkeypatch.setattr(usgs_volcano_etl, "notice_map", _fake_notices({**DEFAULT_NOTICE, **notice_overrides}))
-
-        (row,) = _convert(spark_session, _source_row())
+    def test_place_is_volcano_and_region(self, spark_session, overrides, expected_place):
+        (row,) = _convert(spark_session, _source_row(**overrides))
 
         assert row.place_location == expected_place
 
@@ -277,20 +256,22 @@ class TestConvert:
         assert row.place_location is None
 
     @pytest.mark.parametrize("synopsis", [None, "", "   "])
-    def test_blank_synopsis_has_no_description(self, monkeypatch, spark_session, synopsis):
-        monkeypatch.setattr(
-            usgs_volcano_etl, "notice_map", _fake_notices({**DEFAULT_NOTICE, "synopsis": synopsis or ""})
-        )
-
-        (row,) = _convert(spark_session, _source_row())
+    def test_blank_synopsis_has_no_description(self, spark_session, synopsis):
+        (row,) = _convert(spark_session, _source_row(synopsis=synopsis))
 
         assert row.event_description is None
 
-    @pytest.mark.parametrize("notice_identifier", [None, "", "   "])
-    def test_missing_notice_identifier_keeps_the_feed_fields(self, monkeypatch, spark_session, notice_identifier):
-        monkeypatch.setattr(usgs_volcano_etl, "notice_map", lambda keys, **kwargs: {})
+    @pytest.mark.parametrize("notice_type_name", [None, "", "   "])
+    def test_blank_notice_type_name_falls_back_to_the_code(self, spark_session, notice_type_name):
+        (row,) = _convert(spark_session, _source_row(notice_type_name=notice_type_name))
 
-        (row,) = _convert(spark_session, _source_row(notice_identifier=notice_identifier))
+        assert row.event_subcategory == "DU"
+
+    def test_missing_notice_details_keep_the_feed_fields(self, spark_session):
+        (row,) = _convert(
+            spark_session,
+            _source_row(notice_type_name=None, latitude=None, longitude=None, region=None, synopsis=None),
+        )
 
         assert row.event_subcategory == "DU"
         assert row.latitude is None and row.longitude is None

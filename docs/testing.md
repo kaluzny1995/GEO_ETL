@@ -87,10 +87,9 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/single_etl/test_openmeteo_flood_etl.py` | OpenMeteo SINGLE_ETL script (load type resolution, runs, country/state/place mapping, reverse-geocode lookup, discharge metric) |
 | `test/single_etl/test_usgs_earthquake_etl.py` | USGS SINGLE_ETL script (load type resolution, runs, place-suffix country parse, net-based state, event name/description, depth/station metrics) |
 | `test/single_etl/test_usgs_nwis_etl.py` | USGS NWIS SINGLE_ETL script (load type resolution, runs, site-name event/place parse, qualifier expansion, reverse-geocode state, discharge metric) |
-| `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (load type resolution, runs, notice enrichment, alert-scale metric, subcategory/place/state fallbacks) |
+| `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (load type resolution, runs, reverse-geocode state, alert-scale metric, subcategory/place/state fallbacks) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_dq_metrics.py` | Rules, rate/variance metric computation, unpivoting — run on a real local Spark session |
-| `test/util/test_fetch_volcano_notices.py` | utils/fetch_volcano_notices.py (notice keys, section parsing, CSV cache, one fetch per notice, failed fetches) |
 | `test/util/test_reverse_geocode.py` | utils/reverse_geocode.py (coord keys, API parsing, cache round-trip, failed fetches) |
 | `test/util/test_jdbc_retry.py` | Connection-error detection, bounded retries, delay and warning per attempt |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |

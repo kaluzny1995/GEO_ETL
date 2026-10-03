@@ -78,7 +78,7 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 
 `usgs_nwis_etl` parses the river and place names out of `site_name` and reverse-geocodes the gauge point of every site once into the shared `cache/reverse_geocode.csv` (1 coordinate today), see [ETL jobs — usgs_nwis_etl](etl_jobs/single-etl.md#usgs_nwis_etl).
 
-`usgs_volcano_etl` fetches the coordinates, region, status line and full notice type of every notice once into `cache/usgs_volcano_notices.csv` (built automatically on the first run, immutable notices are never refetched) and reverse-geocodes the volcano points into the shared `cache/reverse_geocode.csv` (4 coordinates today), see [ETL jobs — usgs_volcano_etl](etl_jobs/single-etl.md#usgs_volcano_etl).
+`usgs_volcano_etl` passes the notice details the GEO_Download downloader stamped into the CSVs (coordinates, region, status line, full notice type) straight through and reverse-geocodes the volcano points into the shared `cache/reverse_geocode.csv` (4 coordinates today), see [ETL jobs — usgs_volcano_etl](etl_jobs/single-etl.md#usgs_volcano_etl).
 
 **All registered tables:**
 

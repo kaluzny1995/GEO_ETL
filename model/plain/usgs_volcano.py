@@ -19,4 +19,9 @@ class UsgsVolcano(BaseModel):
     notice_date: dt.datetime | None = None
     notice_url: str | None = None
     notice_data_url: str | None = None
+    notice_type_name: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    region: str | None = None
+    synopsis: str | None = None
     file_date: str

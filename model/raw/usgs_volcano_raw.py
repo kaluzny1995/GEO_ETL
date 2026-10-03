@@ -15,4 +15,9 @@ class UsgsVolcanoRaw(BaseModel):
     notice_date: str | None = None
     notice_url: str | None = None
     notice_data_url: str | None = None
+    notice_type_name: str | None = None
+    latitude: str | None = None
+    longitude: str | None = None
+    region: str | None = None
+    synopsis: str | None = None
     file_date: str

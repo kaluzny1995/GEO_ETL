@@ -15,15 +15,16 @@ class UsgsVolcanoEtl(EventEtl):
       (``Volcano - Great Sitkin``); ``"Volcano"`` alone when the name is
       blank.
     * ``event_category`` — always ``volcano``; ``event_subcategory`` — the
-      notice type's full name from the notice API (``Daily Update``,
-      ``Weekly Update``, ``Volcano Activity Notification``), falling back to
-      the feed's code when the API carried no name.
-    * ``event_description`` — the notice section's ``synopsis`` status line
+      notice type's full name the downloader stamped as ``notice_type_name``
+      (``Daily Update``, ``Weekly Update``, ``Volcano Activity
+      Notification``), falling back to the feed's own code when the name
+      is missing.
+    * ``event_description`` — the stamped ``synopsis`` status line
       (``AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …``), ``NULL``
       when blank.
-    * ``latitude`` / ``longitude`` — the volcano's coordinates parsed from
-      the notice API's ``notice_sections`` entry matched by ``vnum``
-      (the feed itself carries no location).
+    * ``latitude`` / ``longitude`` — the volcano's coordinates the
+      downloader stamped into the CSV (the HANS feed itself carries no
+      location).
     * ``country_code`` — always ``US`` (the three observatories are US:
       Alaska, Hawaii, Northern Mariana Islands); ``state_province`` — the
       reverse-geocoded volcano point, ``ZZ`` when the geocode found no

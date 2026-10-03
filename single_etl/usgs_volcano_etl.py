@@ -3,21 +3,14 @@
 Reads the typed plain table ``geo.usgs_volcano`` and writes every notice row
 into ``geo.usgs_volcano_etl`` using the schema from
 ``model/etl/event_etl.py``, so it can be merged with the other ``*_etl``
-tables. The feed itself carries no location, so two driver-side lookups enrich
-each row and are embedded as literal map columns, because the Spark containers
-only mount ``GEO_Download/data``:
-
-- the volcano's coordinates, region, status line and full notice type come
-  from the notice API behind ``notice_data_url``, keyed by
-  ``notice_identifier|vnum`` and cached in
-  ``cache/usgs_volcano_notices.csv`` (immutable notices, fetched once),
-- the ``state_province`` of that point comes from the shared
-  ``cache/reverse_geocode.csv`` (``ZZ`` when the geocode has no
-  subdivision, e.g. the Ahyi Seamount ocean point).
-
-Both fetches are strict: a failed request raises and fails the build instead
-of leaving holes in the cache, and successful answers are persisted for every
-later run.
+tables. The notice details (coordinates, region, status line and full notice
+type) are already stamped into the source CSVs by the downloader in
+GEO_Download and arrive through the plain table, so this ETL only performs
+one driver-side lookup: the ``state_province`` of the volcano point comes
+from the shared ``cache/reverse_geocode.csv`` (``ZZ`` when the geocode has
+no subdivision, e.g. the Ahyi Seamount ocean point). The geocode is strict —
+a failed request raises and fails the build instead of leaving holes, while
+successful answers are persisted for every later run.
 
 Run::
 
@@ -47,7 +40,6 @@ from pyspark.sql import functions as F
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
-from utils.fetch_volcano_notices import notice_key, notice_map
 from utils.raw2plain_utils import get_max_file_date
 from utils.reverse_geocode import coord_key, geocode_map
 
@@ -67,81 +59,43 @@ ALERT_SCALE = {
     "WATCH": 2.0,
     "WARNING": 3.0,
 }
-NOTICE_FIELDS = ("notice_type", "latitude", "longitude", "region", "synopsis")
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-NOTICE_FILE = os.path.join(_PROJECT_ROOT, "cache", "usgs_volcano_notices.csv")
 GEOCODE_FILE = os.path.join(_PROJECT_ROOT, "cache", "reverse_geocode.csv")
 
 
-def _notice_keys(df: DataFrame) -> list[tuple[str, str]]:
-    """Distinct ``(notice_identifier, vnum)`` pairs of *df*.
+def _state_map_column(df: DataFrame, logger: logging.Logger | None = None) -> Column:
+    """Reverse-geocoded subdivision embedded as a literal map keyed by ``struct(lat, lon)``.
+
+    The distinct coordinates of *df* are collected on the driver and handed
+    to :func:`utils.reverse_geocode.geocode_map`, which answers them from
+    :data:`GEOCODE_FILE` and queries the API only for coordinates the cache
+    does not cover yet. The answers are embedded as column literals,
+    because the Spark containers only mount ``GEO_Download/data``.
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
+        logger: Logger handed to the fetch messages.
 
     Returns:
-        One pair per notice/volcano combination; rows with a missing
-        identifier or volcano number are skipped (they cannot be enriched
-        and fall back to the feed's own fields downstream).
+        ``state_province`` map column keyed by the row's
+        ``(latitude, longitude)`` struct; a point missing from the lookup
+        (or a row without coordinates) resolves to ``NULL`` and the
+        downstream :func:`_state_province` fallback answers ``ZZ``.
     """
-    return [
-        (row["notice_identifier"], str(row["vnum"]))
-        for row in df.select("notice_identifier", "vnum").distinct().collect()
-        if row["notice_identifier"] is not None and row["vnum"] is not None
-    ]
-
-
-def _enrichment_columns(df: DataFrame, logger: logging.Logger | None = None) -> dict[str, Column]:
-    """Notice details and geocoded state embedded as literal map columns.
-
-    Every distinct ``notice_identifier|vnum`` of *df* is resolved through
-    :func:`utils.fetch_volcano_notices.notice_map` (one API call per new
-    notice), and the coordinates found there are reverse-geocoded through
-    :func:`utils.reverse_geocode.geocode_map`. Both caches live on the
-    driver, so nothing under ``cache/`` has to be reachable from the
-    executors.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the fetches.
-
-    Returns:
-        ``field -> map column`` for :data:`NOTICE_FIELDS` plus
-        ``state_province``; the map is keyed by the row's
-        ``notice_identifier|vnum`` and a pair missing from the lookup
-        resolves to ``NULL`` (the source fields answer downstream).
-    """
-    logger = logger or logging.getLogger(__name__)
-    keys = _notice_keys(df)
-    notices = notice_map(keys, output=NOTICE_FILE, logger=logger)
-    requested = {notice_key(identifier, vnum) for identifier, vnum in keys}
     points = {
-        (float(notices[key]["latitude"]), float(notices[key]["longitude"]))
-        for key in requested
-        if key in notices and notices[key]["latitude"] and notices[key]["longitude"]
+        (row["latitude"], row["longitude"])
+        for row in df.select("latitude", "longitude").distinct().collect()
+        if row["latitude"] is not None and row["longitude"] is not None
     }
     geos = geocode_map(points, output=GEOCODE_FILE, logger=logger)
-
-    values: dict[str, dict[str, str]] = {field: {} for field in (*NOTICE_FIELDS, "state_province")}
-    for key in requested:
-        notice = notices.get(key)
-        if notice is None:
-            continue
-        for field in NOTICE_FIELDS:
-            values[field][key] = notice[field]
-        latitude, longitude = notice["latitude"], notice["longitude"]
-        state = geos.get(coord_key(latitude, longitude), ("", ""))[1] if latitude and longitude else ""
-        values["state_province"][key] = state
-
-    lookup = F.concat_ws("|", F.col("notice_identifier"), F.col("vnum").cast("string"))
-    columns: dict[str, Column] = {}
-    for field, mapping in values.items():
-        if not mapping:
-            columns[field] = F.lit(None).cast("string")
-            continue
-        entries = [item for key, value in mapping.items() for item in (F.lit(key), F.lit(value))]
-        columns[field] = F.create_map(*entries)[lookup]
-    return columns
+    entries: list[Column] = []
+    for point in points:
+        key = F.struct(F.lit(point[0]).alias("latitude"), F.lit(point[1]).alias("longitude"))
+        state = geos.get(coord_key(*point), ("", ""))[1]
+        entries.extend((key, F.lit(state)))
+    if not entries:
+        return F.lit(None).cast("string")
+    return F.create_map(*entries)[F.struct(F.col("latitude"), F.col("longitude"))]
 
 
 def _event_name() -> Column:
@@ -151,26 +105,24 @@ def _event_name() -> Column:
     return F.coalesce(named, F.lit(EVENT_NAME_FALLBACK))
 
 
-def _event_subcategory(notice_type: Column) -> Column:
-    """The API's full notice type, falling back to the feed's own code.
-
-    Args:
-        notice_type: ``notice_type`` of the cached notice payload.
+def _event_subcategory() -> Column:
+    """The full notice type stamped by the downloader, falling back to the feed's own code.
 
     Returns:
         ``Daily Update``, ``Weekly Update``, ``Volcano Activity
-        Notification`` …; the source ``notice_type`` column (``DU``,
-        ``WU``, ``VV``) answers when the cache carried no name, and a
-        blank in both is ``NULL``.
+        Notification`` … from ``notice_type_name``; the source
+        ``notice_type`` column (``DU``, ``WU``, ``VV``) answers when the
+        stamped name is missing, and a blank in both is ``NULL``.
     """
-    return F.coalesce(F.when(notice_type != "", notice_type), F.trim(F.col("notice_type")))
+    name = F.trim(F.col("notice_type_name"))
+    return F.coalesce(F.when(name != "", name), F.trim(F.col("notice_type")))
 
 
 def _place_location(region: Column) -> Column:
     """``"<volcano_name>, <region>"``; without a region only the name remains.
 
     Args:
-        region: ``region`` of the cached notice section (``Aleutians``).
+        region: ``region`` column stamped by the downloader (``Aleutians``).
 
     Returns:
         Both parts joined with a comma, the name alone when the region is
@@ -204,8 +156,8 @@ def _state_province(state: Column) -> Column:
 
     Returns:
         The geocode answer (``AK``, ``HI``, ``MP``); an empty answer (the
-        Ahyi Seamount sits in open water) or a missing notice entry
-        resolves to :data:`UNKNOWN_CODE`.
+        Ahyi Seamount sits in open water), a point missing from the lookup
+        or a row without coordinates resolves to :data:`UNKNOWN_CODE`.
     """
     return F.coalesce(F.when(state != "", state), F.lit(UNKNOWN_CODE))
 
@@ -214,7 +166,7 @@ def _description(synopsis: Column) -> Column:
     """The notice's one-line status (``synopsis``), ``NULL`` when blank.
 
     Args:
-        synopsis: ``synopsis`` of the cached notice section.
+        synopsis: ``synopsis`` column stamped by the downloader.
 
     Returns:
         e.g. ``AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …``;
@@ -228,33 +180,32 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     """Map ``geo.usgs_volcano`` columns onto the canonical ETL structure.
 
     One row per volcano per notice per snapshot: the feed supplies the
-    volcano, observatory, alert level and notice time, while the notice
-    API adds the coordinates, region, status line and full notice type —
-    the country is always ``US`` and the subdivision comes from the
-    reverse-geocoded volcano point.
+    volcano, observatory, alert level and notice time, the downloader-stamped
+    detail columns supply the coordinates, region, status line and full
+    notice type — the country is always ``US`` and the subdivision comes
+    from the reverse-geocoded volcano point.
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the lookup fetches.
+        logger: Logger handed to the geocode fetches.
 
     Returns:
         The DataFrame in :data:`TARGET_TABLE` column order.
     """
-    logger = logger or logging.getLogger(__name__)
-    enriched = _enrichment_columns(df, logger)
+    state = _state_map_column(df, logger)
 
     return df.select(
         F.lit(SOURCE_NAME).alias("source_name"),
         F.col("observatory_name").alias("subsource_name"),
         _event_name().alias("event_name"),
         F.lit(EVENT_CATEGORY).alias("event_category"),
-        _event_subcategory(enriched["notice_type"]).alias("event_subcategory"),
-        _description(enriched["synopsis"]).alias("event_description"),
-        F.when(enriched["latitude"] != "", enriched["latitude"].cast("double")).alias("latitude"),
-        F.when(enriched["longitude"] != "", enriched["longitude"].cast("double")).alias("longitude"),
+        _event_subcategory().alias("event_subcategory"),
+        _description(F.col("synopsis")).alias("event_description"),
+        F.col("latitude"),
+        F.col("longitude"),
         F.lit(COUNTRY_CODE).alias("country_code"),
-        _state_province(enriched["state_province"]).alias("state_province"),
-        _place_location(enriched["region"]).alias("place_location"),
+        _state_province(state).alias("state_province"),
+        _place_location(F.col("region")).alias("place_location"),
         F.lit(METRIC_NAME).alias("metric_name"),
         _metric_value().alias("metric_value"),
         F.lit(None).cast("string").alias("metric_unit"),
