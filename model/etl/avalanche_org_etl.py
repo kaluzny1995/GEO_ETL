@@ -17,11 +17,9 @@ class AvalancheOrgEtl(EventEtl):
       always ``NULL``: a danger level is a rating, not a measurement.
     * ``danger_rating`` — the zone's rating as text (``low`` … ``extreme``); unrated zones
       (source ``danger_level = -1``, ``danger_rating = "no rating"``) get ``NULL``.
-    * ``statement`` — travel advice, with the active avalanche warning appended when present.
     * ``other_metrics`` — ``NULL`` (zone ids and links are not metrics).
     * ``latitude``/``longitude`` — centroid of the zone polygon from
       ``cache/avalanche_zone_centroids.csv``; ``NULL`` for unknown zones.
-    * ``event_start_date`` — the forecast's calendar day (source ``date``);
-      ``event_start``/``event_end`` — forecast validity window
+    * ``event_start``/``event_end`` — forecast validity window
       (``forecast_start``/``forecast_end``).
     """

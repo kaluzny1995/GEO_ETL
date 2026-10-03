@@ -36,11 +36,8 @@ class UsgsVolcanoEtl(EventEtl):
       ``WARNING`` 3); an unknown code stays ``NULL`` (an unknown level is
       not ``NORMAL``); ``metric_unit`` — ``NULL`` (a scale index has no
       unit); ``danger_rating`` — the source ``alert_level`` text verbatim.
-    * ``statement`` — ``NULL`` (the notice's prose lives in
-      ``event_description``).
-    * ``event_start_date`` / ``event_start`` — ``date(notice_date)`` /
-      ``notice_date`` (when the notice was issued, full precision);
-      ``event_end`` — ``NULL`` (a notice is an instant).
+    * ``event_start`` — ``notice_date`` (when the notice was issued, full
+      precision); ``event_end`` — ``NULL`` (a notice is an instant).
     * ``other_metrics`` / ``last_latitude`` / ``last_longitude`` — ``NULL``
       (no extra metrics; the volcano is fixed).
     * ``file_date`` — the snapshot day the notice was downloaded for.

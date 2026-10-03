@@ -31,10 +31,10 @@ class UsgsNwisEtl(EventEtl):
       (the daily mean for parameter ``00060``), counting a missing reading
       as ``0``; ``metric_unit`` — ``unit`` verbatim (``ft3/s``, or
       ``m³/s`` if a metric parameter is configured).
-    * ``event_start_date`` / ``event_start`` — ``date`` at midnight (the
+    * ``event_start`` — ``date`` at midnight (the
       source reports a day, not a datetime); ``event_end`` — ``NULL`` (a
       daily mean has no end).
-    * ``danger_rating`` / ``statement`` / ``other_metrics`` /
+    * ``danger_rating`` / ``other_metrics`` /
       ``last_latitude`` / ``last_longitude`` — ``NULL`` (the qualifiers
       live in the description; the gauge is fixed).
     * ``file_date`` — the snapshot day the reading was downloaded for.

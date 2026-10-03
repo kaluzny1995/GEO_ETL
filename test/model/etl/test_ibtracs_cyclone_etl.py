@@ -2,7 +2,7 @@ import datetime as dt
 
 import pytest
 from pydantic import ValidationError
-from pyspark.sql.types import DateType, DoubleType, StringType, TimestampType
+from pyspark.sql.types import DoubleType, StringType, TimestampType
 
 from factory import TableFactory
 from model.etl.event_etl import EventEtl
@@ -29,9 +29,7 @@ class TestIbtracsCycloneEtlValid:
             metric_value=65.0,
             metric_unit="kts",
             danger_rating="category 1",
-            statement=None,
             other_metrics='{"pressure": 985, "speed": 8}',
-            event_start_date=dt.date(2026, 9, 1),
             event_start=dt.datetime(2026, 9, 1, 21, 0, 0),
             event_end=dt.datetime(2026, 9, 1, 21, 0, 0),
             last_latitude=29.9,
@@ -69,9 +67,7 @@ class TestIbtracsCycloneEtlValid:
         assert row.metric_value is None
         assert row.metric_unit is None
         assert row.danger_rating is None
-        assert row.statement is None
         assert row.other_metrics is None
-        assert row.event_start_date is None
         assert row.event_start is None
         assert row.event_end is None
         assert row.last_latitude is None
@@ -106,7 +102,7 @@ class TestIbtracsCycloneEtlSchema:
 
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(IbtracsCycloneEtl)
-        assert len(schema.fields) == 23
+        assert len(schema.fields) == 21
 
     def test_schema_field_names(self):
         schema = pydantic_to_spark_schema(IbtracsCycloneEtl)
@@ -127,9 +123,7 @@ class TestIbtracsCycloneEtlSchema:
             "metric_value",
             "metric_unit",
             "danger_rating",
-            "statement",
             "other_metrics",
-            "event_start_date",
             "event_start",
             "event_end",
             "last_latitude",
@@ -148,11 +142,6 @@ class TestIbtracsCycloneEtlSchema:
         for name in ("latitude", "longitude", "metric_value", "last_latitude", "last_longitude"):
             field = next(f for f in schema.fields if f.name == name)
             assert isinstance(field.dataType, DoubleType), name
-
-    def test_date_field(self):
-        schema = pydantic_to_spark_schema(IbtracsCycloneEtl)
-        field = next(f for f in schema.fields if f.name == "event_start_date")
-        assert isinstance(field.dataType, DateType)
 
     def test_datetime_fields(self):
         schema = pydantic_to_spark_schema(IbtracsCycloneEtl)
@@ -177,7 +166,6 @@ class TestIbtracsCycloneEtlDdl:
         assert "    country_code TEXT NOT NULL" in ddl
         assert "    place_location TEXT NULL" in ddl
         assert "    metric_value DOUBLE PRECISION NULL" in ddl
-        assert "    event_start_date DATE NULL" in ddl
         assert "    event_start TIMESTAMP NULL" in ddl
         assert "    file_date TEXT NOT NULL" in ddl
 

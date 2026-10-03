@@ -2,7 +2,7 @@ import datetime as dt
 
 import pytest
 from pydantic import ValidationError
-from pyspark.sql.types import DateType, DoubleType, StringType, TimestampType
+from pyspark.sql.types import DoubleType, StringType, TimestampType
 
 from factory import TableFactory
 from model.etl.event_etl import EventEtl
@@ -29,9 +29,7 @@ class TestUsgsVolcanoEtlValid:
             metric_value=2.0,
             metric_unit=None,
             danger_rating="WATCH",
-            statement=None,
             other_metrics=None,
-            event_start_date=dt.date(2026, 9, 29),
             event_start=dt.datetime(2026, 9, 29, 18, 26, 19),
             event_end=None,
             last_latitude=None,
@@ -49,7 +47,6 @@ class TestUsgsVolcanoEtlValid:
         assert row.metric_name == "alert_level"
         assert row.metric_value == 2.0
         assert row.danger_rating == "WATCH"
-        assert row.statement is None
         assert row.other_metrics is None
         assert row.event_end is None
 
@@ -71,8 +68,6 @@ class TestUsgsVolcanoEtlValid:
         assert row.metric_value is None
         assert row.metric_unit is None
         assert row.danger_rating is None
-        assert row.statement is None
-        assert row.event_start_date is None
         assert row.event_start is None
         assert row.event_end is None
         assert row.last_latitude is None
@@ -107,7 +102,7 @@ class TestUsgsVolcanoEtlSchema:
 
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(UsgsVolcanoEtl)
-        assert len(schema.fields) == 23
+        assert len(schema.fields) == 21
 
     def test_schema_field_names(self):
         schema = pydantic_to_spark_schema(UsgsVolcanoEtl)
@@ -128,9 +123,7 @@ class TestUsgsVolcanoEtlSchema:
             "metric_value",
             "metric_unit",
             "danger_rating",
-            "statement",
             "other_metrics",
-            "event_start_date",
             "event_start",
             "event_end",
             "last_latitude",
@@ -149,11 +142,6 @@ class TestUsgsVolcanoEtlSchema:
         for name in ("latitude", "longitude", "metric_value", "last_latitude", "last_longitude"):
             field = next(f for f in schema.fields if f.name == name)
             assert isinstance(field.dataType, DoubleType), name
-
-    def test_date_field(self):
-        schema = pydantic_to_spark_schema(UsgsVolcanoEtl)
-        field = next(f for f in schema.fields if f.name == "event_start_date")
-        assert isinstance(field.dataType, DateType)
 
     def test_datetime_fields(self):
         schema = pydantic_to_spark_schema(UsgsVolcanoEtl)
@@ -178,7 +166,6 @@ class TestUsgsVolcanoEtlDdl:
         assert "    country_code TEXT NOT NULL" in ddl
         assert "    place_location TEXT NULL" in ddl
         assert "    metric_value DOUBLE PRECISION NULL" in ddl
-        assert "    event_start_date DATE NULL" in ddl
         assert "    event_start TIMESTAMP NULL" in ddl
         assert "    file_date TEXT NOT NULL" in ddl
 

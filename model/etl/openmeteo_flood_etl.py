@@ -30,11 +30,11 @@ class OpenMeteoFloodEtl(EventEtl):
       daily mean ``discharge_m3s``, counting a missing value as ``0``
       (the source skips null-discharge days, so none occur);
       ``metric_unit`` — always ``m³/s``.
-    * ``event_start_date`` / ``event_start`` — ``date`` at midnight /
-      ``date`` itself: the GMT+0 day of the GloFAS 24-h mean (always
-      present); ``event_end`` — ``NULL`` (a daily value has no end).
-    * ``danger_rating`` / ``statement`` / ``other_metrics`` /
+    * ``event_start`` — ``date`` itself at midnight: the GMT+0 day of the
+      GloFAS 24-h mean (always present); ``event_end`` — ``NULL`` (a daily
+      value has no end).
+    * ``danger_rating`` / ``other_metrics`` /
       ``last_latitude`` / ``last_longitude`` — ``NULL`` (no alert level,
-      no advisory prose, a single measurement, a fixed reference point).
+      a single measurement, a fixed reference point).
     * ``file_date`` — the snapshot day the value was downloaded for.
     """

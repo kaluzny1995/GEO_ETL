@@ -2,7 +2,7 @@ import datetime as dt
 
 import pytest
 from pydantic import ValidationError
-from pyspark.sql.types import DateType, DoubleType, StringType, TimestampType
+from pyspark.sql.types import DoubleType, StringType, TimestampType
 
 from factory import TableFactory
 from model.etl.avalanche_org_etl import AvalancheOrgEtl
@@ -29,9 +29,7 @@ class TestAvalancheOrgEtlValid:
             metric_value=None,
             metric_unit=None,
             danger_rating="considerable",
-            statement="Dangerous avalanche conditions.",
             other_metrics=None,
-            event_start_date=dt.date(2026, 1, 10),
             event_start=dt.datetime(2026, 1, 10, 6, 0, 0),
             event_end=dt.datetime(2026, 1, 11, 6, 0, 0),
             last_latitude=None,
@@ -42,7 +40,6 @@ class TestAvalancheOrgEtlValid:
         assert row.country_code == "US"
         assert row.event_name is None
         assert row.place_location == "Front Range"
-        assert row.event_start_date == dt.date(2026, 1, 10)
         assert row.file_date == "2026-01-10"
 
     def test_optional_fields_default_to_none(self):
@@ -57,10 +54,8 @@ class TestAvalancheOrgEtlValid:
         assert row.place_location is None
         assert row.metric_value is None
         assert row.danger_rating is None
-        assert row.statement is None
         assert row.other_metrics is None
         assert row.state_province is None
-        assert row.event_start_date is None
         assert row.event_start is None
         assert row.event_end is None
 
@@ -93,7 +88,7 @@ class TestAvalancheOrgEtlSchema:
 
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(AvalancheOrgEtl)
-        assert len(schema.fields) == 23
+        assert len(schema.fields) == 21
 
     def test_schema_field_names(self):
         schema = pydantic_to_spark_schema(AvalancheOrgEtl)
@@ -114,9 +109,7 @@ class TestAvalancheOrgEtlSchema:
             "metric_value",
             "metric_unit",
             "danger_rating",
-            "statement",
             "other_metrics",
-            "event_start_date",
             "event_start",
             "event_end",
             "last_latitude",
@@ -126,7 +119,7 @@ class TestAvalancheOrgEtlSchema:
 
     def test_string_fields(self):
         schema = pydantic_to_spark_schema(AvalancheOrgEtl)
-        for name in ("source_name", "country_code", "place_location", "statement", "file_date"):
+        for name in ("source_name", "country_code", "place_location", "file_date"):
             field = next(f for f in schema.fields if f.name == name)
             assert isinstance(field.dataType, StringType), name
 
@@ -135,11 +128,6 @@ class TestAvalancheOrgEtlSchema:
         for name in ("latitude", "longitude", "metric_value", "last_latitude", "last_longitude"):
             field = next(f for f in schema.fields if f.name == name)
             assert isinstance(field.dataType, DoubleType), name
-
-    def test_date_field(self):
-        schema = pydantic_to_spark_schema(AvalancheOrgEtl)
-        field = next(f for f in schema.fields if f.name == "event_start_date")
-        assert isinstance(field.dataType, DateType)
 
     def test_datetime_fields(self):
         schema = pydantic_to_spark_schema(AvalancheOrgEtl)
@@ -164,7 +152,6 @@ class TestAvalancheOrgEtlDdl:
         assert "    country_code TEXT NOT NULL" in ddl
         assert "    place_location TEXT NULL" in ddl
         assert "    metric_value DOUBLE PRECISION NULL" in ddl
-        assert "    event_start_date DATE NULL" in ddl
         assert "    event_start TIMESTAMP NULL" in ddl
         assert "    file_date TEXT NOT NULL" in ddl
 

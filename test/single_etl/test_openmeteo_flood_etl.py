@@ -172,9 +172,7 @@ class TestConvert:
         assert row.metric_value == 77982.05
         assert row.metric_unit == "m³/s"
         assert row.danger_rating is None
-        assert row.statement is None
         assert row.other_metrics is None
-        assert row.event_start_date == dt.date(2026, 9, 1)
         assert row.event_start == dt.datetime(2026, 9, 1, 0, 0)
         assert row.event_end is None
         assert row.last_latitude is None and row.last_longitude is None

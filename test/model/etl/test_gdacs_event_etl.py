@@ -2,7 +2,7 @@ import datetime as dt
 
 import pytest
 from pydantic import ValidationError
-from pyspark.sql.types import DateType, DoubleType, StringType, TimestampType
+from pyspark.sql.types import DoubleType, StringType, TimestampType
 
 from factory import TableFactory
 from model.etl.event_etl import EventEtl
@@ -29,9 +29,7 @@ class TestGdacsEventEtlValid:
             metric_value=5.4,
             metric_unit="M",
             danger_rating="Orange",
-            statement="Magnitude 5.4M, Depth:10km",
             other_metrics=None,
-            event_start_date=dt.date(2026, 9, 29),
             event_start=dt.datetime(2026, 9, 29, 21, 50, 29),
             event_end=dt.datetime(2026, 9, 29, 21, 50, 29),
             last_latitude=None,
@@ -67,9 +65,7 @@ class TestGdacsEventEtlValid:
         assert row.metric_value is None
         assert row.metric_unit is None
         assert row.danger_rating is None
-        assert row.statement is None
         assert row.other_metrics is None
-        assert row.event_start_date is None
         assert row.event_start is None
         assert row.event_end is None
         assert row.last_latitude is None
@@ -104,7 +100,7 @@ class TestGdacsEventEtlSchema:
 
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(GdacsEventEtl)
-        assert len(schema.fields) == 23
+        assert len(schema.fields) == 21
 
     def test_schema_field_names(self):
         schema = pydantic_to_spark_schema(GdacsEventEtl)
@@ -125,9 +121,7 @@ class TestGdacsEventEtlSchema:
             "metric_value",
             "metric_unit",
             "danger_rating",
-            "statement",
             "other_metrics",
-            "event_start_date",
             "event_start",
             "event_end",
             "last_latitude",
@@ -146,11 +140,6 @@ class TestGdacsEventEtlSchema:
         for name in ("latitude", "longitude", "metric_value", "last_latitude", "last_longitude"):
             field = next(f for f in schema.fields if f.name == name)
             assert isinstance(field.dataType, DoubleType), name
-
-    def test_date_field(self):
-        schema = pydantic_to_spark_schema(GdacsEventEtl)
-        field = next(f for f in schema.fields if f.name == "event_start_date")
-        assert isinstance(field.dataType, DateType)
 
     def test_datetime_fields(self):
         schema = pydantic_to_spark_schema(GdacsEventEtl)
@@ -175,7 +164,6 @@ class TestGdacsEventEtlDdl:
         assert "    country_code TEXT NOT NULL" in ddl
         assert "    place_location TEXT NULL" in ddl
         assert "    metric_value DOUBLE PRECISION NULL" in ddl
-        assert "    event_start_date DATE NULL" in ddl
         assert "    event_start TIMESTAMP NULL" in ddl
         assert "    file_date TEXT NOT NULL" in ddl
 

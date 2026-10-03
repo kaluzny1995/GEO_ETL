@@ -35,10 +35,10 @@ class UsgsEarthquakeEtl(EventEtl):
     * ``other_metrics`` — ``{"depth", "depth_unit": "km", "nst",
       "nst_unit": "stations"}``; the ``nst`` keys are omitted when the
       network reports no station count.
-    * ``event_start_date`` / ``event_start`` — ``date(time)`` / ``time``
-      (the rupture origin time, millisecond precision, always present);
-      ``event_end`` — ``NULL`` (an instant has no end).
-    * ``danger_rating`` / ``statement`` / ``last_latitude`` /
+    * ``event_start`` — ``time`` (the rupture origin time, millisecond
+      precision, always present); ``event_end`` — ``NULL`` (an instant has
+      no end).
+    * ``danger_rating`` / ``last_latitude`` /
       ``last_longitude`` — ``NULL`` (``status`` is QC, not severity; the
       epicentre is fixed).
     * ``file_date`` — the snapshot day the event was downloaded for.

@@ -309,12 +309,6 @@ def _place_location() -> Column:
     return F.when(trimmed != "", trimmed).otherwise(F.lit(None).cast("string"))
 
 
-def _statement() -> Column:
-    """``severity_text`` (the impact/advisory sentence), ``NULL`` when blank."""
-    trimmed = F.trim(F.col("severity_text"))
-    return F.when(trimmed != "", trimmed).otherwise(F.lit(None).cast("string"))
-
-
 def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     """Map ``geo.gdacs_event`` columns onto the canonical ETL structure.
 
@@ -350,9 +344,7 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
         _metric_value().alias("metric_value"),
         _metric_unit().alias("metric_unit"),
         F.col("alert_level").alias("danger_rating"),
-        _statement().alias("statement"),
         F.lit(None).cast("string").alias("other_metrics"),
-        F.col("from_date").cast("date").alias("event_start_date"),
         F.col("from_date").alias("event_start"),
         F.col("to_date").alias("event_end"),
         F.lit(None).cast("double").alias("last_latitude"),

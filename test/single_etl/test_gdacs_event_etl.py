@@ -206,9 +206,7 @@ class TestConvert:
         assert row.metric_value == 55.5552
         assert row.metric_unit == "km/h"
         assert row.danger_rating == "Green"
-        assert row.statement == "Tropical Depression (maximum wind speed of 56 km/h)"
         assert row.other_metrics is None
-        assert row.event_start_date == dt.date(2026, 9, 29)
         assert row.event_start == dt.datetime(2026, 9, 29, 15, 0, 0)
         assert row.event_end == dt.datetime(2026, 9, 29, 21, 0, 0)
         assert row.last_latitude is None and row.last_longitude is None
@@ -257,7 +255,6 @@ class TestConvert:
         assert row.metric_value == 4.5
         assert row.metric_unit == "M"
         assert row.danger_rating == "Green"
-        assert row.statement == "Magnitude 4.5M, Depth:10km"
         assert row.event_start == row.event_end == dt.datetime(2026, 9, 29, 21, 50, 29)
 
     def test_wildfire_mapping(self, spark_session):
@@ -282,7 +279,6 @@ class TestConvert:
         assert row.metric_name == "area"
         assert row.metric_value == 14196.0
         assert row.metric_unit == "ha"
-        assert row.statement == "Green impact for forestfire in 14196 ha"
 
     def test_drought_mapping(self, spark_session):
         (row,) = _convert(
@@ -386,11 +382,6 @@ class TestConvert:
 
         assert row.place_location is None
 
-    def test_blank_severity_text_leaves_statement_null(self, spark_session):
-        (row,) = _convert(spark_session, _source_row(severity_text="   "))
-
-        assert row.statement is None
-
     def test_unknown_event_type_is_lowercased(self, spark_session):
         (row,) = _convert(spark_session, _source_row(event_type="XX"))
 
@@ -404,6 +395,5 @@ class TestConvert:
             _source_row(from_date=dt.datetime(2026, 9, 1, 0, 0, 0), to_date=dt.datetime(2026, 9, 20, 0, 0, 0)),
         )
 
-        assert row.event_start_date == dt.date(2026, 9, 1)
         assert row.event_start == dt.datetime(2026, 9, 1, 0, 0, 0)
         assert row.event_end == dt.datetime(2026, 9, 20, 0, 0, 0)

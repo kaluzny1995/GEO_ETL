@@ -244,8 +244,6 @@ class TestConvert:
         assert row.metric_value == 65.0
         assert row.metric_unit == "kts"
         assert row.danger_rating == "category 1"
-        assert row.statement is None
-        assert row.event_start_date == dt.date(2026, 9, 1)
         assert row.event_start == dt.datetime(2026, 9, 1, 21, 0, 0)
         assert row.event_end == dt.datetime(2026, 9, 1, 21, 0, 0)
         assert row.last_latitude == 29.9 and row.last_longitude == -93.9

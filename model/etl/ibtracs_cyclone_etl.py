@@ -42,9 +42,9 @@ class IbtracsCycloneEtl(EventEtl):
       ``dist2land_unit`` and ``landfall`` / ``landfall_unit`` (km); a
       measurement the point does not report is omitted together with its
       unit, ``NULL`` when it reports none.
-    * ``statement`` / ``event_description`` — ``NULL`` (a best track carries
-      no advisory prose).
-    * ``event_start_date`` / ``event_start`` / ``event_end`` — the position's
+    * ``event_description`` — ``NULL`` (a best track carries no advisory
+      prose).
+    * ``event_start`` / ``event_end`` — the position's
       ``iso_time`` (one row = one track point).
     * ``last_latitude`` / ``last_longitude`` — the storm's latest position
       (maximum ``iso_time`` per ``sid``; the newest points always arrive in

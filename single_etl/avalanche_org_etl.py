@@ -129,14 +129,6 @@ def _danger_rating() -> Column:
     return F.when(~unrated, rating)
 
 
-def _statement() -> Column:
-    """Travel advice, with the active avalanche warning appended when present."""
-    has_warning = F.col("warning").isNotNull() & (F.trim(F.col("warning")) != "")
-    return F.when(has_warning, F.concat_ws(" ", F.col("travel_advice"), F.col("warning"))).otherwise(
-        F.col("travel_advice")
-    )
-
-
 def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     """Map ``geo.avalanche_org`` columns onto the canonical ETL structure.
 
@@ -171,9 +163,7 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
         F.lit(None).cast("double").alias("metric_value"),
         F.lit(None).cast("string").alias("metric_unit"),
         _danger_rating().alias("danger_rating"),
-        _statement().alias("statement"),
         F.lit(None).cast("string").alias("other_metrics"),
-        F.col("date").cast("date").alias("event_start_date"),
         F.col("forecast_start").alias("event_start"),
         F.col("forecast_end").alias("event_end"),
         F.lit(None).cast("double").alias("last_latitude"),

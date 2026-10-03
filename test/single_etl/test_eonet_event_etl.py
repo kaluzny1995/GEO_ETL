@@ -206,9 +206,7 @@ class TestConvert:
         assert row.metric_value == 60.0
         assert row.metric_unit == "kts"
         assert row.danger_rating is None
-        assert row.statement is None
         assert row.other_metrics == '{"geometry_count":36}'
-        assert row.event_start_date == dt.date(2026, 9, 20)
         assert row.event_start == dt.datetime(2026, 9, 20, 12, 0, 0)
         assert row.event_end == dt.datetime(2026, 9, 21, 12, 0, 0)
         assert row.last_latitude == 16.0 and row.last_longitude == -105.0

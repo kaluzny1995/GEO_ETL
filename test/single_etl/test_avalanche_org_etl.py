@@ -219,9 +219,7 @@ class TestConvert:
         assert row.metric_value is None
         assert row.metric_unit is None
         assert row.danger_rating == "high"
-        assert row.statement == "Very dangerous avalanche conditions."
         assert row.other_metrics is None
-        assert row.event_start_date == dt.date(2026, 1, 10)
         assert row.event_start == dt.datetime(2026, 1, 10, 6, 0, 0)
         assert row.event_end == dt.datetime(2026, 1, 11, 6, 0, 0)
         assert row.last_latitude is None and row.last_longitude is None
@@ -256,13 +254,3 @@ class TestConvert:
 
         assert row.latitude is None
         assert row.longitude is None
-
-    def test_event_start_date_uses_the_source_date(self, spark_session):
-        (row,) = _convert(spark_session, _source_row(date=dt.date(2026, 3, 5)))
-
-        assert row.event_start_date == dt.date(2026, 3, 5)
-
-    def test_statement_appends_active_warning(self, spark_session):
-        (row,) = _convert(spark_session, _source_row(warning="Avalanche Warning"))
-
-        assert row.statement == "Very dangerous avalanche conditions. Avalanche Warning"

@@ -29,10 +29,9 @@ class GdacsEventEtl(EventEtl):
       everywhere FL and VO report one) mapped to ``NULL``; ``metric_unit`` —
       ``severity_unit`` (``M``, ``km/h``, ``ha``, ``km2``), ``NULL`` when
       blank.
-    * ``danger_rating`` — ``alert_level`` (``Green`` / ``Orange`` / ``Red``);
-      ``statement`` — ``severity_text`` (the impact/advisory sentence).
+    * ``danger_rating`` — ``alert_level`` (``Green`` / ``Orange`` / ``Red``).
     * ``other_metrics`` / ``event_description`` / ``last_latitude`` /
       ``last_longitude`` — ``NULL`` (GDACS carries none).
-    * ``event_start_date`` / ``event_start`` — ``from_date``; ``event_end`` —
+    * ``event_start`` — ``from_date``; ``event_end`` —
       ``to_date`` (equal to the start for the instantaneous earthquakes).
     """

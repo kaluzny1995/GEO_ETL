@@ -20,7 +20,7 @@ flowchart TD
     READ --> FILTER["keep file_date newer than the maximum<br/>(incremental only)"]
     FILTER --> EMPTY{"any rows?"}
     EMPTY -->|"no"| SKIP["log warning → return 'nothing to do'<br/>run_etl.py exits 0"]
-    EMPTY -->|"yes"| CV["_convert()<br/>map the source columns onto the<br/>23-column canonical structure"]
+    EMPTY -->|"yes"| CV["_convert()<br/>map the source columns onto the<br/>21-column canonical structure"]
     CV --> WRITE["write.jdbc append"]
     WRITE --> DB[("geo.{source}_etl")]
     WRITE --> OK["return 'HISTORICAL / INCREMENTAL:<br/>wrote to geo.{source}_etl'"]
@@ -43,7 +43,7 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 
 ## avalanche_org_etl
 
-`single_etl/avalanche_org_etl.py` is the reference script: `geo.avalanche_org` (one row per forecast zone per day) → `geo.avalanche_org_etl` (the 23-column structure from `model/etl/event_etl.py`).
+`single_etl/avalanche_org_etl.py` is the reference script: `geo.avalanche_org` (one row per forecast zone per day) → `geo.avalanche_org_etl` (the 21-column structure from `model/etl/event_etl.py`).
 
 | Target column | Source |
 |---------------|--------|
@@ -52,8 +52,6 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 | `latitude` / `longitude` | polygon centroid of the zone from `cache/avalanche_zone_centroids.csv`, keyed `place_location` + `state_province` |
 | `metric_name` | always `magnitude`; `metric_value` / `metric_unit` stay `NULL` — a danger level is a rating, not a measurement |
 | `danger_rating` | zone rating as text, `NULL` while unrated (`danger_level = -1`, `danger_rating = "no rating"`) |
-| `statement` | `travel_advice`, with `warning` appended when present |
-| `event_start_date` | `date` (the forecast's calendar day) |
 | `event_start` / `event_end` | `forecast_start` / `forecast_end` |
 | `other_metrics` | `NULL` (zone ids and links are not metrics) |
 
@@ -61,7 +59,7 @@ When `cache/avalanche_zone_centroids.csv` is missing, the ETL builds it itself t
 
 ## eonet_event_etl
 
-`single_etl/eonet_event_etl.py`: `geo.eonet_event` (NASA EONET hazard events) → `geo.eonet_event_etl` (the 23-column structure from `model/etl/event_etl.py`).
+`single_etl/eonet_event_etl.py`: `geo.eonet_event` (NASA EONET hazard events) → `geo.eonet_event_etl` (the 21-column structure from `model/etl/event_etl.py`).
 
 | Target column | Source |
 |---------------|--------|
@@ -75,9 +73,9 @@ When `cache/avalanche_zone_centroids.csv` is missing, the ETL builds it itself t
 | `place_location` | `event_name` minus its type prefix (`Wildfire`, `Prescribed Fire`, `Incident Complex`, `Emergency Stabilization BAER`) when a place is left, e.g. `Wildfire Snow, Custer, Montana` → `Snow, Custer, Montana`; `NULL` for `Hurricane Polo` / `Iceberg D32` |
 | `metric_name` | `wind speed` (storms), `area` (fires), `surface` (ice), `magnitude` for any other category |
 | `metric_value` / `metric_unit` | `magnitude_value` / `magnitude_unit` |
-| `danger_rating` / `statement` | `NULL` — EONET carries neither |
+| `danger_rating` | `NULL` — EONET carries no rating |
 | `other_metrics` | `{"geometry_count": n}` — the event's geometry points |
-| `event_start_date` / `event_start` | `event_date` |
+| `event_start` | `event_date` |
 | `event_end` | `last_date` |
 | `last_latitude` / `last_longitude` | `last_latitude` / `last_longitude` — the latest position |
 | `file_date` | `file_date` |
@@ -86,7 +84,7 @@ Coordinates missing from `cache/reverse_geocode.csv` are reverse-geocoded on the
 
 ## gdacs_event_etl
 
-`single_etl/gdacs_event_etl.py`: `geo.gdacs_event` (GDACS disaster events, one row per event snapshot per `file_date`) → `geo.gdacs_event_etl` (the 23-column structure from `model/etl/event_etl.py`).
+`single_etl/gdacs_event_etl.py`: `geo.gdacs_event` (GDACS disaster events, one row per event snapshot per `file_date`) → `geo.gdacs_event_etl` (the 21-column structure from `model/etl/event_etl.py`).
 
 | Target column | Source |
 |---------------|--------|
@@ -103,9 +101,8 @@ Coordinates missing from `cache/reverse_geocode.csv` are reverse-geocoded on the
 | `metric_value` | `severity`, with `0` ("not defined" — every FL and VO row) mapped to `NULL` |
 | `metric_unit` | `severity_unit` (`M`, `km/h`, `ha`, `km2`), `NULL` when blank |
 | `danger_rating` | `alert_level` (`Green` / `Orange` / `Red`) |
-| `statement` | `severity_text` (impact/advisory sentence, e.g. `Magnitude 4.5M, Depth:10km`) |
 | `other_metrics` / `last_latitude` / `last_longitude` | `NULL` — a snapshot has no metrics beyond the measurement and no track |
-| `event_start_date` / `event_start` | `from_date` |
+| `event_start` | `from_date` |
 | `event_end` | `to_date` (= `from_date` for the instantaneous earthquakes) |
 | `file_date` | `file_date` |
 
@@ -113,7 +110,7 @@ The source's alpha-3 country code wins because GDACS knows the affected country 
 
 ## ibtracs_cyclone_etl
 
-`single_etl/ibtracs_cyclone_etl.py`: `geo.ibtracs_cyclone` (IBTrACS best track, one row per storm position per `file_date`) → `geo.ibtracs_cyclone_etl` (the 23-column structure from `model/etl/event_etl.py`).
+`single_etl/ibtracs_cyclone_etl.py`: `geo.ibtracs_cyclone` (IBTrACS best track, one row per storm position per `file_date`) → `geo.ibtracs_cyclone_etl` (the 21-column structure from `model/etl/event_etl.py`).
 
 | Target column | Source |
 |---------------|--------|
@@ -121,7 +118,7 @@ The source's alpha-3 country code wins because GDACS knows the affected country 
 | `event_name` | `name` (e.g. `EDOUARD`; the source writes `UNNAMED` for unnamed systems), `NULL` when blank |
 | `event_category` | always `storm` |
 | `event_subcategory` | the ATCF system status `usa_status` (`hurricane`, `typhoon`, `tropical storm`, `tropical depression`, `disturbance`, `low`, …), falling back to the cross-agency `nature` (`tropical`, `disturbance`, `extratropical`, `subtropical`, `contradictory`) when no US agency reported a status; `NULL` when neither states a type (`nature = NR` in non-US basins) |
-| `event_description` / `statement` | `NULL` — a best track carries no advisory prose |
+| `event_description` | `NULL` — a best track carries no advisory prose |
 | `latitude` / `longitude` | `lat` / `lon` — the position itself |
 | `country_code` / `state_province` | the reverse-geocoded position of every point within 100 km of land (`cache/reverse_geocode.csv`), else `ZZ` / `NULL` (open water) — the source carries no country at all |
 | `place_location` | full basin name extended with the sub-basin (`North Atlantic - Gulf of Mexico`, `Eastern North Pacific - Central Pacific`, `North Indian - Bay of Bengal`, …); just the basin name for the unnamed sub-basins (`NA`, `MM`) |
@@ -130,7 +127,7 @@ The source's alpha-3 country code wins because GDACS knows the affected country 
 | `metric_unit` | always `kts` |
 | `danger_rating` | the Saffir-Simpson label of `usa_sshs` (`category 5` … `category 1`, `tropical storm`, `tropical depression`, `disturbance`, `subtropical`, `post-tropical`, `unknown`) |
 | `other_metrics` | `{"pressure": …, "pressure_unit": "mb", "speed": …, "speed_unit": "kts", "direction": …, "direction_unit": "degrees", "gust": …, "gust_unit": "kts", "dist2land": …, "dist2land_unit": "km", "landfall": …, "landfall_unit": "km"}` — `usa_pres`, `storm_speed`, `storm_dir`, `usa_gust`, `dist2land` / `landfall`; every measurement is paired with its `<name>_unit` companion key, and one the position does not report is omitted together with its unit; `NULL` when it reports none |
-| `event_start_date` / `event_start` / `event_end` | `date(iso_time)` / `iso_time` — one row = one track position |
+| `event_start` / `event_end` | `iso_time` — one row = one track position |
 | `last_latitude` / `last_longitude` | `lat` / `lon` of the maximum `iso_time` per `sid` — the storm's latest position |
 | `file_date` | `file_date` |
 
@@ -138,7 +135,7 @@ The source knows no country, so geocoding is scoped to the points where it can a
 
 ## nifc_fire_etl
 
-`single_etl/nifc_fire_etl.py`: `geo.nifc_fire` (NIFC/WFIGS fire perimeters, one row per perimeter per `file_date`) → `geo.nifc_fire_etl` (the 23-column structure from `model/etl/event_etl.py`).
+`single_etl/nifc_fire_etl.py`: `geo.nifc_fire` (NIFC/WFIGS fire perimeters, one row per perimeter per `file_date`) → `geo.nifc_fire_etl` (the 21-column structure from `model/etl/event_etl.py`).
 
 | Target column | Source |
 |---------------|--------|
@@ -146,7 +143,7 @@ The source knows no country, so geocoding is scoped to the points where it can a
 | `event_name` | `incident_name`, `NULL` when blank |
 | `event_category` | always `fire` |
 | `event_subcategory` | `fire_type`: `WF` → `wildfire`, `RX` → `prescribed fire`; `NULL` when the source states no type |
-| `event_description` / `statement` / `danger_rating` | `NULL` — the perimeter layer carries no advisory prose or alert level |
+| `event_description` / `danger_rating` | `NULL` — the perimeter layer carries no advisory prose or alert level |
 | `latitude` / `longitude` | the feature centroid of the perimeter |
 | `country_code` | always `US` — the layer only publishes US perimeters |
 | `state_province` | `state` when present (the 2026-09-18 vintage on), else the reverse-geocoded centroid (`cache/reverse_geocode.csv`), `NULL` when neither resolves |
@@ -155,7 +152,7 @@ The source knows no country, so geocoding is scoped to the points where it can a
 | `metric_value` | `acres`, counting a missing acreage as `0` (the pre-2026-09-18 vintage predates the field) |
 | `metric_unit` | always `acres` |
 | `other_metrics` | `{"percent_contained": …, "percent_contained_unit": "%"}` — always present: a missing `percent_contained` counts as `0` (nothing reported yet), so both keys stay valid |
-| `event_start_date` / `event_start` | `date(created_on)` / `created_on` |
+| `event_start` | `created_on` |
 | `event_end` | `NULL` — the layer carries no fire-out datetime |
 | `last_latitude` / `last_longitude` | `NULL` — the layer carries no latest position |
 | `file_date` | `file_date` |
@@ -164,7 +161,7 @@ Both lookups run on the driver and are embedded as literal map columns (the Spar
 
 ## openmeteo_flood_etl
 
-`single_etl/openmeteo_flood_etl.py`: `geo.openmeteo_flood` (Open-Meteo/GloFAS river discharge, one row per river per `date` per `file_date`) → `geo.openmeteo_flood_etl` (the 23-column structure from `model/etl/event_etl.py`).
+`single_etl/openmeteo_flood_etl.py`: `geo.openmeteo_flood` (Open-Meteo/GloFAS river discharge, one row per river per `date` per `file_date`) → `geo.openmeteo_flood_etl` (the 21-column structure from `model/etl/event_etl.py`).
 
 | Target column | Source |
 |---------------|--------|
@@ -172,7 +169,7 @@ Both lookups run on the driver and are embedded as literal map columns (the Spar
 | `subsource_name` | always `GLOFAS` (the Copernicus GloFAS model the discharge is simulated with) |
 | `event_name` | `"<river_name> discharge"` (`Amazon discharge`), `NULL` when the river name is blank |
 | `event_category` | always `flood` |
-| `event_subcategory` / `event_description` / `statement` / `danger_rating` | `NULL` — the daily value carries no subtype, prose or alert level |
+| `event_subcategory` / `event_description` / `danger_rating` | `NULL` — the daily value carries no subtype or alert level |
 | `latitude` / `longitude` | the `rivers.json` reference point of the river (stable per river; the GloFAS cell actually used is the nearest 0.05°/~5 km grid cell) |
 | `country_code` | the source `country` name mapped through the script's 54-entry ISO map (`USA` → `US`, `UK` → `GB`, `DRC` → `CD`); an unknown name falls back to the reverse-geocoded reference point, an empty geocode resolves to `ZZ` |
 | `state_province` | the reverse-geocoded reference point (`cache/reverse_geocode.csv`), `NULL` when the API found no subdivision |
@@ -180,7 +177,7 @@ Both lookups run on the driver and are embedded as literal map columns (the Spar
 | `metric_name` | always `discharge` |
 | `metric_value` | `discharge_m3s` — the GloFAS 24-h mean in m³/s, counting a missing value as `0` (the source skips null-discharge days, so none occur) |
 | `metric_unit` | always `m³/s` |
-| `event_start_date` / `event_start` | `date` at midnight / `date` itself — the GMT+0 day of the 24-h mean |
+| `event_start` | `date` itself at midnight — the GMT+0 day of the 24-h mean |
 | `event_end` | `NULL` — a daily value has no end |
 | `last_latitude` / `last_longitude` | `NULL` — the reference point is fixed, there is no latest position |
 | `other_metrics` | `NULL` — the daily mean is the single measurement (the lead time `date - file_date` is derivable) |
@@ -190,7 +187,7 @@ Each downloaded file holds the analysis day plus the next day's forecast (222 ro
 
 ## usgs_earthquake_etl
 
-`single_etl/usgs_earthquake_etl.py`: `geo.usgs_earthquake` (USGS/FDSN seismic events, one row per event — `event_id` is globally unique) → `geo.usgs_earthquake_etl` (the 23-column structure from `model/etl/event_etl.py`).
+`single_etl/usgs_earthquake_etl.py`: `geo.usgs_earthquake` (USGS/FDSN seismic events, one row per event — `event_id` is globally unique) → `geo.usgs_earthquake_etl` (the 21-column structure from `model/etl/event_etl.py`).
 
 | Target column | Source |
 |---------------|--------|
@@ -208,17 +205,17 @@ Each downloaded file holds the analysis day plus the next day's forecast (222 ro
 | `metric_value` | `mag`, counting a missing magnitude as `0` (none occur) |
 | `metric_unit` | `magType` per row (`ml`, `mb`, `mww`, …) — a magnitude is only meaningful with its type |
 | `other_metrics` | `{"depth", "depth_unit": "km", "nst", "nst_unit": "stations"}`; the `nst` keys are omitted when the network reports no station count |
-| `event_start_date` / `event_start` | `date(time)` / `time` — the rupture origin time (millisecond precision) |
+| `event_start` | `time` — the rupture origin time (millisecond precision) |
 | `event_end` | `NULL` — an instant has no end |
 | `last_latitude` / `last_longitude` | `NULL` — the epicentre is fixed |
-| `danger_rating` / `statement` | `NULL` — `status` is QC, not severity |
+| `danger_rating` | `NULL` — `status` is QC, not severity |
 | `file_date` | `file_date` |
 
 Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `magError`, `magNst`, `updated`, `locationSource`, `magSource`. The country parse needs no network for ~99% of rows — only the ~93 places without a usable suffix are reverse-geocoded once into the shared `cache/reverse_geocode.csv` and embedded as literal map columns (the Spark containers only mount `GEO_Download/data`).
 
 ## usgs_nwis_etl
 
-`single_etl/usgs_nwis_etl.py`: `geo.usgs_nwis` (USGS NWIS streamflow, one row per gauge per `date` per `file_date`) → `geo.usgs_nwis_etl` (the 23-column structure from `model/etl/event_etl.py`).
+`single_etl/usgs_nwis_etl.py`: `geo.usgs_nwis` (USGS NWIS streamflow, one row per gauge per `date` per `file_date`) → `geo.usgs_nwis_etl` (the 21-column structure from `model/etl/event_etl.py`).
 
 | Target column | Source |
 |---------------|--------|
@@ -235,17 +232,17 @@ Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `ma
 | `metric_name` | always `discharge` (parameter `00060`) |
 | `metric_value` | `value` — the daily mean, counting a missing reading as `0` (none occur) |
 | `metric_unit` | `unit` verbatim (`ft3/s`; a metric parameter fetch would carry `m³/s`) |
-| `event_start_date` / `event_start` | `date` at midnight — the source reports a day, not a datetime |
+| `event_start` | `date` at midnight — the source reports a day, not a datetime |
 | `event_end` | `NULL` — a daily mean has no end |
 | `last_latitude` / `last_longitude` | `NULL` — the gauge is fixed |
-| `danger_rating` / `statement` / `other_metrics` | `NULL` — the qualifiers live in the description |
+| `danger_rating` / `other_metrics` | `NULL` — the qualifiers live in the description |
 | `file_date` | `file_date` |
 
 Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Each downloaded file holds the measurement day plus sometimes the next day (45 rows over 28 files for one gauge), so a `(site, date)` pair can appear in two files — yesterday's next-day row is today's reading — and the ETL keeps every snapshot as its own row; `(site, date, file_date)` is unique, so no deduplication is needed. The gauge point is reverse-geocoded once into the shared `cache/reverse_geocode.csv` (1 coordinate today) and embedded as a literal map column (the Spark containers only mount `GEO_Download/data`).
 
 ## usgs_volcano_etl
 
-`single_etl/usgs_volcano_etl.py`: `geo.usgs_volcano` (USGS HANS volcanic activity notices, one row per volcano per notice per `file_date`) → `geo.usgs_volcano_etl` (the 23-column structure from `model/etl/event_etl.py`).
+`single_etl/usgs_volcano_etl.py`: `geo.usgs_volcano` (USGS HANS volcanic activity notices, one row per volcano per notice per `file_date`) → `geo.usgs_volcano_etl` (the 21-column structure from `model/etl/event_etl.py`).
 
 | Target column | Source |
 |---------------|--------|
@@ -263,8 +260,7 @@ Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Ea
 | `metric_value` | the USGS alert scale as a number — `NORMAL` 0, `ADVISORY` 1, `WATCH` 2, `WARNING` 3 (case-insensitive); an unknown code stays `NULL` (an unknown level is not `NORMAL`) |
 | `metric_unit` | `NULL` — a scale index has no unit |
 | `danger_rating` | the source `alert_level` text verbatim (`WATCH`, `ADVISORY`) |
-| `statement` | `NULL` — the notice's prose lives in `event_description` |
-| `event_start_date` / `event_start` | `date(notice_date)` / `notice_date` — when the notice was issued |
+| `event_start` | `notice_date` — when the notice was issued |
 | `event_end` | `NULL` — a notice is an instant |
 | `last_latitude` / `last_longitude` / `other_metrics` | `NULL` — the volcano is fixed and the notice carries no extra metrics |
 | `file_date` | `file_date` |

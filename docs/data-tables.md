@@ -6,7 +6,7 @@ All tables live in the `geo` PostgreSQL schema of Supabase. Every data source is
 
 - **Raw table** (`<name>_raw`) — every column is TEXT, exactly as ingested from the CSV.
 - **Plain table** (`<name>`) — typed columns (int, bool, float, date, datetime, timestamp) produced by the raw2plain transform.
-- **ETL table** (`<name>_etl`) — canonical event row (same 23 columns for every source) produced by the [`SINGLE_ETL` job](etl_jobs/single-etl.md), ready to be merged with the other `*_etl` tables.
+- **ETL table** (`<name>_etl`) — canonical event row (same 21 columns for every source) produced by the [`SINGLE_ETL` job](etl_jobs/single-etl.md), ready to be merged with the other `*_etl` tables.
 
 DDL is generated from the Pydantic models instead of being written by hand — see [ETL jobs — CREATE TABLE job](etl_jobs/create-table.md).
 
