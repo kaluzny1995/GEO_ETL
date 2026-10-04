@@ -18,10 +18,11 @@ def run(
 ) -> str:
     """Execute a single ETL script registered in :class:`~factory.SingleEtlFactory`.
 
-    The script owns both load types: it runs a **HISTORICAL** load (whole
+    Each script supports both load types: it runs a **HISTORICAL** load (whole
     source) or an **INCREMENTAL** load (only rows newer than the target's
     latest ``file_date``), detecting the type from its target table when
-    *load_type* is ``None``.
+    *load_type* is ``None`` — the detection and the pipeline live in the
+    shared runner ``utils/etl_utils.py``.
 
     Args:
         spark: Active Spark session.

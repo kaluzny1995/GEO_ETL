@@ -79,17 +79,18 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from raw + plain or ETL-only, table derivation, skip on empty, data_quality rejection) |
-| `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (load type resolution, historical/incremental/no-rows runs, column mapping, source coordinate pass-through) |
-| `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (load type resolution, runs, category/place/country mapping, stamped geocode pass-through with description-state precedence) |
-| `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (load type resolution, runs, category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |
-| `test/single_etl/test_ibtracs_cyclone_etl.py` | IBTrACS SINGLE_ETL script (load type resolution, runs, status/nature/place/metric/danger mapping, stamped geocode pass-through with ZZ fallback, latest position) |
-| `test/single_etl/test_nifc_fire_etl.py` | NIFC SINGLE_ETL script (load type resolution, runs, fire type/unit/percent mapping, unit-name pass-through, stamped geocode fallback for blank source state, NULL event_end) |
-| `test/single_etl/test_openmeteo_flood_etl.py` | OpenMeteo SINGLE_ETL script (load type resolution, runs, country/state/place mapping, stamped geocode pass-through with country-name precedence, discharge metric) |
-| `test/single_etl/test_usgs_earthquake_etl.py` | USGS SINGLE_ETL script (load type resolution, runs, place-suffix country parse with stamped geocode fallbacks, net-based state, event name/description, depth/station metrics) |
-| `test/single_etl/test_usgs_nwis_etl.py` | USGS NWIS SINGLE_ETL script (load type resolution, runs, site-name event/place parse, qualifier expansion, stamped geocode state, discharge metric) |
-| `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (load type resolution, runs, alert-scale metric, subcategory/place/state fallbacks with stamped geocode state) |
+| `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (historical/incremental/no-rows runs, column mapping, source coordinate pass-through) |
+| `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (runs, category/place/country mapping, stamped geocode pass-through with description-state precedence) |
+| `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (runs, category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |
+| `test/single_etl/test_ibtracs_cyclone_etl.py` | IBTrACS SINGLE_ETL script (runs, status/nature/place/metric/danger mapping, stamped geocode pass-through with ZZ fallback, latest position) |
+| `test/single_etl/test_nifc_fire_etl.py` | NIFC SINGLE_ETL script (runs, fire type/unit/percent mapping, unit-name pass-through, stamped geocode fallback for blank source state, NULL event_end) |
+| `test/single_etl/test_openmeteo_flood_etl.py` | OpenMeteo SINGLE_ETL script (runs, country/state/place mapping, stamped geocode pass-through with country-name precedence, discharge metric) |
+| `test/single_etl/test_usgs_earthquake_etl.py` | USGS SINGLE_ETL script (runs, place-suffix country parse with stamped geocode fallbacks, net-based state, event name/description, depth/station metrics) |
+| `test/single_etl/test_usgs_nwis_etl.py` | USGS NWIS SINGLE_ETL script (runs, site-name event/place parse, qualifier expansion, stamped geocode state, discharge metric) |
+| `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (runs, alert-scale metric, subcategory/place/state fallbacks with stamped geocode state) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_dq_metrics.py` | Rules, rate/variance metric computation, unpivoting — run on a real local Spark session |
+| `test/util/test_etl_utils.py` | Shared SINGLE_ETL runner `utils/etl_utils.py`: load-type resolution (auto → historical/incremental, forced type wins) |
 | `test/util/test_jdbc_retry.py` | Connection-error detection, bounded retries, delay and warning per attempt |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
 | `test/util/test_spark_monitor.py` | Stage memory logger registration (Java bridge, directory creation, listener setup) |

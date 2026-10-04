@@ -2,7 +2,7 @@
 
 # Project Structure
 
-The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold per-table thin wrappers, `single_etl/` holds standalone per-dataset PySpark scripts run by the `SINGLE_ETL` job, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
+The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold per-table thin wrappers, `single_etl/` holds per-dataset PySpark scripts (thin wrappers around `utils/etl_utils.py`) run by the `SINGLE_ETL` job, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
 
 ```
 GEO_ETL/
@@ -56,7 +56,7 @@ GEO_ETL/
 │   ├── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
 │   └── single_etl.py                 # SINGLE_ETL job (runs one script from single_etl/)
 │
-├── single_etl/                       # Standalone PySpark ETL scripts (SINGLE_ETL job)
+├── single_etl/                       # Standalone PySpark ETL scripts (thin wrappers around utils/etl_utils.py, SINGLE_ETL job)
 │   ├── __init__.py
 │   ├── avalanche_org_etl.py           # geo.avalanche_org -> geo.avalanche_org_etl (canonical event structure)
 │   ├── eonet_event_etl.py             # geo.eonet_event -> geo.eonet_event_etl (canonical event structure)
@@ -110,6 +110,7 @@ GEO_ETL/
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
 │   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
+│   ├── etl_utils.py                  # Shared single-ETL logic (DRY: resolve_load_type, run_etl template)
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
@@ -234,6 +235,7 @@ GEO_ETL/
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
+        ├── test_etl_utils.py
         ├── test_jdbc_retry.py
         ├── test_logger.py
         ├── test_schema_converter.py

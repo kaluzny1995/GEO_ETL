@@ -2,7 +2,7 @@
 
 # SINGLE_ETL job
 
-`jobs/single_etl.py` runs **one standalone PySpark script** from `single_etl/` — a complete read → transform → write pipeline for a single dataset, independent of the CREATE/INGESTION table pairs:
+`jobs/single_etl.py` runs **one standalone PySpark script** from `single_etl/` — a complete read → transform → write pipeline for a single dataset, independent of the CREATE/INGESTION table pairs. Each script is a thin wrapper around the shared runner `utils/etl_utils.run_etl()`, which owns the pipeline and is fed the script's tables plus its `_convert()` handler:
 
 ```mermaid
 flowchart TD
@@ -11,7 +11,8 @@ flowchart TD
     JOB --> FACT["SingleEtlFactory.get<br/>registry in jobs/__init__.py"]
     CFG --> SCRIPT["single_etl/{script}.py<br/>run(spark, config, db_config, load_type, logger)"]
     FACT --> SCRIPT
-    SCRIPT --> MAX["MAX(file_date) in the target table<br/>get_max_file_date"]
+    SCRIPT --> RUN["utils/etl_utils.run_etl<br/>shared pipeline: tables + convert_fn (_convert)"]
+    RUN --> MAX["MAX(file_date) in the target table<br/>get_max_file_date"]
     MAX --> LT{"Load type<br/>(--load-type forces one)"}
     LT -->|"target empty or missing"| H["HISTORICAL<br/>every source row"]
     LT -->|"target has data"| I["INCREMENTAL<br/>file_date newer than the stored maximum"]
@@ -30,8 +31,8 @@ How the data flows:
 
 1. `run_etl.py` resolves `JobType.SINGLE_ETL` → `jobs/single_etl.py` and passes the second positional argument as the **script name** — the file stem of a module in `single_etl/` (e.g. `avalanche_org_etl`).
 2. `SingleEtlFactory` (`factory/single_etl_factory.py`) looks that name up in its registry; scripts are registered by `jobs/__init__.py`.
-3. The job loads both configs and calls the script's `run(spark, config, db_config, load_type=..., logger=...)`.
-4. The script resolves its [load type](load-types.md), reads its source table, applies its own `_convert()` transformation and appends the result to its target table.
+3. The job loads both configs and calls the script's `run(spark, config, db_config, load_type=..., logger=...)`, a thin wrapper that delegates to `utils/etl_utils.run_etl()` with the script's `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()`.
+4. The runner resolves the [load type](load-types.md) from the state of the target table, reads the source table, applies the script's `_convert()` transformation and appends the result to the target table.
 
 ```bash
 python run_etl.py SINGLE_ETL avalanche_org_etl                    # auto load type
@@ -273,7 +274,7 @@ The coordinates, region, status line and full notice type arrive with every row:
 
 ## Adding a new script
 
-1. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py` and rewrite `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()` for the new source (the module docstring walks through it).
+1. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py` and rewrite `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()` for the new source (the module docstring walks through it) — `run()` needs no change, it delegates to `utils/etl_utils.run_etl()` for every source.
 2. Register it in `jobs/__init__.py`:
 
 ```python

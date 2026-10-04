@@ -5,7 +5,6 @@ import pytest
 from pyspark.sql import Row
 from pyspark.sql.types import StructField, StructType
 
-from model.enums import LoadType
 from model.etl.usgs_earthquake_etl import UsgsEarthquakeEtl
 from model.plain.usgs_earthquake import UsgsEarthquake
 from single_etl import usgs_earthquake_etl
@@ -75,23 +74,9 @@ def _convert(spark, *rows):
     return usgs_earthquake_etl._convert(_source_df(spark, *rows)).collect()
 
 
-class TestResolveLoadType:
-    def test_auto_empty_target_is_historical(self):
-        assert usgs_earthquake_etl._resolve_load_type(None, None) is LoadType.HISTORICAL
-
-    def test_auto_populated_target_is_incremental(self):
-        assert usgs_earthquake_etl._resolve_load_type(dt.date(2026, 9, 28), None) is LoadType.INCREMENTAL
-
-    def test_forced_historical_beats_populated_target(self):
-        assert usgs_earthquake_etl._resolve_load_type(dt.date(2026, 9, 28), LoadType.HISTORICAL) is LoadType.HISTORICAL
-
-    def test_forced_incremental_on_empty_target_falls_back_to_historical(self):
-        assert usgs_earthquake_etl._resolve_load_type(None, LoadType.INCREMENTAL) is LoadType.HISTORICAL
-
-
 class TestRun:
     @patch("single_etl.usgs_earthquake_etl._convert")
-    @patch("single_etl.usgs_earthquake_etl.get_max_file_date", return_value=None)
+    @patch("utils.etl_utils.get_max_file_date", return_value=None)
     def test_auto_detects_historical(self, mock_max, mock_convert, spark_session):
         spark = _spark_with_rows()
 
@@ -102,7 +87,7 @@ class TestRun:
         mock_convert.return_value.write.jdbc.assert_called_once()
 
     @patch("single_etl.usgs_earthquake_etl._convert")
-    @patch("single_etl.usgs_earthquake_etl.get_max_file_date", return_value=dt.date(2026, 9, 28))
+    @patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28))
     def test_incremental_without_new_rows_writes_nothing(self, mock_max, mock_convert, spark_session):
         spark = _spark_with_rows()
         spark.read.jdbc.return_value.filter.return_value.head.return_value = []
@@ -115,7 +100,7 @@ class TestRun:
         mock_convert.return_value.write.jdbc.assert_not_called()
 
     @patch("single_etl.usgs_earthquake_etl._convert")
-    @patch("single_etl.usgs_earthquake_etl.get_max_file_date", return_value=dt.date(2026, 9, 28))
+    @patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28))
     def test_reads_source_table(self, mock_max, mock_convert, spark_session):
         spark = _spark_with_rows()
 
