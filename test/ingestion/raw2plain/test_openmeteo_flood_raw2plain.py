@@ -95,7 +95,7 @@ def test_reads_from_raw_table(mock_logger):
 
 
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
-def test_convert_selects_7_columns():
+def test_convert_selects_9_columns():
     from ingestion.raw2plain.openmeteo_flood_raw2plain import _convert
 
     input_df = MagicMock()
@@ -105,7 +105,7 @@ def test_convert_selects_7_columns():
 
     input_df.select.assert_called_once()
     select_args = input_df.select.call_args[0]
-    assert len(select_args) == 7
+    assert len(select_args) == 9
 
 
 @patch(f"{MODULE}.setup_logger")

@@ -1,5 +1,5 @@
-from factory import JobFactory, Raw2PlainScriptFactory, UploadScriptFactory
-from jobs import create_table, data_quality, ingestion
+from factory import JobFactory, Raw2PlainScriptFactory, SingleEtlFactory, UploadScriptFactory
+from jobs import create_table, data_quality, ingestion, single_etl
 from model.enums import JobType
 
 
@@ -7,6 +7,43 @@ def _register():
     JobFactory.register(JobType.CREATE, create_table)
     JobFactory.register(JobType.INGESTION, ingestion)
     JobFactory.register(JobType.DATA_QUALITY, data_quality)
+    JobFactory.register(JobType.SINGLE_ETL, single_etl)
+
+    from single_etl.avalanche_org_etl import run as avalanche_org_etl_run
+
+    SingleEtlFactory.register("avalanche_org_etl", avalanche_org_etl_run)
+
+    from single_etl.eonet_event_etl import run as eonet_event_etl_run
+
+    SingleEtlFactory.register("eonet_event_etl", eonet_event_etl_run)
+
+    from single_etl.gdacs_event_etl import run as gdacs_event_etl_run
+
+    SingleEtlFactory.register("gdacs_event_etl", gdacs_event_etl_run)
+
+    from single_etl.ibtracs_cyclone_etl import run as ibtracs_cyclone_etl_run
+
+    SingleEtlFactory.register("ibtracs_cyclone_etl", ibtracs_cyclone_etl_run)
+
+    from single_etl.nifc_fire_etl import run as nifc_fire_etl_run
+
+    SingleEtlFactory.register("nifc_fire_etl", nifc_fire_etl_run)
+
+    from single_etl.openmeteo_flood_etl import run as openmeteo_flood_etl_run
+
+    SingleEtlFactory.register("openmeteo_flood_etl", openmeteo_flood_etl_run)
+
+    from single_etl.usgs_earthquake_etl import run as usgs_earthquake_etl_run
+
+    SingleEtlFactory.register("usgs_earthquake_etl", usgs_earthquake_etl_run)
+
+    from single_etl.usgs_nwis_etl import run as usgs_nwis_etl_run
+
+    SingleEtlFactory.register("usgs_nwis_etl", usgs_nwis_etl_run)
+
+    from single_etl.usgs_volcano_etl import run as usgs_volcano_etl_run
+
+    SingleEtlFactory.register("usgs_volcano_etl", usgs_volcano_etl_run)
 
     from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain as avalanche_org_raw2plain
     from ingestion.upload.avalanche_org_upload import upload as avalanche_org_upload

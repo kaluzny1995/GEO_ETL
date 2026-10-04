@@ -178,4 +178,6 @@ class IbtacsCycloneRaw(BaseModel):
     USA_SEARAD_NW: str | None = None
     STORM_SPEED: str | None = None
     STORM_DIR: str | None = None
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str

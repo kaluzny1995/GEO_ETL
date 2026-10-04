@@ -46,7 +46,7 @@ class TestOpenMeteoFloodMissing:
 class TestOpenMeteoFloodSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(OpenMeteoFlood)
-        assert len(schema.fields) == 7
+        assert len(schema.fields) == 9
 
     def test_double_fields(self):
         schema = pydantic_to_spark_schema(OpenMeteoFlood)

@@ -95,7 +95,7 @@ def test_reads_from_raw_table(mock_logger):
 
 
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_date"]))
-def test_convert_selects_10_columns():
+def test_convert_selects_11_columns():
     from ingestion.raw2plain.usgs_nwis_raw2plain import _convert
 
     input_df = MagicMock()
@@ -105,7 +105,7 @@ def test_convert_selects_10_columns():
 
     input_df.select.assert_called_once()
     select_args = input_df.select.call_args[0]
-    assert len(select_args) == 10
+    assert len(select_args) == 11
 
 
 @patch(f"{MODULE}.setup_logger")

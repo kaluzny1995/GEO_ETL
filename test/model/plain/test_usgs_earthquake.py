@@ -63,7 +63,7 @@ class TestUsgsEarthquakeMissing:
 class TestUsgsEarthquakeSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(UsgsEarthquake)
-        assert len(schema.fields) == 23
+        assert len(schema.fields) == 25
 
     def test_double_fields(self):
         schema = pydantic_to_spark_schema(UsgsEarthquake)

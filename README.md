@@ -16,8 +16,9 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 - **Custom Spark image** — based on `apache/spark:3.5.5` with Hadoop AWS + PostgreSQL JARs
 - **Local PySpark client** — scripts run on the host, connecting to the cluster remotely
 - **Model-driven schema** — Pydantic models define table structures; DDL and PySpark schemas are generated automatically
+- **Canonical event tables** — the `SINGLE_ETL` job maps every source into one shared 21-column event structure (`geo.<source>_etl`), so the datasets can be merged (see [Data tables](docs/data-tables.md))
 - **Data quality metrics** — per-`file_date` null/bad/duplicate rates plus field varyingness (min/max/range, mean/stddev, percentiles, distinct counts) in `geo.data_quality`, measured incrementally (HISTORICAL first, then only new dates)
-- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY) via a job registry
+- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY, SINGLE_ETL) via a job registry
 
 ## Tech Stack
 
@@ -42,8 +43,8 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 |----------|----------|
 | [Project structure](docs/architecture.md) | Directory layout — what each folder and entry-point script is for. |
 | [Usage](docs/usage.md) | Setup, creating tables, running ingestion, drop/delete scripts and expected output. |
-| [ETL jobs](docs/etl-jobs.md) | Job registry, CREATE and INGESTION pipelines, load type detection, upload/raw2plain internals. |
-| [Data quality](docs/data-quality.md) | The DATA_QUALITY job — metric families, rules and querying `geo.data_quality`. |
+| [ETL jobs](docs/etl-jobs.md) | Job registry and links to the CREATE, INGESTION, DATA_QUALITY and SINGLE_ETL pipelines, plus load type detection. |
+| [Data quality metrics](docs/data-quality-metrics.md) | Metric families, rules and querying `geo.data_quality`. |
 | [Data tables](docs/data-tables.md) | The `geo` schema — raw/plain table pairs, registered models, current data and how to add a table. |
 | [Configuration](docs/configuration.md) | `config.json` and `supabase_config.json` reference. |
 | [Spark cluster](docs/spark-cluster.md) | Cluster services, Web UI, Spark JARs and connecting from PySpark. |
@@ -78,6 +79,10 @@ python run_pyspark_csv_test.py
 python run_etl.py CREATE avalanche_org
 python run_etl.py INGESTION avalanche_org
 python run_etl.py DATA_QUALITY avalanche_org
+
+# 5. Map the source into the canonical event structure
+python run_etl.py CREATE avalanche_org_etl
+python run_etl.py SINGLE_ETL avalanche_org_etl
 ```
 
 Supabase credentials must be present in `supabase_config.json` — see [Configuration](docs/configuration.md). Full instructions, including verifying the schema, dropping tables, deleting the latest `file_date` and the standalone upload/raw2plain pipelines, are in [Usage](docs/usage.md).

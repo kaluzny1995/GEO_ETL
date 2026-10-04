@@ -35,6 +35,8 @@ def _convert(df):
         F.col("last_latitude").cast("double"),
         F.col("last_longitude").cast("double"),
         F.to_timestamp("last_date").alias("last_date"),
+        F.col("geocode_country"),
+        F.col("geocode_state"),
         F.col("file_date"),
     )
 

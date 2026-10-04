@@ -6,6 +6,7 @@ Usage::
     python run_etl.py INGESTION <table_name>
     python run_etl.py DATA_QUALITY <table_name>
     python run_etl.py DATA_QUALITY <table_name> --overall
+    python run_etl.py SINGLE_ETL <script_name> [--load-type auto|historical|incremental]
 """
 
 import argparse
@@ -23,7 +24,7 @@ import jobs  # noqa: F401 — registers jobs via jobs/__init__.py
 import model  # noqa: F401 — registers tables via model/__init__.py
 from factory import JobFactory
 from model.config import AppConfig
-from model.enums import JobType
+from model.enums import JobType, LoadType
 from utils.logger import setup_logger
 from utils.spark_monitor import register_memory_logger
 
@@ -134,17 +135,30 @@ def main() -> None:
         help=f"Job type: {[j.value for j in JobType]}",
     )
     parser.add_argument(
-        "table_name", help="Table name, e.g. avalanche_org (raw suffix added automatically for ingestion)"
+        "table_name",
+        help=(
+            "Table name, e.g. avalanche_org (raw suffix added automatically for ingestion); "
+            "SINGLE_ETL expects the name of a script from single_etl/"
+        ),
     )
     parser.add_argument(
         "--overall",
         action="store_true",
         help="DATA_QUALITY only: measure the whole table as one snapshot stored under file_date = 'overall'",
     )
+    parser.add_argument(
+        "--load-type",
+        choices=["auto", "historical", "incremental"],
+        default="auto",
+        help=("SINGLE_ETL only: force the load type (default: auto — the script detects it from its target table)"),
+    )
     args = parser.parse_args()
 
     if args.overall and args.job is not JobType.DATA_QUALITY:
         parser.error("--overall can only be used with the DATA_QUALITY job")
+
+    if args.load_type != "auto" and args.job is not JobType.SINGLE_ETL:
+        parser.error("--load-type can only be used with the SINGLE_ETL job")
 
     job_name = args.job.value.lower()
     table_name = args.table_name
@@ -182,7 +196,11 @@ def main() -> None:
         logger.info(f"Spark version: {spark.version}")
 
         # Execute the job (e.g. create table in Supabase)
-        job_kwargs = {"overall": True} if args.overall else {}
+        job_kwargs: dict[str, object] = {}
+        if args.overall:
+            job_kwargs["overall"] = True
+        if args.job is JobType.SINGLE_ETL:
+            job_kwargs["load_type"] = None if args.load_type == "auto" else LoadType(args.load_type.upper())
         result = job_module.run(spark, raw_table_name, logger=logger, **job_kwargs)
         logger.info(result)
     except Exception:

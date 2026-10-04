@@ -5,6 +5,7 @@ from pydantic import ValidationError
 from pyspark.sql.types import (
     BooleanType,
     DateType,
+    DoubleType,
     LongType,
     TimestampType,
 )
@@ -31,12 +32,16 @@ class TestAvalancheOrgValid:
             forecast_end=dt.datetime(2026, 11, 1, 14, 30, 0),
             warning=None,
             link="https://bridgeportavalanchecenter.org/avalanche-forecast/",
+            latitude=38.255931,
+            longitude=-119.451337,
             date=dt.date(2026, 9, 20),
             file_date="2026-09-20",
         )
         assert row.zone_id == 3004
         assert row.off_season is False
         assert row.date == dt.date(2026, 9, 20)
+        assert row.latitude == 38.255931
+        assert row.longitude == -119.451337
 
     def test_optional_fields_none(self):
         row = AvalancheOrg(
@@ -56,6 +61,8 @@ class TestAvalancheOrgValid:
         assert row.forecast_start is None
         assert row.forecast_end is None
         assert row.warning is None
+        assert row.latitude is None
+        assert row.longitude is None
 
 
 class TestAvalancheOrgMissing:
@@ -83,7 +90,7 @@ class TestAvalancheOrgMissing:
 class TestAvalancheOrgSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(AvalancheOrg)
-        assert len(schema.fields) == 15
+        assert len(schema.fields) == 17
 
     def test_schema_field_names(self):
         schema = pydantic_to_spark_schema(AvalancheOrg)
@@ -102,6 +109,8 @@ class TestAvalancheOrgSparkSchema:
             "forecast_end",
             "warning",
             "link",
+            "latitude",
+            "longitude",
             "date",
             "file_date",
         ]
@@ -112,6 +121,13 @@ class TestAvalancheOrgSparkSchema:
         danger_level_field = next(f for f in schema.fields if f.name == "danger_level")
         assert isinstance(zone_id_field.dataType, LongType)
         assert isinstance(danger_level_field.dataType, LongType)
+
+    def test_coordinate_fields_are_double_type(self):
+        schema = pydantic_to_spark_schema(AvalancheOrg)
+        latitude_field = next(f for f in schema.fields if f.name == "latitude")
+        longitude_field = next(f for f in schema.fields if f.name == "longitude")
+        assert isinstance(latitude_field.dataType, DoubleType)
+        assert isinstance(longitude_field.dataType, DoubleType)
 
     def test_bool_field(self):
         schema = pydantic_to_spark_schema(AvalancheOrg)
@@ -132,7 +148,7 @@ class TestAvalancheOrgSparkSchema:
 
     def test_nullable_fields(self):
         schema = pydantic_to_spark_schema(AvalancheOrg)
-        nullable_names = {"forecast_start", "forecast_end", "warning"}
+        nullable_names = {"forecast_start", "forecast_end", "warning", "latitude", "longitude"}
         for f in schema.fields:
             if f.name in nullable_names:
                 assert f.nullable is True, f"{f.name} should be nullable"
@@ -152,6 +168,8 @@ class TestAvalancheOrgDDL:
         assert "date DATE NOT NULL" in ddl
         assert "file_date TEXT NOT NULL" in ddl
         assert "warning TEXT NULL" in ddl
+        assert "latitude DOUBLE PRECISION NULL" in ddl
+        assert "longitude DOUBLE PRECISION NULL" in ddl
 
     def test_ddl_creates_correct_table(self):
         ddl = pydantic_to_ddl(AvalancheOrg, "avalanche_org", schema="geo")

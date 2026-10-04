@@ -27,6 +27,7 @@ def _convert(df):
         F.col("fire_type_label"),
         F.col("jurisdiction"),
         F.col("jurisdiction_label"),
+        F.col("unit_name"),
         F.col("state"),
         F.col("po_method"),
         F.col("latitude").cast("double"),
@@ -34,6 +35,7 @@ def _convert(df):
         F.to_timestamp(F.col("poly_date") / 1000).alias("poly_date"),
         F.to_timestamp(F.col("created_on") / 1000).alias("created_on"),
         F.to_timestamp(F.col("modified_on") / 1000).alias("modified_on"),
+        F.col("geocode_state"),
         F.col("file_date"),
     )
 

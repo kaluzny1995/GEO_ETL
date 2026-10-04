@@ -10,4 +10,6 @@ class OpenMeteoFloodRaw(BaseModel):
     longitude: str | None = None
     date: str | None = None
     discharge_m3s: str | None = None
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str

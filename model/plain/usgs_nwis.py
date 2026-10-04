@@ -17,4 +17,5 @@ class UsgsNwis(BaseModel):
     qualifiers: str | None = None
     latitude: float | None = None
     longitude: float | None = None
+    geocode_state: str | None = None
     file_date: str

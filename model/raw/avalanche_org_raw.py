@@ -17,5 +17,7 @@ class AvalancheOrgRaw(BaseModel):
     forecast_end: str | None = None
     warning: str | None = None
     link: str
+    latitude: str | None = None
+    longitude: str | None = None
     date: str
     file_date: str

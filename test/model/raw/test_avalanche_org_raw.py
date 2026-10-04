@@ -19,6 +19,8 @@ VALID_ROW = {
     "forecast_end": "2026-11-01T14:30:00",
     "warning": None,
     "link": "https://bridgeportavalanchecenter.org/avalanche-forecast/",
+    "latitude": "38.255931",
+    "longitude": "-119.451337",
     "date": "2026-09-01",
     "file_date": "2026-09-01",
 }
@@ -31,11 +33,12 @@ class TestAvalancheOrgRawValid:
         assert model.file_date == "2026-09-01"
 
     def test_optional_fields_none(self):
-        row = {**VALID_ROW, "forecast_start": None, "forecast_end": None, "warning": None}
+        row = {**VALID_ROW, "forecast_start": None, "forecast_end": None, "warning": None, "latitude": None}
         model = AvalancheOrgRaw(**row)
         assert model.forecast_start is None
         assert model.forecast_end is None
         assert model.warning is None
+        assert model.latitude is None
 
     def test_optional_fields_present(self):
         model = AvalancheOrgRaw(**VALID_ROW)
@@ -58,7 +61,7 @@ class TestAvalancheOrgRawMissing:
 class TestAvalancheOrgRawSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(AvalancheOrgRaw)
-        assert len(schema.fields) == 15
+        assert len(schema.fields) == 17
 
     def test_schema_field_names(self):
         schema = pydantic_to_spark_schema(AvalancheOrgRaw)
@@ -77,6 +80,8 @@ class TestAvalancheOrgRawSparkSchema:
             "forecast_end",
             "warning",
             "link",
+            "latitude",
+            "longitude",
             "date",
             "file_date",
         ]
@@ -89,4 +94,4 @@ class TestAvalancheOrgRawSparkSchema:
     def test_nullable_fields(self):
         schema = pydantic_to_spark_schema(AvalancheOrgRaw)
         nullable_fields = {f.name for f in schema.fields if f.nullable}
-        assert nullable_fields == {"forecast_start", "forecast_end", "warning"}
+        assert nullable_fields == {"forecast_start", "forecast_end", "warning", "latitude", "longitude"}

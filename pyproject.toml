@@ -45,6 +45,7 @@ files = [
     "factory",
     "jobs",
     "ingestion",
+    "single_etl",
     "run_etl.py",
     "run_drop_table.py",
     "run_drop_schema.py",

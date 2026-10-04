@@ -14,4 +14,6 @@ class OpenMeteoFlood(BaseModel):
     longitude: float | None = None
     date: dt.date | None = None
     discharge_m3s: float | None = None
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str

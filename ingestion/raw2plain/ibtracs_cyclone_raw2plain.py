@@ -63,6 +63,8 @@ def _convert(df):
         F.col("STORM_SPEED").cast("int").alias("storm_speed"),
         F.col("STORM_DIR").cast("int").alias("storm_dir"),
         F.col("USA_GUST").cast("int").alias("usa_gust"),
+        F.col("geocode_country"),
+        F.col("geocode_state"),
         F.col("file_date"),
     )
 

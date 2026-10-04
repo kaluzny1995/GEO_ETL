@@ -27,6 +27,7 @@ def _convert(df):
         F.col("qualifiers"),
         F.col("latitude").cast("double"),
         F.col("longitude").cast("double"),
+        F.col("geocode_state"),
         F.col("file_date"),
     )
 

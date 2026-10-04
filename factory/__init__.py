@@ -33,7 +33,11 @@ def __getattr__(name: str):
         from factory.raw2plain_script_factory import Raw2PlainScriptFactory
 
         return Raw2PlainScriptFactory
+    if name == "SingleEtlFactory":
+        from factory.single_etl_factory import SingleEtlFactory
+
+        return SingleEtlFactory
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["JobFactory", "Raw2PlainScriptFactory", "TableFactory", "UploadScriptFactory"]
+__all__ = ["JobFactory", "Raw2PlainScriptFactory", "SingleEtlFactory", "TableFactory", "UploadScriptFactory"]

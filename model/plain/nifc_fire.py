@@ -17,6 +17,7 @@ class NifcFire(BaseModel):
     fire_type_label: str | None = None
     jurisdiction: str | None = None
     jurisdiction_label: str | None = None
+    unit_name: str | None = None
     state: str | None = None
     po_method: str | None = None
     latitude: float | None = None
@@ -24,4 +25,5 @@ class NifcFire(BaseModel):
     poly_date: dt.datetime | None = None
     created_on: dt.datetime | None = None
     modified_on: dt.datetime | None = None
+    geocode_state: str | None = None
     file_date: str

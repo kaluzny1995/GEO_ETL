@@ -13,6 +13,7 @@ class NifcFireRaw(BaseModel):
     fire_type_label: str | None = None
     jurisdiction: str | None = None
     jurisdiction_label: str | None = None
+    unit_name: str | None = None
     state: str | None = None
     po_method: str | None = None
     latitude: str | None = None
@@ -20,4 +21,5 @@ class NifcFireRaw(BaseModel):
     poly_date: str | None = None
     created_on: str | None = None
     modified_on: str | None = None
+    geocode_state: str | None = None
     file_date: str

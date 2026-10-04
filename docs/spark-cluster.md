@@ -14,12 +14,7 @@ PySpark scripts run on the host and connect to a Spark standalone cluster manage
 
 ### Starting the cluster
 
-The `docker-compose.yaml` lives in [GEO_E2E](../../GEO_E2E). Make sure its `.env` file is configured with the correct `GEO_DATA_DIR` path, then:
-
-```bash
-cd ../GEO_E2E
-docker compose up -d geo_spark_master geo_spark_worker_1 geo_spark_worker_2
-```
+The `docker-compose.yaml` lives in [GEO_E2E](../../GEO_E2E) — start the three services with the command from [Usage — Start the Spark cluster](usage.md#2-start-the-spark-cluster).
 
 ### Spark Web UI
 

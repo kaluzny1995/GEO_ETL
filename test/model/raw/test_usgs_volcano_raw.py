@@ -17,6 +17,11 @@ VALID_ROW = {
     "notice_date": "2026-09-10 23:25:53",
     "notice_url": "https://volcanoes.usgs.gov/hans-public/notice/DOI-USGS-NMI-2026-09-10T23:17:05+00:00",
     "notice_data_url": "https://volcanoes.usgs.gov/hans-public/api/notice/getNotice/DOI-USGS-NMI-2026-09-10T23:17:05+00:00",
+    "notice_type_name": "Weekly Update",
+    "latitude": "20.437",
+    "longitude": "145.03",
+    "region": "Northern Mariana Islands",
+    "synopsis": "NMI Ahyi Seamount YELLOW/ADVISORY - Eruption of the submarine volcano continues.",
     "file_date": "2026-09-09",
 }
 
@@ -35,7 +40,7 @@ class TestUsgsVolcanoRawValid:
         assert model.volcano_name is None
         assert model.vnum is None
 
-    def test_all_12_fields_accepted(self):
+    def test_all_17_fields_accepted(self):
         model = UsgsVolcanoRaw(**VALID_ROW)
         for name in VALID_ROW:
             assert getattr(model, name) == VALID_ROW[name]
@@ -51,7 +56,7 @@ class TestUsgsVolcanoRawMissing:
 class TestUsgsVolcanoRawSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(UsgsVolcanoRaw)
-        assert len(schema.fields) == 12
+        assert len(schema.fields) == 18
 
     def test_all_fields_are_string_type(self):
         schema = pydantic_to_spark_schema(UsgsVolcanoRaw)

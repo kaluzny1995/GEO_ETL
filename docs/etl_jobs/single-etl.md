@@ -1,0 +1,287 @@
+← [ETL jobs](../etl-jobs.md)
+
+# SINGLE_ETL job
+
+`jobs/single_etl.py` runs **one standalone PySpark script** from `single_etl/` — a complete read → transform → write pipeline for a single dataset, independent of the CREATE/INGESTION table pairs. Each script is a thin wrapper around the shared runner `utils/etl_utils.run_etl()`, which owns the pipeline and is fed the script's tables plus its `_convert()` handler:
+
+```mermaid
+flowchart TD
+    CLI["CLI<br/>python run_etl.py SINGLE_ETL {script}"] -->|JobFactory, script name| JOB["jobs/single_etl.py"]
+    JOB --> CFG["AppConfig + SupabaseConnectionConfig<br/>build jdbc_url / properties"]
+    JOB --> FACT["SingleEtlFactory.get<br/>registry in jobs/__init__.py"]
+    CFG --> SCRIPT["single_etl/{script}.py<br/>run(spark, config, db_config, load_type, logger)"]
+    FACT --> SCRIPT
+    SCRIPT --> RUN["utils/etl_utils.run_etl<br/>shared pipeline: tables + convert_fn (_convert)"]
+    RUN --> MAX["MAX(file_date) in the target table<br/>get_max_file_date"]
+    MAX --> LT{"Load type<br/>(--load-type forces one)"}
+    LT -->|"target empty or missing"| H["HISTORICAL<br/>every source row"]
+    LT -->|"target has data"| I["INCREMENTAL<br/>file_date newer than the stored maximum"]
+    H --> READ["spark.read.jdbc<br/>geo.{source}"]
+    I --> READ
+    READ --> FILTER["keep file_date newer than the maximum<br/>(incremental only)"]
+    FILTER --> EMPTY{"any rows?"}
+    EMPTY -->|"no"| SKIP["log warning → return 'nothing to do'<br/>run_etl.py exits 0"]
+    EMPTY -->|"yes"| CV["_convert()<br/>map the source columns onto the<br/>21-column canonical structure"]
+    CV --> WRITE["write.jdbc append"]
+    WRITE --> DB[("geo.{source}_etl")]
+    WRITE --> OK["return 'HISTORICAL / INCREMENTAL:<br/>wrote to geo.{source}_etl'"]
+```
+
+How the data flows:
+
+1. `run_etl.py` resolves `JobType.SINGLE_ETL` → `jobs/single_etl.py` and passes the second positional argument as the **script name** — the file stem of a module in `single_etl/` (e.g. `avalanche_org_etl`).
+2. `SingleEtlFactory` (`factory/single_etl_factory.py`) looks that name up in its registry; scripts are registered by `jobs/__init__.py`.
+3. The job loads both configs and calls the script's `run(spark, config, db_config, load_type=..., logger=...)`, a thin wrapper that delegates to `utils/etl_utils.run_etl()` with the script's `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()`.
+4. The runner resolves the [load type](load-types.md) from the state of the target table, reads the source table, applies the script's `_convert()` transformation and appends the result to the target table.
+
+```bash
+python run_etl.py SINGLE_ETL avalanche_org_etl                    # auto load type
+python run_etl.py SINGLE_ETL avalanche_org_etl --load-type historical
+python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
+```
+
+`--load-type` accepts `auto` (default), `historical` or `incremental` and is rejected on any other job; the logs go to `logs/single_etl/single_etl_<script>_<timestamp>.log`. A run that finds nothing new warns and still exits `0` — the DATA_QUALITY behaviour, not the INGESTION one.
+
+## avalanche_org_etl
+
+`single_etl/avalanche_org_etl.py` is the reference script: `geo.avalanche_org` (one row per forecast zone per day) → `geo.avalanche_org_etl` (the 21-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `subsource_name` | `center_name` (issuing center) |
+| `place_location` | `zone_name`; `event_name` stays `NULL` — a forecast has no event name |
+| `latitude` / `longitude` | the source's `latitude` / `longitude` columns — polygon centroid of the zone computed by GEO_Download at download time |
+| `metric_name` | always `magnitude`; `metric_value` / `metric_unit` stay `NULL` — a danger level is a rating, not a measurement |
+| `danger_rating` | zone rating as text, `NULL` while unrated (`danger_level = -1`, `danger_rating = "no rating"`) |
+| `event_start` / `event_end` | `forecast_start` / `forecast_end` |
+| `other_metrics` | `NULL` (zone ids and links are not metrics) |
+
+The coordinates ship with every source row, so this ETL performs no lookup and needs no network: GEO_Download computes each zone's polygon centroid when the daily CSVs are written (and consolidates them in `GEO_Download/data/avalanche_org_notices.csv`). A row without coordinates (`latitude` / `longitude` empty — the download found no usable geometry) maps to `NULL`.
+
+Each source file holds the analysis day plus the next day's forecast (the shared `[D, D+1]` download range), and `date` is not part of the canonical structure — while both rows share one forecast window (the off-season "no rating" product), they project to identical rows. `_convert` therefore collapses exact duplicates, so the target keeps one row per forecast statement per `file_date` (one row per zone per file); rows that differ — e.g. the next day's own validity window in season — are kept as their own snapshot.
+
+## eonet_event_etl
+
+`single_etl/eonet_event_etl.py`: `geo.eonet_event` (NASA EONET hazard events) → `geo.eonet_event_etl` (the 21-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `subsource_name` | `source_id` (reporting feed: `IRWIN`, `JTWC`, `NATICE`, `NOAA_NHC`, `EO`, `BYU_ICE`) |
+| `event_name` | `event_name` |
+| `event_category` | `category_id` → `storm` (`severeStorms`), `fire` (`wildfires`), `iceberg` (`seaLakeIce`); unknown ids are snake-cased (`volcanicAsh` → `volcanic_ash`) |
+| `event_subcategory` | storm type parsed from `event_name` (`hurricane`, `typhoon`, `tropical storm`, `tropical cyclone`, `cyclone`); `wildfire` for fires; `sea_lake_ice` for ice; `NULL` when no keyword applies |
+| `event_description` | `description`, `NULL` when blank |
+| `latitude` / `longitude` | `latitude` / `longitude` — the event's own position |
+| `country_code` / `state_province` | the US state at the end of `description` (fires: `… from Miles City, MT`), else the stamped `geocode_country` / `geocode_state` columns, else `ZZ` / `NULL` (open water) |
+| `place_location` | `event_name` minus its type prefix (`Wildfire`, `Prescribed Fire`, `Incident Complex`, `Emergency Stabilization BAER`) when a place is left, e.g. `Wildfire Snow, Custer, Montana` → `Snow, Custer, Montana`; `NULL` for `Hurricane Polo` / `Iceberg D32` |
+| `metric_name` | `wind speed` (storms), `area` (fires), `surface` (ice), `magnitude` for any other category |
+| `metric_value` / `metric_unit` | `magnitude_value` / `magnitude_unit` |
+| `danger_rating` | `NULL` — EONET carries no rating |
+| `other_metrics` | `{"geometry_count": n}` — the event's geometry points |
+| `event_start` | `event_date` |
+| `event_end` | `last_date` |
+| `last_latitude` / `last_longitude` | `last_latitude` / `last_longitude` — the latest position |
+| `file_date` | `file_date` |
+
+Both answers arrive with every row: GEO_Download stamps `geocode_country` / `geocode_state` into the daily CSVs at download time (its own cached Nominatim / OpenStreetMap lookup), and this ETL only reads the two plain-table columns and applies the precedence in the table — the description's US state first, the stamped answer second, `ZZ` / `NULL` when neither resolves (open water). GEO_ETL performs no lookup and no API call of its own.
+
+## gdacs_event_etl
+
+`single_etl/gdacs_event_etl.py`: `geo.gdacs_event` (GDACS disaster events, one row per event snapshot per `file_date`) → `geo.gdacs_event_etl` (the 21-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `subsource_name` | `source` (contributing body: `NEIC`, `NOAA`, `JTWC`, `GWIS`, `GLOFAS`, `GDO`, VAAC and seismic network names) |
+| `event_name` | `event_name` |
+| `event_category` | `event_type` → `earthquake` (`EQ`), `storm` (`TC`), `flood` (`FL`), `volcano` (`VO`), `fire` (`WF`), `drought` (`DR`); unknown codes are lowercased (`XX` → `xx`) |
+| `event_subcategory` | cyclone intensity class from `severity_text` (`tropical depression`, `tropical storm`, `hurricane` — GDACS's `Hurricane/Typhoon` counts as `hurricane`, matching the EONET keyword); `wildfire` for fires; `agricultural drought` for droughts; `NULL` when no subtype applies |
+| `event_description` | `NULL` — GDACS carries no event description |
+| `latitude` / `longitude` | `latitude` / `longitude` — epicentre (EQ) or affected-area centroid (the rest) |
+| `country_code` | the source's ISO 3166-1 alpha-3 `country_code` translated to alpha-2 (`COUNTRY_CODE_MAP`: `USA` → `US`, `DEU` → `DE`, …), else the stamped `geocode_country` column, else `ZZ` |
+| `state_province` | the stamped `geocode_state` column (GDACS has none), `NULL` when empty |
+| `place_location` | `country` — region at the centroid or affected-country list (e.g. `Brazil, Colombia`), `NULL` when blank |
+| `metric_name` | `magnitude` (EQ/FL/VO), `wind speed` (TC), `area` (WF/DR) |
+| `metric_value` | `severity`, with `0` ("not defined" — every FL and VO row) mapped to `NULL` |
+| `metric_unit` | `severity_unit` (`M`, `km/h`, `ha`, `km2`), `NULL` when blank |
+| `danger_rating` | `alert_level` (`Green` / `Orange` / `Red`) |
+| `other_metrics` / `last_latitude` / `last_longitude` | `NULL` — a snapshot has no metrics beyond the measurement and no track |
+| `event_start` | `from_date` |
+| `event_end` | `to_date` (= `from_date` for the instantaneous earthquakes) |
+| `file_date` | `file_date` |
+
+The source's alpha-3 country code wins because GDACS knows the affected country better than a centroid lookup; blank and unknown codes fall through to the stamped `geocode_country`, and `state_province` comes from the stamped `geocode_state` (GDACS carries no subdivision of its own). GEO_Download fills both columns for every distinct coordinate when the daily CSVs are written, so this ETL reads them off the plain table and applies only its maps and fallbacks — no lookup file, no API call, no driver-side map.
+
+## ibtracs_cyclone_etl
+
+`single_etl/ibtracs_cyclone_etl.py`: `geo.ibtracs_cyclone` (IBTrACS best track, one row per storm position per `file_date`) → `geo.ibtracs_cyclone_etl` (the 21-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `subsource_name` | `basin` — the storm's basin (`NA`, `EP`, `WP`, `NI`), `NULL` when blank |
+| `event_name` | `name` (e.g. `EDOUARD`; the source writes `UNNAMED` for unnamed systems), `NULL` when blank |
+| `event_category` | always `storm` |
+| `event_subcategory` | the ATCF system status `usa_status` (`hurricane`, `typhoon`, `tropical storm`, `tropical depression`, `disturbance`, `low`, …), falling back to the cross-agency `nature` (`tropical`, `disturbance`, `extratropical`, `subtropical`, `contradictory`) when no US agency reported a status; `NULL` when neither states a type (`nature = NR` in non-US basins) |
+| `event_description` | `NULL` — a best track carries no advisory prose |
+| `latitude` / `longitude` | `lat` / `lon` — the position itself |
+| `country_code` / `state_province` | the stamped `geocode_country` / `geocode_state` columns, else `ZZ` / `NULL` (open water) — the source carries no country at all |
+| `place_location` | full basin name extended with the sub-basin (`North Atlantic - Gulf of Mexico`, `Eastern North Pacific - Central Pacific`, `North Indian - Bay of Bengal`, …); just the basin name for the unnamed sub-basins (`NA`, `MM`) |
+| `metric_name` | always `wind speed` |
+| `metric_value` | `coalesce(wmo_wind, usa_wind)` — WMO values are absent in real-time data, so the US agency's knots win today |
+| `metric_unit` | always `kts` |
+| `danger_rating` | the Saffir-Simpson label of `usa_sshs` (`category 5` … `category 1`, `tropical storm`, `tropical depression`, `disturbance`, `subtropical`, `post-tropical`, `unknown`) |
+| `other_metrics` | `{"pressure": …, "pressure_unit": "mb", "speed": …, "speed_unit": "kts", "direction": …, "direction_unit": "degrees", "gust": …, "gust_unit": "kts", "dist2land": …, "dist2land_unit": "km", "landfall": …, "landfall_unit": "km"}` — `usa_pres`, `storm_speed`, `storm_dir`, `usa_gust`, `dist2land` / `landfall`; every measurement is paired with its `<name>_unit` companion key, and one the position does not report is omitted together with its unit; `NULL` when it reports none |
+| `event_start` / `event_end` | `iso_time` — one row = one track position |
+| `last_latitude` / `last_longitude` | `lat` / `lon` of the maximum `iso_time` per `sid` — the storm's latest position |
+| `file_date` | `file_date` |
+
+The source knows no country, so GEO_Download answers it at download time: every row carries the stamped `geocode_country` / `geocode_state` columns (its fetch set is the positions within 100 km of land; far-ocean points keep an already-cached answer or stay empty), and this ETL only reads them, resolving an empty answer to `ZZ` / `NULL` (open water). `last_*` is a window maximum over `iso_time` per `sid`, which stays correct under `INCREMENTAL`: the newest points always arrive in the newest `file_date`, and storms that stopped reporting keep their previous `last_*` values.
+
+## nifc_fire_etl
+
+`single_etl/nifc_fire_etl.py`: `geo.nifc_fire` (NIFC/WFIGS fire perimeters, one row per perimeter per `file_date`) → `geo.nifc_fire_etl` (the 21-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `subsource_name` | always `WFIGS` (the Wildland Fire Interagency Geospatial Services layer the perimeters come from) |
+| `event_name` | `incident_name`, `NULL` when blank |
+| `event_category` | always `fire` |
+| `event_subcategory` | `fire_type`: `WF` → `wildfire`, `RX` → `prescribed fire`; `NULL` when the source states no type |
+| `event_description` / `danger_rating` | `NULL` — the perimeter layer carries no advisory prose or alert level |
+| `latitude` / `longitude` | the feature centroid of the perimeter |
+| `country_code` | always `US` — the layer only publishes US perimeters |
+| `state_province` | `state` when present (the 2026-09-18 vintage on), else the stamped `geocode_state` column, `NULL` when neither resolves |
+| `place_location` | the full name as it ships with the source row in `unit_name` (GEO_Download resolves `jurisdiction_label` through its `data/nifc_unit_names.csv` lookup when the daily CSVs are written: `WAOWF` → `Okanogan-Wenatchee National Forest`, `CAYNP` → `Yosemite National Park`, `TXTXS` → `Texas A & M Forest Service`, …); a code the lookup does not know keeps its raw value, a blank one is `NULL` — the agency codes in `jurisdiction` have no published domain and are not used |
+| `metric_name` | always `area` |
+| `metric_value` | `acres`, counting a missing acreage as `0` (the pre-2026-09-18 vintage predates the field) |
+| `metric_unit` | always `acres` |
+| `other_metrics` | `{"percent_contained": …, "percent_contained_unit": "%"}` — always present: a missing `percent_contained` counts as `0` (nothing reported yet), so both keys stay valid |
+| `event_start` | `created_on` |
+| `event_end` | `NULL` — the layer carries no fire-out datetime |
+| `last_latitude` / `last_longitude` | `NULL` — the layer carries no latest position |
+| `file_date` | `file_date` |
+
+The jurisdiction's full name ships with every source row — GEO_Download resolves it at download time through its consolidated `data/nifc_unit_names.csv` lookup, so this ETL performs no unit lookup and no network request for it. The subdivision follows the same pass-through pattern: the source's own `state` always wins, and only the rows with a blank `state` (the pre-state vintage) fall back to the `geocode_state` column GEO_Download stamped into the CSVs at download time — GEO_ETL runs no lookup of its own, and a row neither answers resolves to `NULL`.
+
+## openmeteo_flood_etl
+
+`single_etl/openmeteo_flood_etl.py`: `geo.openmeteo_flood` (Open-Meteo/GloFAS river discharge, one row per river per `date` per `file_date`) → `geo.openmeteo_flood_etl` (the 21-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `source_name` | always `OPENMETEO` |
+| `subsource_name` | always `GLOFAS` (the Copernicus GloFAS model the discharge is simulated with) |
+| `event_name` | `"<river_name> discharge"` (`Amazon discharge`), `NULL` when the river name is blank |
+| `event_category` | always `flood` |
+| `event_subcategory` / `event_description` / `danger_rating` | `NULL` — the daily value carries no subtype or alert level |
+| `latitude` / `longitude` | the `rivers.json` reference point of the river (stable per river; the GloFAS cell actually used is the nearest 0.05°/~5 km grid cell) |
+| `country_code` | the source `country` name mapped through the script's 54-entry ISO map (`USA` → `US`, `UK` → `GB`, `DRC` → `CD`); an unknown name falls back to the stamped `geocode_country` column, an empty value resolves to `ZZ` |
+| `state_province` | the stamped `geocode_state` column of the river's reference point, `NULL` when empty |
+| `place_location` | `"<river_name> - <country>"` (`Amazon - Brazil`); a blank part is dropped, both blank is `NULL` |
+| `metric_name` | always `discharge` |
+| `metric_value` | `discharge_m3s` — the GloFAS 24-h mean in m³/s, counting a missing value as `0` (the source skips null-discharge days, so none occur) |
+| `metric_unit` | always `m³/s` |
+| `event_start` | `date` itself at midnight — the GMT+0 day of the 24-h mean |
+| `event_end` | `NULL` — a daily value has no end |
+| `last_latitude` / `last_longitude` | `NULL` — the reference point is fixed, there is no latest position |
+| `other_metrics` | `NULL` — the daily mean is the single measurement (the lead time `date - file_date` is derivable) |
+| `file_date` | `file_date` |
+
+Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so no deduplication is needed. The country map runs in-script; the country fallback and the subdivision come from the `geocode_country` / `geocode_state` columns GEO_Download stamps into every downloaded file at download time, so this ETL performs no lookup and needs no network.
+
+## usgs_earthquake_etl
+
+`single_etl/usgs_earthquake_etl.py`: `geo.usgs_earthquake` (USGS/FDSN seismic events, one row per event — `event_id` is globally unique) → `geo.usgs_earthquake_etl` (the 21-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `source_name` | always `USGS` |
+| `subsource_name` | `net` verbatim — the preferred origin's network (`ak`, `nc`, `ci`, …) |
+| `event_name` | `"Earthquake - <country name>"` — `United States` for a US state suffix, the `place` suffix itself for international events (`Earthquake - Chile`), the stamped `geocode_country` for places the suffix does not cover; `Earthquake` alone when no country resolves |
+| `event_category` | always `earthquake` |
+| `event_subcategory` | `event_type`: `earthquake`, `quarry blast`, `explosion`, `ice quake` |
+| `event_description` | `"<event_type> <status>"` (`earthquake reviewed`, `quarry blast automatic`) |
+| `latitude` / `longitude` | the epicentre (WGS84 decimal degrees) |
+| `country_code` | from the `place` suffix: a US state (2-letter code or full name) → `US`, an international suffix → the 60-entry name→ISO map (`Chile` → `CL`, `MX` → `MX`, `Japan region` → `JP`, `Guam` → `US`), otherwise the stamped `geocode_country` column; `ZZ` when nothing resolves |
+| `state_province` | `net` uppercased (`ak` → `AK`, `ci` → `CI`), the stamped `geocode_state` column when `net` is blank, `NULL` when neither resolves |
+| `place_location` | `place` verbatim (`9 km WSW of Idyllwild, CA`) |
+| `metric_name` | always `magnitude` |
+| `metric_value` | `mag`, counting a missing magnitude as `0` (none occur) |
+| `metric_unit` | `magType` per row (`ml`, `mb`, `mww`, …) — a magnitude is only meaningful with its type |
+| `other_metrics` | `{"depth", "depth_unit": "km", "nst", "nst_unit": "stations"}`; the `nst` keys are omitted when the network reports no station count |
+| `event_start` | `time` — the rupture origin time (millisecond precision) |
+| `event_end` | `NULL` — an instant has no end |
+| `last_latitude` / `last_longitude` | `NULL` — the epicentre is fixed |
+| `danger_rating` | `NULL` — `status` is QC, not severity |
+| `file_date` | `file_date` |
+
+Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `magError`, `magNst`, `updated`, `locationSource`, `magSource`. The country parse runs in-script and needs no network for ~99% of rows — the ~93 places without a usable suffix (and the rows with a blank `net`) read the `geocode_country` / `geocode_state` columns GEO_Download stamped into the CSVs at download time, so GEO_ETL performs no lookup of its own.
+
+## usgs_nwis_etl
+
+`single_etl/usgs_nwis_etl.py`: `geo.usgs_nwis` (USGS NWIS streamflow, one row per gauge per `date` per `file_date`) → `geo.usgs_nwis_etl` (the 21-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `source_name` | always `USGS` |
+| `subsource_name` | `site_id` verbatim (`USGS-01646500`) |
+| `event_name` | `"Streamflow - <river name>"` — the `site_name` up to its first `NEAR`/`AT` marker, lower-cased with only the first letter upper-cased (`Streamflow - Potomac river`); `Streamflow` alone when the name is missing or blank |
+| `event_category` | always `flood` (the same category the OpenMeteo discharge snapshots use) |
+| `event_subcategory` | `NULL` — a gauge day has no subtype |
+| `event_description` | the `qualifiers` expanded to their full names (`P` → `provisional`, `A,e` → `approved for publication, estimated`); an unknown code is kept verbatim, a blank qualifier is `NULL` |
+| `latitude` / `longitude` | the gauge point (WGS84 decimal degrees) |
+| `country_code` | always `US` — the network publishes US gauges |
+| `state_province` | the stamped `geocode_state` column of the gauge point, `NULL` when empty |
+| `place_location` | `"<river name>, <place text>"` — both parts extracted from `site_name` around its first `NEAR`/`AT` marker (`Potomac river, WASH, DC LITTLE FALLS PUMP STA`); without a marker only the sentence-cased name remains, a missing name is `NULL` |
+| `metric_name` | always `discharge` (parameter `00060`) |
+| `metric_value` | `value` — the daily mean, counting a missing reading as `0` (none occur) |
+| `metric_unit` | `unit` verbatim (`ft3/s`; a metric parameter fetch would carry `m³/s`) |
+| `event_start` | `date` at midnight — the source reports a day, not a datetime |
+| `event_end` | `NULL` — a daily mean has no end |
+| `last_latitude` / `last_longitude` | `NULL` — the gauge is fixed |
+| `danger_rating` / `other_metrics` | `NULL` — the qualifiers live in the description |
+| `file_date` | `file_date` |
+
+Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Each downloaded file holds the measurement day plus sometimes the next day (45 rows over 28 files for one gauge), so a `(site, date)` pair can appear in two files — yesterday's next-day row is today's reading — and the ETL keeps every snapshot as its own row; `(site, date, file_date)` is unique, so no deduplication is needed. The subdivision comes from the `geocode_state` column GEO_Download stamped into the CSVs at download time — this ETL performs no lookup of its own.
+
+## usgs_volcano_etl
+
+`single_etl/usgs_volcano_etl.py`: `geo.usgs_volcano` (USGS HANS volcanic activity notices, one row per volcano per notice per `file_date`) → `geo.usgs_volcano_etl` (the 21-column structure from `model/etl/event_etl.py`).
+
+| Target column | Source |
+|---------------|--------|
+| `source_name` | always `USGS` |
+| `subsource_name` | `observatory_name` verbatim (`Alaska Volcano Observatory`, `Hawaiian Volcano Observatory`, `Northern Mariana Islands`) |
+| `event_name` | `"Volcano - <volcano_name>"` (`Volcano - Great Sitkin`); `Volcano` alone when the name is missing or blank |
+| `event_category` | always `volcano` |
+| `event_subcategory` | the notice type's full name the downloader stamped as `notice_type_name` (`Daily Update`, `Weekly Update`, `Volcano Activity Notification`), falling back to the feed's own code (`DU`, `WU`, `VV`) when the name is missing |
+| `event_description` | the stamped `synopsis` status line (`AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …`), `NULL` when blank |
+| `latitude` / `longitude` | the volcano's coordinates the downloader stamped into the CSV — the HANS feed itself carries no location |
+| `country_code` | always `US` — the three observatories are US |
+| `state_province` | the stamped `geocode_state` column of the volcano point, `ZZ` when it is empty (the Ahyi Seamount is an ocean point) |
+| `place_location` | `"<volcano_name>, <region>"` (`Great Sitkin, Aleutians`); without a region only the name remains, a blank name is `NULL` |
+| `metric_name` | always `alert_level` |
+| `metric_value` | the USGS alert scale as a number — `NORMAL` 0, `ADVISORY` 1, `WATCH` 2, `WARNING` 3 (case-insensitive); an unknown code stays `NULL` (an unknown level is not `NORMAL`) |
+| `metric_unit` | `NULL` — a scale index has no unit |
+| `danger_rating` | the source `alert_level` text verbatim (`WATCH`, `ADVISORY`) |
+| `event_start` | `notice_date` — when the notice was issued |
+| `event_end` | `NULL` — a notice is an instant |
+| `last_latitude` / `last_longitude` / `other_metrics` | `NULL` — the volcano is fixed and the notice carries no extra metrics |
+| `file_date` | `file_date` |
+
+Dropped from the ETL: `vnum`, `observatory`, `color_code`, `notice_type`, `notice_identifier`, `notice_url`, `notice_data_url` — the stamped detail columns carry the enrichment instead (`notice_type` only remains as the fallback for `event_subcategory`), the color repeats `alert_level`, and the URLs are document references rather than data.
+
+The coordinates, region, status line and full notice type arrive with every row: the GEO_Download downloader resolves them through `data/usgs_volcano_notices.csv` at download time and stamps them into the CSVs, and it stamps the `geocode_state` column the same way (strict on fetch failure — a failed lookup raises and fails the download instead of leaving holes, successful answers are kept for every later run). This ETL passes all of it straight through: no lookup file, no API call, no driver-side map.
+
+## Adding a new script
+
+1. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py` and rewrite `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()` for the new source (the module docstring walks through it) — `run()` needs no change, it delegates to `utils/etl_utils.run_etl()` for every source.
+2. Register it in `jobs/__init__.py`:
+
+```python
+from single_etl.<name>_etl import run as <name>_etl_run
+
+SingleEtlFactory.register("<name>_etl", <name>_etl_run)
+```
+
+3. Run it: `python run_etl.py SINGLE_ETL <name>_etl`.
+

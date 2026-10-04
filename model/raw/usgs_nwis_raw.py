@@ -13,4 +13,5 @@ class UsgsNwisRaw(BaseModel):
     qualifiers: str | None = None
     latitude: str | None = None
     longitude: str | None = None
+    geocode_state: str | None = None
     file_date: str

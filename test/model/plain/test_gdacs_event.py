@@ -91,7 +91,7 @@ class TestGdacsEventMissing:
 class TestGdacsEventSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(GdacsEvent)
-        assert len(schema.fields) == 18
+        assert len(schema.fields) == 20
 
     def test_schema_field_names(self):
         schema = pydantic_to_spark_schema(GdacsEvent)
@@ -114,6 +114,8 @@ class TestGdacsEventSparkSchema:
             "source",
             "report_url",
             "is_current",
+            "geocode_country",
+            "geocode_state",
             "file_date",
         ]
 
@@ -142,7 +144,14 @@ class TestGdacsEventSparkSchema:
 
     def test_nullable_fields(self):
         schema = pydantic_to_spark_schema(GdacsEvent)
-        nullable_names = {"country", "country_code", "severity_text", "severity_unit"}
+        nullable_names = {
+            "country",
+            "country_code",
+            "severity_text",
+            "severity_unit",
+            "geocode_country",
+            "geocode_state",
+        }
         for f in schema.fields:
             if f.name in nullable_names:
                 assert f.nullable is True, f"{f.name} should be nullable"

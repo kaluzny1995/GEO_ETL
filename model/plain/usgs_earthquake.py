@@ -30,4 +30,6 @@ class UsgsEarthquake(BaseModel):
     status: str | None = None
     location_source: str | None = None
     mag_source: str | None = None
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str

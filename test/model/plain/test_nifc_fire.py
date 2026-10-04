@@ -26,6 +26,7 @@ class TestNifcFireValid:
             fire_type_label="Wildfire Daily Fire Perimeter",
             jurisdiction="USFS",
             jurisdiction_label="WAOWF",
+            unit_name="Okanogan-Wenatchee National Forest",
             state="MT",
             po_method=None,
             latitude=47.843,
@@ -58,7 +59,7 @@ class TestNifcFireMissing:
 class TestNifcFireSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(NifcFire)
-        assert len(schema.fields) == 17
+        assert len(schema.fields) == 19
 
     def test_double_fields(self):
         schema = pydantic_to_spark_schema(NifcFire)
@@ -87,6 +88,7 @@ class TestNifcFireDDL:
         assert "acres DOUBLE PRECISION NULL" in ddl
         assert "fire_type TEXT NULL" in ddl
         assert "jurisdiction TEXT NULL" in ddl
+        assert "unit_name TEXT NULL" in ddl
         assert "poly_date TIMESTAMP NULL" in ddl
         assert "file_date TEXT NOT NULL" in ddl
 

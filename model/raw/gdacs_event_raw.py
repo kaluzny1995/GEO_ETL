@@ -21,4 +21,6 @@ class GdacsEventRaw(BaseModel):
     source: str
     report_url: str
     is_current: str
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str
