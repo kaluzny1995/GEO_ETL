@@ -78,7 +78,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch, `--overall` / `--load-type`, Spark session lifecycle, logger passing, error handling) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
-| `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date, table derivation, skip on empty) |
+| `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from raw + plain or ETL-only, table derivation, skip on empty, data_quality rejection) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (load type resolution, historical/incremental/no-rows runs, column mapping, source coordinate pass-through) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (load type resolution, runs, category/place/country mapping, stamped geocode pass-through with description-state precedence) |
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (load type resolution, runs, category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |

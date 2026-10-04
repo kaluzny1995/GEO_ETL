@@ -12,7 +12,7 @@ GEO_ETL/
 ├── run_etl.py                        # Main CLI entry point for ETL jobs
 ├── run_drop_table.py                 # Drop a table from Supabase
 ├── run_drop_schema.py                # Drop a schema from Supabase (if empty)
-├── run_delete_last_filedate_data.py  # Delete latest file_date from raw + plain tables
+├── run_delete_last_filedate_data.py  # Delete latest file_date from raw + plain (or ETL) tables
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
 │

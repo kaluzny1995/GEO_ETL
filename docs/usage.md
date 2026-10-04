@@ -239,13 +239,16 @@ Schema '<schema_name>' contains tables. Drop tables first.
 
 ## Delete latest file_date data
 
-Delete all rows with the most recent `file_date` from both raw and plain tables. Useful for re-running INCREMENTAL tests:
+Delete all rows with the most recent `file_date`. Useful for re-running INCREMENTAL tests:
 
 ```bash
 conda activate geo_etl_311
 
-# Delete latest file_date for a single data source
+# Delete latest file_date from the raw + plain tables of a single data source
 python run_delete_last_filedate_data.py avalanche_org
+
+# Delete latest file_date from the ETL table only
+python run_delete_last_filedate_data.py avalanche_org_etl
 
 # Delete latest file_date for all data sources
 for t in avalanche_org eonet_event gdacs_event ibtracs_cyclone nifc_fire openmeteo_flood usgs_earthquake usgs_nwis usgs_volcano; do
@@ -256,6 +259,10 @@ done
 > **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org`, not `avalanche_org_raw`.
 
 The script derives the plain table name automatically by stripping the `_raw` suffix (e.g. `avalanche_org_raw` → `avalanche_org`).
+
+With the `_etl` suffix the script targets the ETL table only: it reads that table's own latest `file_date` and deletes just those rows, leaving raw and plain untouched.
+
+The `data_quality` table is rejected with a `ValueError` (in any suffix form) — its rows are per-table metric snapshots, not daily source data. Delete metric rows with SQL against `geo.data_quality`, or let the [DATA_QUALITY job](etl_jobs/data-quality.md) purge stale dates automatically.
 
 Expected output:
 
@@ -271,6 +278,8 @@ Delete complete: file_date=2026-09-22, raw=166, plain=166
 1. Run HISTORICAL ingestion to load all data (`python run_etl.py INGESTION <table>`).
 2. Delete latest `file_date` from both raw + plain tables using `run_delete_last_filedate_data.py`.
 3. Run INGESTION again — the script detects missing files and re-loads the deleted data.
+
+The same pattern works for the ETL step: pass `<table>_etl` to the script, then re-run `python run_etl.py SINGLE_ETL <table>_etl` to re-process the deleted date incrementally.
 
 Load types and the detection logic are described in [ETL jobs — Load type detection](etl_jobs/load-types.md).
 
