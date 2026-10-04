@@ -97,7 +97,7 @@ Both answers arrive with every row: GEO_Download stamps `geocode_country` / `geo
 | `event_subcategory` | cyclone intensity class from `severity_text` (`tropical depression`, `tropical storm`, `hurricane` — GDACS's `Hurricane/Typhoon` counts as `hurricane`, matching the EONET keyword); `wildfire` for fires; `agricultural drought` for droughts; `NULL` when no subtype applies |
 | `event_description` | `NULL` — GDACS carries no event description |
 | `latitude` / `longitude` | `latitude` / `longitude` — epicentre (EQ) or affected-area centroid (the rest) |
-| `country_code` | the source's ISO 3166-1 alpha-3 `country_code` translated to alpha-2 (`COUNTRY_CODE_MAP`: `USA` → `US`, `DEU` → `DE`, …), else the stamped `geocode_country` column, else `ZZ` |
+| `country_code` | the source's ISO 3166-1 alpha-3 `country_code` translated to alpha-2 (`_cfg.country_code_map`: `USA` → `US`, `DEU` → `DE`, …), else the stamped `geocode_country` column, else `ZZ` |
 | `state_province` | the stamped `geocode_state` column (GDACS has none), `NULL` when empty |
 | `place_location` | `country` — region at the centroid or affected-country list (e.g. `Brazil, Colombia`), `NULL` when blank |
 | `metric_name` | `magnitude` (EQ/FL/VO), `wind speed` (TC), `area` (WF/DR) |
@@ -274,14 +274,16 @@ The coordinates, region, status line and full notice type arrive with every row:
 
 ## Adding a new script
 
-1. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py` and rename the class to `<Name>EtlScript`; rewrite the `SOURCE_TABLE`, `TARGET_TABLE` class attributes and the `_convert()` method for the new source (the module docstring walks through it) — `run()` is inherited from `SingleEtlScript` and needs no change, it delegates to `utils/etl_utils.run_etl()` for every source.
-2. Register an instance in `jobs/__init__.py`:
+1. Add a `datasets.single_etl.<name>_etl` entry to `config.json` (source and ETL table names, `source_name`, plus any category/country maps, metric labels or lookup tables the source needs) and a `<Name>EtlConfig` model for it in `model/config/datasets.py`.
+2. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py`, rename the class to `<Name>EtlScript`, point `load_dataset()` at the new config class and rewrite the `_convert()` method for the new source (the module docstring walks through it) — `run()` is inherited from `SingleEtlScript` and needs no change, it delegates to `utils/etl_utils.run_etl()` for every source.
+3. Register an instance in `jobs/__init__.py`:
 
 ```python
 from single_etl.<name>_etl import <Name>EtlScript
 
-SingleEtlFactory.register("<name>_etl", <Name>EtlScript())
+_script = <Name>EtlScript()
+SingleEtlFactory.register(_script.TARGET_TABLE, _script)
 ```
 
-3. Run it: `python run_etl.py SINGLE_ETL <name>_etl`.
+4. Run it: `python run_etl.py SINGLE_ETL <name>_etl`.
 

@@ -25,24 +25,15 @@ detection are described in :func:`utils.etl_utils.run_etl`.
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
+from model.config.datasets import NifcFireEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_NAME = "NIFC"
-SUBSOURCE_NAME = "WFIGS"
-COUNTRY_CODE = "US"
-EVENT_CATEGORY = "fire"
-METRIC_NAME = "area"
-METRIC_UNIT = "acres"
-PERCENT_UNIT = "%"
-FIRE_TYPE_MAP = {
-    "WF": "wildfire",
-    "RX": "prescribed fire",
-}
+_cfg = load_dataset(__file__, "single_etl", NifcFireEtlConfig)
 
 
 def _event_subcategory() -> Column:
-    """``event_subcategory`` from ``fire_type`` (``FIRE_TYPE_MAP``), ``NULL`` when blank or unknown."""
-    known = F.create_map(*[F.lit(item) for pair in FIRE_TYPE_MAP.items() for item in pair])
+    """``event_subcategory`` from ``fire_type`` (``_cfg.fire_type_map``), ``NULL`` when blank or unknown."""
+    known = F.create_map(*[F.lit(item) for pair in _cfg.fire_type_map.items() for item in pair])
     return known[F.trim(F.col("fire_type"))]
 
 
@@ -90,14 +81,16 @@ def _other_metrics() -> Column:
         reported yet), so both keys and the ``%`` companion stay valid.
     """
     percent = F.round(F.coalesce(F.col("percent_contained"), F.lit(0.0))).cast("long")
-    return F.to_json(F.struct(percent.alias("percent_contained"), F.lit(PERCENT_UNIT).alias("percent_contained_unit")))
+    return F.to_json(
+        F.struct(percent.alias("percent_contained"), F.lit(_cfg.percent_unit).alias("percent_contained_unit"))
+    )
 
 
 class NifcFireEtlScript(SingleEtlScript):
     """NIFC → ``geo.nifc_fire_etl`` (canonical event structure)."""
 
-    SOURCE_TABLE = "nifc_fire"
-    TARGET_TABLE = "nifc_fire_etl"
+    SOURCE_TABLE = _cfg.source_table
+    TARGET_TABLE = _cfg.target_table
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.nifc_fire`` columns onto the canonical ETL structure.
@@ -118,20 +111,20 @@ class NifcFireEtlScript(SingleEtlScript):
         place_location = _place_location()
 
         return df.select(
-            F.lit(SOURCE_NAME).alias("source_name"),
-            F.lit(SUBSOURCE_NAME).alias("subsource_name"),
+            F.lit(_cfg.source_name).alias("source_name"),
+            F.lit(_cfg.subsource_name).alias("subsource_name"),
             _event_name().alias("event_name"),
-            F.lit(EVENT_CATEGORY).alias("event_category"),
+            F.lit(_cfg.event_category).alias("event_category"),
             _event_subcategory().alias("event_subcategory"),
             F.lit(None).cast("string").alias("event_description"),
             F.col("latitude"),
             F.col("longitude"),
-            F.lit(COUNTRY_CODE).alias("country_code"),
+            F.lit(_cfg.country_code).alias("country_code"),
             _state_province(F.col("geocode_state")).alias("state_province"),
             place_location.alias("place_location"),
-            F.lit(METRIC_NAME).alias("metric_name"),
+            F.lit(_cfg.metric_name).alias("metric_name"),
             F.coalesce(F.col("acres"), F.lit(0.0)).alias("metric_value"),
-            F.lit(METRIC_UNIT).alias("metric_unit"),
+            F.lit(_cfg.metric_unit).alias("metric_unit"),
             F.lit(None).cast("string").alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("created_on").alias("event_start"),

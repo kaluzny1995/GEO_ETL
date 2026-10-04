@@ -12,10 +12,13 @@ class DummyModel(BaseModel):
 
 @pytest.fixture(autouse=True)
 def clean_registry():
-    """Clear registry before and after each test in this module only."""
+    """Clear registry around each test in this module, then restore the real tables."""
+    from model import _register_tables
+
     TableFactory.clear()
     yield
     TableFactory.clear()
+    _register_tables()
 
 
 class TestTableFactoryRegister:

@@ -1,12 +1,13 @@
 """Upload USGS NWIS stream gauge CSV files to Supabase."""
 
 from ingestion.upload.upload_script import UploadScript
-from model.raw import UsgsNwisRaw
+from model.config.datasets import UploadDatasetConfig, load_dataset
+
+_cfg = load_dataset(__file__, "upload", UploadDatasetConfig)
 
 
 class UsgsNwisUploadScript(UploadScript):
     """Upload USGS NWIS stream gauge CSV files to Supabase."""
 
-    TABLE_NAME = "usgs_nwis_raw"
-    MODEL = UsgsNwisRaw
-    DATASET_FOLDER = "USGS_NWIS"
+    TABLE_NAME = _cfg.table_name
+    DATASET_FOLDER = _cfg.dataset_folder

@@ -29,80 +29,22 @@ detection are described in :func:`utils.etl_utils.run_etl`.
 from pyspark.sql import Column, DataFrame, Window
 from pyspark.sql import functions as F
 
+from model.config.datasets import IbtracsCycloneEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_NAME = "IBTRACS"
-BASIN_NAMES = {
-    "NA": "North Atlantic",
-    "EP": "Eastern North Pacific",
-    "WP": "Western North Pacific",
-    "NI": "North Indian",
-    "SI": "South Indian",
-    "SP": "South Pacific",
-    "SA": "South Atlantic",
-}
-SUBBASIN_NAMES = {
-    "CS": "Caribbean Sea",
-    "GM": "Gulf of Mexico",
-    "CP": "Central Pacific",
-    "AS": "Arabian Sea",
-    "BB": "Bay of Bengal",
-    "WA": "Western Australia",
-    "EA": "Eastern Australia",
-}
-STATUS_WORDS = {
-    "DB": "disturbance",
-    "TD": "tropical depression",
-    "TS": "tropical storm",
-    "TY": "typhoon",
-    "ST": "super typhoon",
-    "TC": "tropical cyclone",
-    "HU": "hurricane",
-    "HR": "hurricane",
-    "SD": "subtropical depression",
-    "SS": "subtropical storm",
-    "EX": "extratropical",
-    "PT": "post-tropical",
-    "IN": "inland",
-    "DS": "dissipating",
-    "LO": "low",
-    "WV": "tropical wave",
-    "ET": "extrapolated",
-    "MD": "monsoon depression",
-    "XX": "unknown",
-}
-NATURE_WORDS = {
-    "DS": "disturbance",
-    "TS": "tropical",
-    "ET": "extratropical",
-    "SS": "subtropical",
-    "MX": "contradictory",
-}
-SSHS_LABELS = {
-    "5": "category 5",
-    "4": "category 4",
-    "3": "category 3",
-    "2": "category 2",
-    "1": "category 1",
-    "0": "tropical storm",
-    "-1": "tropical depression",
-    "-2": "subtropical",
-    "-3": "disturbance",
-    "-4": "post-tropical",
-    "-5": "unknown",
-}
+_cfg = load_dataset(__file__, "single_etl", IbtracsCycloneEtlConfig)
 
 
 def _event_subcategory() -> Column:
     """The ATCF system status of the point, with the cross-agency ``nature`` as fallback.
 
     Returns:
-        The ``usa_status`` word (:data:`STATUS_WORDS`), else the ``nature``
-        word (:data:`NATURE_WORDS`); ``NULL`` when neither reports a type
+        The ``usa_status`` word (`_cfg.status_words`), else the ``nature``
+        word (`_cfg.nature_words`); ``NULL`` when neither reports a type
         (blank status next to ``nature = NR`` in non-US basins).
     """
-    status = F.create_map(*[F.lit(item) for pair in STATUS_WORDS.items() for item in pair])
-    nature = F.create_map(*[F.lit(item) for pair in NATURE_WORDS.items() for item in pair])
+    status = F.create_map(*[F.lit(item) for pair in _cfg.status_words.items() for item in pair])
+    nature = F.create_map(*[F.lit(item) for pair in _cfg.nature_words.items() for item in pair])
     return F.coalesce(status[F.upper(F.trim(F.col("usa_status")))], nature[F.upper(F.trim(F.col("nature")))])
 
 
@@ -138,13 +80,13 @@ def _place_location() -> Column:
 
     Returns:
         ``North Atlantic - Gulf of Mexico`` / ``Eastern North Pacific -
-        Central Pacific`` / … for a named sub-basin (:data:`SUBBASIN_NAMES`);
-        just the basin's full name (:data:`BASIN_NAMES`) for the unnamed
+        Central Pacific`` / … for a named sub-basin (`_cfg.subbasin_names`);
+        just the basin's full name (`_cfg.basin_names`) for the unnamed
         sub-basins (``NA``, ``MM``); ``NULL`` when the basin itself is
         unknown.
     """
-    basins = F.create_map(*[F.lit(item) for pair in BASIN_NAMES.items() for item in pair])
-    subbasins = F.create_map(*[F.lit(item) for pair in SUBBASIN_NAMES.items() for item in pair])
+    basins = F.create_map(*[F.lit(item) for pair in _cfg.basin_names.items() for item in pair])
+    subbasins = F.create_map(*[F.lit(item) for pair in _cfg.subbasin_names.items() for item in pair])
     basin = basins[F.upper(F.trim(F.col("basin")))]
     subbasin = subbasins[F.upper(F.trim(F.col("subbasin")))]
     return (
@@ -170,9 +112,9 @@ def _danger_rating() -> Column:
     Returns:
         ``category 5`` … ``category 1``, ``tropical storm``,
         ``tropical depression``, ``disturbance`` and the remaining classes of
-        :data:`SSHS_LABELS`; ``NULL`` when the source reports no class.
+        `_cfg.sshs_labels`; ``NULL`` when the source reports no class.
     """
-    labels = F.create_map(*[F.lit(item) for pair in SSHS_LABELS.items() for item in pair])
+    labels = F.create_map(*[F.lit(item) for pair in _cfg.sshs_labels.items() for item in pair])
     return labels[F.col("usa_sshs").cast("string")]
 
 
@@ -225,8 +167,8 @@ def _other_metrics() -> Column:
 class IbtracsCycloneEtlScript(SingleEtlScript):
     """IBTrACS → ``geo.ibtracs_cyclone_etl`` (canonical event structure)."""
 
-    SOURCE_TABLE = "ibtracs_cyclone"
-    TARGET_TABLE = "ibtracs_cyclone_etl"
+    SOURCE_TABLE = _cfg.source_table
+    TARGET_TABLE = _cfg.target_table
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.ibtracs_cyclone`` columns onto the canonical ETL structure.
@@ -248,7 +190,7 @@ class IbtracsCycloneEtlScript(SingleEtlScript):
         latest = Window.partitionBy("sid").orderBy(F.col("iso_time").desc())
 
         return df.select(
-            F.lit(SOURCE_NAME).alias("source_name"),
+            F.lit(_cfg.source_name).alias("source_name"),
             F.when(basin != "", basin).otherwise(F.lit(None).cast("string")).alias("subsource_name"),
             F.when(name != "", name).otherwise(F.lit(None).cast("string")).alias("event_name"),
             F.lit("storm").alias("event_category"),

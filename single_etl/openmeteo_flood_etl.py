@@ -22,69 +22,10 @@ detection are described in :func:`utils.etl_utils.run_etl`.
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
+from model.config.datasets import OpenMeteoFloodEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_NAME = "OPENMETEO"
-SUBSOURCE_NAME = "GLOFAS"
-EVENT_CATEGORY = "flood"
-METRIC_NAME = "discharge"
-METRIC_UNIT = "m³/s"
-COUNTRY_CODE_MAP = {
-    "Afghanistan": "AF",
-    "Argentina": "AR",
-    "Australia": "AU",
-    "Bangladesh": "BD",
-    "Botswana": "BW",
-    "Brazil": "BR",
-    "Cambodia": "KH",
-    "Canada": "CA",
-    "China": "CN",
-    "Colombia": "CO",
-    "Costa Rica": "CR",
-    "Croatia": "HR",
-    "Cuba": "CU",
-    "DRC": "CD",
-    "Egypt": "EG",
-    "France": "FR",
-    "Germany": "DE",
-    "Ghana": "GH",
-    "Haiti": "HT",
-    "Hungary": "HU",
-    "Iraq": "IQ",
-    "Italy": "IT",
-    "Jamaica": "JM",
-    "Kazakhstan": "KZ",
-    "Kenya": "KE",
-    "Latvia": "LV",
-    "Lithuania": "LT",
-    "Mexico": "MX",
-    "Mozambique": "MZ",
-    "Myanmar": "MM",
-    "Nepal": "NP",
-    "Netherlands": "NL",
-    "Nigeria": "NG",
-    "Pakistan": "PK",
-    "Papua New Guinea": "PG",
-    "Paraguay": "PY",
-    "Peru": "PE",
-    "Poland": "PL",
-    "Portugal": "PT",
-    "Romania": "RO",
-    "Russia": "RU",
-    "Senegal": "SN",
-    "Somalia": "SO",
-    "Spain": "ES",
-    "Sudan": "SD",
-    "Tanzania": "TZ",
-    "Thailand": "TH",
-    "UK": "GB",
-    "USA": "US",
-    "Ukraine": "UA",
-    "Uruguay": "UY",
-    "Uzbekistan": "UZ",
-    "Venezuela": "VE",
-    "Vietnam": "VN",
-}
+_cfg = load_dataset(__file__, "single_etl", OpenMeteoFloodEtlConfig)
 
 
 def _country_code(geocode_country: Column) -> Column:
@@ -95,12 +36,12 @@ def _country_code(geocode_country: Column) -> Column:
             download time.
 
     Returns:
-        :data:`COUNTRY_CODE_MAP` applied to the trimmed source ``country``;
+        `_cfg.country_code_map` applied to the trimmed source ``country``;
         a name the map does not know falls back to the stamped country of
         the reference point, and an empty stamp counts as a miss
         (``SingleEtlScript.UNKNOWN_CODE``).
     """
-    mapping = F.create_map(*[F.lit(item) for pair in COUNTRY_CODE_MAP.items() for item in pair])
+    mapping = F.create_map(*[F.lit(item) for pair in _cfg.country_code_map.items() for item in pair])
     return F.coalesce(
         mapping[F.trim(F.col("country"))],
         F.when(geocode_country != "", geocode_country),
@@ -143,8 +84,8 @@ def _place_location() -> Column:
 class OpenMeteoFloodEtlScript(SingleEtlScript):
     """Open-Meteo flood → ``geo.openmeteo_flood_etl`` (canonical event structure)."""
 
-    SOURCE_TABLE = "openmeteo_flood"
-    TARGET_TABLE = "openmeteo_flood_etl"
+    SOURCE_TABLE = _cfg.source_table
+    TARGET_TABLE = _cfg.target_table
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.openmeteo_flood`` columns onto the canonical ETL structure.
@@ -162,10 +103,10 @@ class OpenMeteoFloodEtlScript(SingleEtlScript):
             The DataFrame in :attr:`TARGET_TABLE` column order.
         """
         return df.select(
-            F.lit(SOURCE_NAME).alias("source_name"),
-            F.lit(SUBSOURCE_NAME).alias("subsource_name"),
+            F.lit(_cfg.source_name).alias("source_name"),
+            F.lit(_cfg.subsource_name).alias("subsource_name"),
             _event_name().alias("event_name"),
-            F.lit(EVENT_CATEGORY).alias("event_category"),
+            F.lit(_cfg.event_category).alias("event_category"),
             F.lit(None).cast("string").alias("event_subcategory"),
             F.lit(None).cast("string").alias("event_description"),
             F.col("latitude"),
@@ -173,9 +114,9 @@ class OpenMeteoFloodEtlScript(SingleEtlScript):
             _country_code(F.col("geocode_country")).alias("country_code"),
             _state_province(F.col("geocode_state")).alias("state_province"),
             _place_location().alias("place_location"),
-            F.lit(METRIC_NAME).alias("metric_name"),
+            F.lit(_cfg.metric_name).alias("metric_name"),
             F.coalesce(F.col("discharge_m3s"), F.lit(0.0)).alias("metric_value"),
-            F.lit(METRIC_UNIT).alias("metric_unit"),
+            F.lit(_cfg.metric_unit).alias("metric_unit"),
             F.lit(None).cast("string").alias("danger_rating"),
             F.lit(None).cast("string").alias("other_metrics"),
             F.col("date").cast("timestamp").alias("event_start"),

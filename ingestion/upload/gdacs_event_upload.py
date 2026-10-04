@@ -1,12 +1,13 @@
 """Upload GDACS event CSV files to Supabase."""
 
 from ingestion.upload.upload_script import UploadScript
-from model.raw import GdacsEventRaw
+from model.config.datasets import UploadDatasetConfig, load_dataset
+
+_cfg = load_dataset(__file__, "upload", UploadDatasetConfig)
 
 
 class GdacsEventUploadScript(UploadScript):
     """Upload GDACS event CSV files to Supabase."""
 
-    TABLE_NAME = "gdacs_event_raw"
-    MODEL = GdacsEventRaw
-    DATASET_FOLDER = "GDACS"
+    TABLE_NAME = _cfg.table_name
+    DATASET_FOLDER = _cfg.dataset_folder

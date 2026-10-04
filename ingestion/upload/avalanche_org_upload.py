@@ -1,12 +1,13 @@
 """Upload Avalanche_ORG CSV files to Supabase."""
 
 from ingestion.upload.upload_script import UploadScript
-from model.raw import AvalancheOrgRaw
+from model.config.datasets import UploadDatasetConfig, load_dataset
+
+_cfg = load_dataset(__file__, "upload", UploadDatasetConfig)
 
 
 class AvalancheOrgUploadScript(UploadScript):
     """Upload Avalanche_ORG CSV files to Supabase."""
 
-    TABLE_NAME = "avalanche_org_raw"
-    MODEL = AvalancheOrgRaw
-    DATASET_FOLDER = "Avalanche_ORG"
+    TABLE_NAME = _cfg.table_name
+    DATASET_FOLDER = _cfg.dataset_folder

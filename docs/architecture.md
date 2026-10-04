@@ -6,7 +6,7 @@ The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` re
 
 ```
 GEO_ETL/
-├── config.json                       # App config (Spark, database, logging, data paths)
+├── config.json                       # App config (Spark, database, logging, data paths, dataset constants)
 ├── environment.yml                   # Conda environment definition
 ├── supabase_config.json              # Supabase credentials (not in git)
 ├── run_etl.py                        # Main CLI entry point for ETL jobs
@@ -75,6 +75,7 @@ GEO_ETL/
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
 │   ├── config/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
+│   │   ├── datasets.py               # Per-script dataset constants from config.json (load_dataset + frozen models)
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
 │   ├── raw/
 │   │   ├── avalanche_org_raw.py      # AvalancheOrgRaw — all-TEXT raw model

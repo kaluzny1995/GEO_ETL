@@ -4,7 +4,7 @@ Reads the typed plain table ``geo.gdacs_event`` and writes every event
 snapshot into ``geo.gdacs_event_etl`` using the schema from
 ``model/etl/event_etl.py``, so it can be merged with the other ``*_etl``
 tables. The source states an ISO 3166-1 alpha-3 ``country_code``, which the
-script translates to alpha-2 (:data:`COUNTRY_CODE_MAP` — the codes GDACS uses
+script translates to alpha-2 (`_cfg.country_code_map` — the codes GDACS uses
 today; anything the map does not know falls through to the stamped
 ``geocode_country`` column). The subdivision is the stamped ``geocode_state``
 column; both geocode columns are written into the CSVs at download time
@@ -25,119 +25,15 @@ detection are described in :func:`utils.etl_utils.run_etl`.
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
+from model.config.datasets import GdacsEventEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_NAME = "GDACS"
-CATEGORY_MAP = {
-    "EQ": "earthquake",
-    "TC": "storm",
-    "FL": "flood",
-    "VO": "volcano",
-    "WF": "fire",
-    "DR": "drought",
-}
-COUNTRY_CODE_MAP = {
-    "AGO": "AO",
-    "ALB": "AL",
-    "ARG": "AR",
-    "AUS": "AU",
-    "AUT": "AT",
-    "BGD": "BD",
-    "BHS": "BS",
-    "BIH": "BA",
-    "BOL": "BO",
-    "BRA": "BR",
-    "BTN": "BT",
-    "BWA": "BW",
-    "CAF": "CF",
-    "CAN": "CA",
-    "CHL": "CL",
-    "CHN": "CN",
-    "CMR": "CM",
-    "COD": "CD",
-    "COG": "CG",
-    "COL": "CO",
-    "CPV": "CV",
-    "CRI": "CR",
-    "CYP": "CY",
-    "DEU": "DE",
-    "DJI": "DJ",
-    "DOM": "DO",
-    "ECU": "EC",
-    "ERI": "ER",
-    "ESP": "ES",
-    "ETH": "ET",
-    "FJI": "FJ",
-    "FRA": "FR",
-    "GHA": "GH",
-    "GIN": "GN",
-    "GLP": "GP",
-    "GRC": "GR",
-    "GTM": "GT",
-    "GUM": "GU",
-    "HND": "HN",
-    "HRV": "HR",
-    "HTI": "HT",
-    "IDN": "ID",
-    "IND": "IN",
-    "IRN": "IR",
-    "ITA": "IT",
-    "JPN": "JP",
-    "KAZ": "KZ",
-    "KEN": "KE",
-    "KHM": "KH",
-    "LBY": "LY",
-    "LKA": "LK",
-    "LTU": "LT",
-    "MDG": "MG",
-    "MDV": "MV",
-    "MEX": "MX",
-    "MMR": "MM",
-    "MNE": "ME",
-    "MNP": "MP",
-    "MOZ": "MZ",
-    "MYS": "MY",
-    "NAM": "NA",
-    "NCL": "NC",
-    "NGA": "NG",
-    "NPL": "NP",
-    "NZL": "NZ",
-    "PAK": "PK",
-    "PAN": "PA",
-    "PER": "PE",
-    "PHL": "PH",
-    "PNG": "PG",
-    "POL": "PL",
-    "PRI": "PR",
-    "PRY": "PY",
-    "RUS": "RU",
-    "SDN": "SD",
-    "SEN": "SN",
-    "SLB": "SB",
-    "SOM": "SO",
-    "SUR": "SR",
-    "SVN": "SI",
-    "THA": "TH",
-    "TJK": "TJ",
-    "TON": "TO",
-    "TUR": "TR",
-    "TWN": "TW",
-    "TZA": "TZ",
-    "UGA": "UG",
-    "UKR": "UA",
-    "USA": "US",
-    "VEN": "VE",
-    "VNM": "VN",
-    "VUT": "VU",
-    "ZAF": "ZA",
-    "ZMB": "ZM",
-    "ZWE": "ZW",
-}
+_cfg = load_dataset(__file__, "single_etl", GdacsEventEtlConfig)
 
 
 def _event_category() -> Column:
-    """``event_category`` from ``event_type`` (``CATEGORY_MAP``), lowercased otherwise."""
-    known = F.create_map(*[F.lit(item) for pair in CATEGORY_MAP.items() for item in pair])
+    """``event_category`` from ``event_type`` (``_cfg.category_map``), lowercased otherwise."""
+    known = F.create_map(*[F.lit(item) for pair in _cfg.category_map.items() for item in pair])
     trimmed = F.trim(F.col("event_type"))
     return F.coalesce(known[trimmed], F.lower(trimmed))
 
@@ -178,10 +74,10 @@ def _country_code(geocode_country: Column) -> Column:
             download time.
 
     Returns:
-        The row's ISO 3166-1 alpha-2 country code; a code :data:`COUNTRY_CODE_MAP`
+        The row's ISO 3166-1 alpha-2 country code; a code `_cfg.country_code_map`
         does not know (or a missing one) resolves from the stamped column.
     """
-    alpha2 = F.create_map(*[F.lit(item) for pair in COUNTRY_CODE_MAP.items() for item in pair])
+    alpha2 = F.create_map(*[F.lit(item) for pair in _cfg.country_code_map.items() for item in pair])
     source_alpha2 = alpha2[F.coalesce(F.upper(F.trim(F.col("country_code"))), F.lit(""))]
     return (
         F.when(source_alpha2.isNotNull(), source_alpha2)
@@ -240,8 +136,8 @@ def _place_location() -> Column:
 class GdacsEventEtlScript(SingleEtlScript):
     """GDACS → ``geo.gdacs_event_etl`` (canonical event structure)."""
 
-    SOURCE_TABLE = "gdacs_event"
-    TARGET_TABLE = "gdacs_event_etl"
+    SOURCE_TABLE = _cfg.source_table
+    TARGET_TABLE = _cfg.target_table
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.gdacs_event`` columns onto the canonical ETL structure.
@@ -261,7 +157,7 @@ class GdacsEventEtlScript(SingleEtlScript):
         category = _event_category()
 
         return df.select(
-            F.lit(SOURCE_NAME).alias("source_name"),
+            F.lit(_cfg.source_name).alias("source_name"),
             F.col("source").alias("subsource_name"),
             F.col("event_name"),
             category.alias("event_category"),

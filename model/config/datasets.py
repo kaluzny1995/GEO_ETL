@@ -1,0 +1,176 @@
+"""Dataset constants loaded from the ``datasets`` section of ``config.json``.
+
+Every upload, raw2plain and single-ETL script keeps its wiring (table names,
+dataset folders) and transformation constants (source names, category maps,
+lookup tables) in ``config.json``. Scripts load their own entry at import
+time, keyed by the script's file stem::
+
+    _cfg = load_dataset(__file__, "single_etl", GdacsEtlConfig)
+
+The models are frozen and reject unknown keys, so a typo in ``config.json``
+fails at import instead of silently producing wrong data.
+"""
+
+import json
+from functools import cache
+from pathlib import Path
+from typing import Literal, TypeVar
+
+from pydantic import BaseModel, ConfigDict
+
+from model.config.app_config import CONFIG_PATH
+
+T = TypeVar("T", bound=BaseModel)
+
+DatasetSection = Literal["upload", "raw2plain", "single_etl"]
+
+
+class UploadDatasetConfig(BaseModel):
+    """Wiring for one script in ``ingestion/upload/``."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    table_name: str
+    dataset_folder: str
+
+
+class Raw2PlainDatasetConfig(BaseModel):
+    """Wiring for one script in ``ingestion/raw2plain/``."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    raw_table: str
+    plain_table: str
+
+
+class SingleEtlDatasetConfig(BaseModel):
+    """Fields every script in ``single_etl/`` shares."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source_table: str
+    target_table: str
+    source_name: str
+
+
+class AvalancheOrgEtlConfig(SingleEtlDatasetConfig):
+    """Constants for ``single_etl/avalanche_org_etl.py``."""
+
+    country_code: str
+    event_category: str
+    metric_name: str
+
+
+class EonetEventEtlConfig(SingleEtlDatasetConfig):
+    """Constants for ``single_etl/eonet_event_etl.py``."""
+
+    category_map: dict[str, str]
+
+
+class GdacsEventEtlConfig(SingleEtlDatasetConfig):
+    """Constants for ``single_etl/gdacs_event_etl.py``."""
+
+    category_map: dict[str, str]
+    country_code_map: dict[str, str]
+
+
+class IbtracsCycloneEtlConfig(SingleEtlDatasetConfig):
+    """Constants for ``single_etl/ibtracs_cyclone_etl.py``."""
+
+    basin_names: dict[str, str]
+    subbasin_names: dict[str, str]
+    status_words: dict[str, str]
+    nature_words: dict[str, str]
+    sshs_labels: dict[str, str]
+
+
+class NifcFireEtlConfig(SingleEtlDatasetConfig):
+    """Constants for ``single_etl/nifc_fire_etl.py``."""
+
+    subsource_name: str
+    country_code: str
+    event_category: str
+    metric_name: str
+    metric_unit: str
+    percent_unit: str
+    fire_type_map: dict[str, str]
+
+
+class OpenMeteoFloodEtlConfig(SingleEtlDatasetConfig):
+    """Constants for ``single_etl/openmeteo_flood_etl.py``."""
+
+    subsource_name: str
+    event_category: str
+    metric_name: str
+    metric_unit: str
+    country_code_map: dict[str, str]
+
+
+class UsgsEarthquakeEtlConfig(SingleEtlDatasetConfig):
+    """Constants for ``single_etl/usgs_earthquake_etl.py``."""
+
+    event_category: str
+    metric_name: str
+    unit_km: str
+    unit_stations: str
+    event_name_prefix: str
+    event_name_fallback: str
+    us_state_names: str
+    us_state_codes: list[str]
+    us_state_full_names: list[str]
+    country_code_map: dict[str, str]
+
+
+class UsgsNwisEtlConfig(SingleEtlDatasetConfig):
+    """Constants for ``single_etl/usgs_nwis_etl.py``."""
+
+    event_category: str
+    metric_name: str
+    country_code: str
+    event_name_prefix: str
+    event_name_fallback: str
+    name_split_pattern: str
+    qualifier_names: dict[str, str]
+
+
+class UsgsVolcanoEtlConfig(SingleEtlDatasetConfig):
+    """Constants for ``single_etl/usgs_volcano_etl.py``."""
+
+    event_category: str
+    metric_name: str
+    country_code: str
+    event_name_prefix: str
+    event_name_fallback: str
+    alert_scale: dict[str, float]
+
+
+@cache
+def _read_datasets(path: str) -> dict:
+    with open(path) as f:
+        return json.load(f)["datasets"]
+
+
+def load_dataset(script_file: str, section: DatasetSection, model: type[T], *, path: str = CONFIG_PATH) -> T:
+    """Return the dataset configuration for one script module.
+
+    Args:
+        script_file: ``__file__`` of the calling script; the entry is keyed
+            by its file stem (e.g. ``"gdacs_event_etl"``).
+        section: Layer the script belongs to (``"upload"``, ``"raw2plain"``
+            or ``"single_etl"``).
+        model: Pydantic model validating the entry.
+        path: Config file to read. Defaults to the project ``config.json``.
+
+    Returns:
+        A frozen instance of *model*.
+
+    Raises:
+        KeyError: When *section* or the script's key is missing.
+        ValidationError: When the entry does not match *model*.
+    """
+    key = Path(script_file).stem
+    try:
+        entry = _read_datasets(path)[section][key]
+    except KeyError as exc:
+        raise KeyError(f"No dataset entry '{key}' under 'datasets.{section}' in {path}") from exc
+    return model(**entry)

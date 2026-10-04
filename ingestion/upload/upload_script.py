@@ -7,15 +7,17 @@ from pydantic import BaseModel
 from pyspark.sql import SparkSession
 
 import utils.upload_utils as upload_utils
+from factory.table_factory import TableFactory
 from model.config import AppConfig, SupabaseConnectionConfig
 
 
 class UploadScript(ABC):
     """Interface every upload script in ``ingestion/upload/`` implements.
 
-    Subclasses must provide the abstract :attr:`TABLE_NAME`, :attr:`MODEL`
-    and :attr:`DATASET_FOLDER` attributes (plain class attributes satisfy
-    them); the concrete :meth:`upload` method delegates to the shared
+    Subclasses provide the abstract :attr:`TABLE_NAME` and
+    :attr:`DATASET_FOLDER` attributes (plain class attributes satisfy them)
+    and read them from their ``config.json`` entry; the concrete
+    :meth:`upload` method delegates to the shared
     :func:`~utils.upload_utils.upload` runner.
     """
 
@@ -26,13 +28,13 @@ class UploadScript(ABC):
 
     @property
     @abstractmethod
-    def MODEL(self) -> type[BaseModel]:
-        """Pydantic model class defining the raw table schema."""
-
-    @property
-    @abstractmethod
     def DATASET_FOLDER(self) -> str:
         """Subdirectory under the data path containing the CSV files."""
+
+    @property
+    def MODEL(self) -> type[BaseModel]:
+        """Raw-table Pydantic model for :attr:`TABLE_NAME`, from the table registry."""
+        return TableFactory.get(self.TABLE_NAME)
 
     def upload(
         self,

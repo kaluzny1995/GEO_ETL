@@ -16,23 +16,24 @@ Run::
 **Load types** — ``HISTORICAL``, ``INCREMENTAL`` and the ``--load-type auto``
 detection are described in :func:`utils.etl_utils.run_etl`.
 
-**Adding the next source** — copy this file to ``single_etl/<name>_etl.py``,
-point ``SOURCE_TABLE``/``TARGET_TABLE`` at its plain and ETL tables, rewrite
-:func:`_convert` for its columns, then register it in ``jobs/__init__.py``::
+**Adding the next source** — add a ``datasets.single_etl.<name>_etl`` entry
+in ``config.json`` (tables, source name, maps), copy this file to
+``single_etl/<name>_etl.py``, point ``load_dataset()`` at the new config class
+in ``model/config/datasets.py``, rewrite :func:`_convert` for its columns, then
+register it in ``jobs/__init__.py``::
 
     from single_etl.<name>_etl import <Name>Script
-    SingleEtlFactory.register("<name>_etl", <Name>Script())
+    script = <Name>Script()
+    SingleEtlFactory.register(script.TARGET_TABLE, script)
 """
 
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
+from model.config.datasets import AvalancheOrgEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_NAME = "AVALANCHE_ORG"
-COUNTRY_CODE = "US"
-EVENT_CATEGORY = "avalanche"
-METRIC_NAME = "magnitude"
+_cfg = load_dataset(__file__, "single_etl", AvalancheOrgEtlConfig)
 
 
 def _danger_rating() -> Column:
@@ -49,8 +50,8 @@ def _danger_rating() -> Column:
 class AvalancheOrgEtlScript(SingleEtlScript):
     """Avalanche.org → ``geo.avalanche_org_etl`` (canonical event structure)."""
 
-    SOURCE_TABLE = "avalanche_org"
-    TARGET_TABLE = "avalanche_org_etl"
+    SOURCE_TABLE = _cfg.source_table
+    TARGET_TABLE = _cfg.target_table
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.avalanche_org`` columns onto the canonical ETL structure.
@@ -76,18 +77,18 @@ class AvalancheOrgEtlScript(SingleEtlScript):
             The DataFrame in :attr:`TARGET_TABLE` column order, without duplicate rows.
         """
         return df.select(
-            F.lit(SOURCE_NAME).alias("source_name"),
+            F.lit(_cfg.source_name).alias("source_name"),
             F.col("center_name").alias("subsource_name"),
             F.lit(None).cast("string").alias("event_name"),
-            F.lit(EVENT_CATEGORY).alias("event_category"),
+            F.lit(_cfg.event_category).alias("event_category"),
             F.lit(None).cast("string").alias("event_subcategory"),
             F.lit(None).cast("string").alias("event_description"),
             F.col("latitude"),
             F.col("longitude"),
-            F.lit(COUNTRY_CODE).alias("country_code"),
+            F.lit(_cfg.country_code).alias("country_code"),
             F.col("state").alias("state_province"),
             F.col("zone_name").alias("place_location"),
-            F.lit(METRIC_NAME).alias("metric_name"),
+            F.lit(_cfg.metric_name).alias("metric_name"),
             F.lit(None).cast("double").alias("metric_value"),
             F.lit(None).cast("string").alias("metric_unit"),
             _danger_rating().alias("danger_rating"),

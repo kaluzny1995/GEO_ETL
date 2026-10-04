@@ -21,33 +21,15 @@ detection are described in :func:`utils.etl_utils.run_etl`.
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
+from model.config.datasets import UsgsNwisEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_NAME = "USGS"
-EVENT_CATEGORY = "flood"
-METRIC_NAME = "discharge"
-COUNTRY_CODE = "US"
-EVENT_NAME_PREFIX = "Streamflow - "
-EVENT_NAME_FALLBACK = "Streamflow"
-NAME_SPLIT_PATTERN = r"(?i)\s+(?:NEAR|AT)\s+"
-QUALIFIER_NAMES = {
-    "A": "approved for publication",
-    "P": "provisional",
-    "e": "estimated",
-    "R": "revised",
-    "p": "partial record",
-    "Bkw": "backwater",
-    "Eqp": "equipment malfunction",
-    "Rat": "rating being developed",
-    "Ssn": "monitored seasonally",
-    "ZFL": "zero flow",
-    "***": "value unavailable",
-}
+_cfg = load_dataset(__file__, "single_etl", UsgsNwisEtlConfig)
 
 
 def _qualifier_map() -> Column:
-    """Literal ``qualifier code → full name`` map column built from :data:`QUALIFIER_NAMES`."""
-    return F.create_map(*[F.lit(item) for pair in QUALIFIER_NAMES.items() for item in pair])
+    """Literal ``qualifier code → full name`` map column built from `_cfg.qualifier_names`."""
+    return F.create_map(*[F.lit(item) for pair in _cfg.qualifier_names.items() for item in pair])
 
 
 def _sentence_case(column: Column) -> Column:
@@ -72,7 +54,7 @@ def _name_parts() -> tuple[Column, Column]:
         and the locality after it (``NULL`` when there is no marker);
         both are empty strings for a missing ``site_name``.
     """
-    parts = F.split(F.coalesce(F.trim(F.col("site_name")), F.lit("")), NAME_SPLIT_PATTERN, 2)
+    parts = F.split(F.coalesce(F.trim(F.col("site_name")), F.lit("")), _cfg.name_split_pattern, 2)
     return parts[0], parts[1]
 
 
@@ -83,11 +65,11 @@ def _event_name(river: Column) -> Column:
         river: Feature part from :func:`_name_parts`.
 
     Returns:
-        The prefixed sentence-cased name, or :data:`EVENT_NAME_FALLBACK`
+        The prefixed sentence-cased name, or `_cfg.event_name_fallback`
         when ``site_name`` is missing or blank.
     """
-    named = F.when(F.trim(river) != "", F.concat(F.lit(EVENT_NAME_PREFIX), _sentence_case(river)))
-    return F.coalesce(named, F.lit(EVENT_NAME_FALLBACK))
+    named = F.when(F.trim(river) != "", F.concat(F.lit(_cfg.event_name_prefix), _sentence_case(river)))
+    return F.coalesce(named, F.lit(_cfg.event_name_fallback))
 
 
 def _place_location(river: Column, place: Column) -> Column:
@@ -140,8 +122,8 @@ def _state_province(geocode_state: Column) -> Column:
 class UsgsNwisEtlScript(SingleEtlScript):
     """USGS NWIS streamflow → ``geo.usgs_nwis_etl`` (canonical event structure)."""
 
-    SOURCE_TABLE = "usgs_nwis"
-    TARGET_TABLE = "usgs_nwis_etl"
+    SOURCE_TABLE = _cfg.source_table
+    TARGET_TABLE = _cfg.target_table
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.usgs_nwis`` columns onto the canonical ETL structure.
@@ -160,18 +142,18 @@ class UsgsNwisEtlScript(SingleEtlScript):
         river, place = _name_parts()
 
         return df.select(
-            F.lit(SOURCE_NAME).alias("source_name"),
+            F.lit(_cfg.source_name).alias("source_name"),
             F.col("site_id").alias("subsource_name"),
             _event_name(river).alias("event_name"),
-            F.lit(EVENT_CATEGORY).alias("event_category"),
+            F.lit(_cfg.event_category).alias("event_category"),
             F.lit(None).cast("string").alias("event_subcategory"),
             _event_description().alias("event_description"),
             F.col("latitude"),
             F.col("longitude"),
-            F.lit(COUNTRY_CODE).alias("country_code"),
+            F.lit(_cfg.country_code).alias("country_code"),
             _state_province(F.col("geocode_state")).alias("state_province"),
             _place_location(river, place).alias("place_location"),
-            F.lit(METRIC_NAME).alias("metric_name"),
+            F.lit(_cfg.metric_name).alias("metric_name"),
             F.coalesce(F.col("value"), F.lit(0.0)).alias("metric_value"),
             F.col("unit").alias("metric_unit"),
             F.lit(None).cast("string").alias("danger_rating"),

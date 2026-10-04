@@ -22,203 +22,24 @@ detection are described in :func:`utils.etl_utils.run_etl`.
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
+from model.config.datasets import UsgsEarthquakeEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_NAME = "USGS"
-EVENT_CATEGORY = "earthquake"
-METRIC_NAME = "magnitude"
-UNIT_KM = "km"
-UNIT_STATIONS = "stations"
-EVENT_NAME_PREFIX = "Earthquake - "
-EVENT_NAME_FALLBACK = "Earthquake"
-US_STATE_NAMES = "United States"
-US_STATE_CODES = (
-    "AL",
-    "AK",
-    "AZ",
-    "AR",
-    "CA",
-    "CO",
-    "CT",
-    "DE",
-    "FL",
-    "GA",
-    "HI",
-    "ID",
-    "IL",
-    "IN",
-    "IA",
-    "KS",
-    "KY",
-    "LA",
-    "ME",
-    "MD",
-    "MA",
-    "MI",
-    "MN",
-    "MS",
-    "MO",
-    "MT",
-    "NE",
-    "NV",
-    "NH",
-    "NJ",
-    "NM",
-    "NY",
-    "NC",
-    "ND",
-    "OH",
-    "OK",
-    "OR",
-    "PA",
-    "RI",
-    "SC",
-    "SD",
-    "TN",
-    "TX",
-    "UT",
-    "VT",
-    "VA",
-    "WA",
-    "WV",
-    "WI",
-    "WY",
-    "DC",
-    "PR",
-    "VI",
-    "GU",
-    "AS",
-    "MP",
-)
-US_STATE_FULL_NAMES = (
-    "Alabama",
-    "Alaska",
-    "Arizona",
-    "Arkansas",
-    "California",
-    "Colorado",
-    "Connecticut",
-    "Delaware",
-    "Florida",
-    "Georgia",
-    "Hawaii",
-    "Idaho",
-    "Illinois",
-    "Indiana",
-    "Iowa",
-    "Kansas",
-    "Kentucky",
-    "Louisiana",
-    "Maine",
-    "Maryland",
-    "Massachusetts",
-    "Michigan",
-    "Minnesota",
-    "Mississippi",
-    "Missouri",
-    "Montana",
-    "Nebraska",
-    "Nevada",
-    "New Hampshire",
-    "New Jersey",
-    "New Mexico",
-    "New York",
-    "North Carolina",
-    "North Dakota",
-    "Ohio",
-    "Oklahoma",
-    "Oregon",
-    "Pennsylvania",
-    "Rhode Island",
-    "South Carolina",
-    "South Dakota",
-    "Tennessee",
-    "Texas",
-    "Utah",
-    "Vermont",
-    "Virginia",
-    "Washington",
-    "West Virginia",
-    "Wisconsin",
-    "Wyoming",
-    "Puerto Rico",
-)
-US_SUFFIXES = sorted((*US_STATE_CODES, *US_STATE_FULL_NAMES))
-COUNTRY_CODE_MAP = {
-    "Indonesia": "ID",
-    "Colombia": "CO",
-    "Chile": "CL",
-    "Japan": "JP",
-    "New Caledonia": "NC",
-    "Canada": "CA",
-    "U.S. Virgin Islands": "US",
-    "Vanuatu": "VU",
-    "Dominican Republic": "DO",
-    "Papua New Guinea": "PG",
-    "Russia": "RU",
-    "Tonga": "TO",
-    "Mexico": "MX",
-    "MX": "MX",
-    "Philippines": "PH",
-    "China": "CN",
-    "Peru": "PE",
-    "New Zealand": "NZ",
-    "Afghanistan": "AF",
-    "Japan region": "JP",
-    "Fiji": "FJ",
-    "Argentina": "AR",
-    "Timor Leste": "TL",
-    "Solomon Islands": "SB",
-    "Taiwan": "TW",
-    "Tajikistan": "TJ",
-    "Northern Mariana Islands": "US",
-    "Greece": "GR",
-    "Guatemala": "GT",
-    "Iran": "IR",
-    "Guam": "US",
-    "Turkey": "TR",
-    "India": "IN",
-    "Somalia": "SO",
-    "Wallis and Futuna": "WF",
-    "Panama": "PA",
-    "El Salvador": "SV",
-    "Svalbard and Jan Mayen": "SJ",
-    "Venezuela": "VE",
-    "Ecuador": "EC",
-    "Bolivia": "BO",
-    "Yemen": "YE",
-    "Azerbaijan": "AZ",
-    "Saint Eustatius and Saba": "SX",
-    "Saint Helena": "SH",
-    "Romania": "RO",
-    "Nepal": "NP",
-    "Albania": "AL",
-    "Lebanon": "LB",
-    "Costa Rica": "CR",
-    "Haiti": "HT",
-    "Ethiopia": "ET",
-    "Italy": "IT",
-    "Bhutan": "BT",
-    "Anguilla": "AI",
-    "Martinique": "MQ",
-    "Spain": "ES",
-    "Austria": "AT",
-    "Libya": "LY",
-    "Kazakhstan": "KZ",
-}
-COUNTRY_NAME_BY_CODE = {"US": US_STATE_NAMES}
-for _country, _iso_code in COUNTRY_CODE_MAP.items():
-    COUNTRY_NAME_BY_CODE.setdefault(_iso_code, _country)
+_cfg = load_dataset(__file__, "single_etl", UsgsEarthquakeEtlConfig)
+_us_suffixes = sorted((*_cfg.us_state_codes, *_cfg.us_state_full_names))
+_country_name_by_code = {"US": _cfg.us_state_names}
+for _country, _iso_code in _cfg.country_code_map.items():
+    _country_name_by_code.setdefault(_iso_code, _country)
 
 
 def _country_map() -> Column:
-    """Literal ``country name → ISO code`` map column built from :data:`COUNTRY_CODE_MAP`."""
-    return F.create_map(*[F.lit(item) for pair in COUNTRY_CODE_MAP.items() for item in pair])
+    """Literal ``country name → ISO code`` map column built from `_cfg.country_code_map`."""
+    return F.create_map(*[F.lit(item) for pair in _cfg.country_code_map.items() for item in pair])
 
 
 def _country_name_map() -> Column:
-    """Literal ``ISO code → country name`` map column built from :data:`COUNTRY_NAME_BY_CODE`."""
-    return F.create_map(*[F.lit(item) for pair in COUNTRY_NAME_BY_CODE.items() for item in pair])
+    """Literal ``ISO code → country name`` map column built from `_country_name_by_code`."""
+    return F.create_map(*[F.lit(item) for pair in _country_name_by_code.items() for item in pair])
 
 
 def _place_suffix() -> Column:
@@ -240,13 +61,13 @@ def _country_code(suffix: Column, geocode_country: Column) -> Column:
             download time.
 
     Returns:
-        ``US`` for a US state suffix, the :data:`COUNTRY_CODE_MAP` answer
+        ``US`` for a US state suffix, the `_cfg.country_code_map` answer
         for an international suffix, the stamped country when the
         suffix cannot answer, ``SingleEtlScript.UNKNOWN_CODE`` when nothing
         resolves.
     """
     return F.coalesce(
-        F.when(suffix.isin(US_SUFFIXES), F.lit("US")),
+        F.when(suffix.isin(_us_suffixes), F.lit("US")),
         _country_map()[suffix],
         F.when(geocode_country != "", geocode_country),
         F.lit(SingleEtlScript.UNKNOWN_CODE),
@@ -268,7 +89,7 @@ def _country_name(suffix: Column, geocode_country: Column) -> Column:
         country stays unknown.
     """
     known_name = F.coalesce(
-        F.when(suffix.isin(US_SUFFIXES), F.lit(US_STATE_NAMES)),
+        F.when(suffix.isin(_us_suffixes), F.lit(_cfg.us_state_names)),
         F.when(_country_map()[suffix].isNotNull(), suffix),
     )
     geocoded_name = F.when(
@@ -285,10 +106,10 @@ def _event_name(country: Column) -> Column:
         country: Column from :func:`_country_name`.
 
     Returns:
-        The prefixed country name, or :data:`EVENT_NAME_FALLBACK`.
+        The prefixed country name, or `_cfg.event_name_fallback`.
     """
-    named = F.when(country.isNotNull() & (country != ""), F.concat(F.lit(EVENT_NAME_PREFIX), country))
-    return F.coalesce(named, F.lit(EVENT_NAME_FALLBACK))
+    named = F.when(country.isNotNull() & (country != ""), F.concat(F.lit(_cfg.event_name_prefix), country))
+    return F.coalesce(named, F.lit(_cfg.event_name_fallback))
 
 
 def _state_province(geocode_state: Column) -> Column:
@@ -334,9 +155,9 @@ def _other_metrics() -> Column:
     return F.to_json(
         F.struct(
             depth.alias("depth"),
-            F.when(depth.isNotNull(), F.lit(UNIT_KM)).alias("depth_unit"),
+            F.when(depth.isNotNull(), F.lit(_cfg.unit_km)).alias("depth_unit"),
             nst.alias("nst"),
-            F.when(nst.isNotNull(), F.lit(UNIT_STATIONS)).alias("nst_unit"),
+            F.when(nst.isNotNull(), F.lit(_cfg.unit_stations)).alias("nst_unit"),
         )
     )
 
@@ -344,8 +165,8 @@ def _other_metrics() -> Column:
 class UsgsEarthquakeEtlScript(SingleEtlScript):
     """USGS earthquakes → ``geo.usgs_earthquake_etl`` (canonical event structure)."""
 
-    SOURCE_TABLE = "usgs_earthquake"
-    TARGET_TABLE = "usgs_earthquake_etl"
+    SOURCE_TABLE = _cfg.source_table
+    TARGET_TABLE = _cfg.target_table
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.usgs_earthquake`` columns onto the canonical ETL structure.
@@ -364,10 +185,10 @@ class UsgsEarthquakeEtlScript(SingleEtlScript):
         suffix = _place_suffix()
 
         return df.select(
-            F.lit(SOURCE_NAME).alias("source_name"),
+            F.lit(_cfg.source_name).alias("source_name"),
             F.col("net").alias("subsource_name"),
             _event_name(_country_name(suffix, F.col("geocode_country"))).alias("event_name"),
-            F.lit(EVENT_CATEGORY).alias("event_category"),
+            F.lit(_cfg.event_category).alias("event_category"),
             F.col("event_type").alias("event_subcategory"),
             _event_description().alias("event_description"),
             F.col("latitude"),
@@ -375,7 +196,7 @@ class UsgsEarthquakeEtlScript(SingleEtlScript):
             _country_code(suffix, F.col("geocode_country")).alias("country_code"),
             _state_province(F.col("geocode_state")).alias("state_province"),
             F.col("place").alias("place_location"),
-            F.lit(METRIC_NAME).alias("metric_name"),
+            F.lit(_cfg.metric_name).alias("metric_name"),
             F.coalesce(F.col("mag"), F.lit(0.0)).alias("metric_value"),
             F.col("mag_type").alias("metric_unit"),
             F.lit(None).cast("string").alias("danger_rating"),

@@ -1,12 +1,13 @@
 """Upload NIFC fire CSV files to Supabase."""
 
 from ingestion.upload.upload_script import UploadScript
-from model.raw import NifcFireRaw
+from model.config.datasets import UploadDatasetConfig, load_dataset
+
+_cfg = load_dataset(__file__, "upload", UploadDatasetConfig)
 
 
 class NifcFireUploadScript(UploadScript):
     """Upload NIFC fire CSV files to Supabase."""
 
-    TABLE_NAME = "nifc_fire_raw"
-    MODEL = NifcFireRaw
-    DATASET_FOLDER = "NIFC"
+    TABLE_NAME = _cfg.table_name
+    DATASET_FOLDER = _cfg.dataset_folder

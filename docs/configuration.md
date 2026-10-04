@@ -2,11 +2,11 @@
 
 # Configuration Reference
 
-Runtime settings live in two JSON files in the project root: `config.json` (Spark, database, logging and data paths) and `supabase_config.json` (Supabase credentials).
+Runtime settings live in two JSON files in the project root: `config.json` (Spark, database, logging, data paths and dataset constants) and `supabase_config.json` (Supabase credentials).
 
 ## Application Configuration
 
-All runtime settings are in `config.json`:
+The environment sections of `config.json`:
 
 ```json
 {
@@ -39,6 +39,58 @@ All runtime settings are in `config.json`:
 | `data.directory` | `"../GEO_Download/data"` | — | Relative path to CSV data source |
 
 The file is loaded through `AppConfig.from_json()` (`model/config/app_config.py`), which returns nested `SparkConfig`, `DatabaseConfig`, `LoggingConfig` and `DataConfig` objects.
+
+## Dataset Constants
+
+The `datasets` section of the same file holds every script's wiring and transformation constants, grouped by layer and keyed by the script's file stem (abridged — one entry per script in the real file):
+
+```json
+{
+  "datasets": {
+    "upload": {
+      "avalanche_org_upload": {
+        "table_name": "avalanche_org_raw",
+        "dataset_folder": "Avalanche_ORG"
+      }
+    },
+    "raw2plain": {
+      "avalanche_org_raw2plain": {
+        "raw_table": "avalanche_org_raw",
+        "plain_table": "avalanche_org"
+      }
+    },
+    "single_etl": {
+      "avalanche_org_etl": {
+        "source_table": "avalanche_org",
+        "target_table": "avalanche_org_etl",
+        "source_name": "AVALANCHE_ORG",
+        "country_code": "US",
+        "event_category": "avalanche",
+        "metric_name": "magnitude"
+      }
+    }
+  }
+}
+```
+
+| Section | Contains | Pydantic model |
+|---------|----------|----------------|
+| `datasets.upload.<script>` | raw table name, CSV folder | `UploadDatasetConfig` |
+| `datasets.raw2plain.<script>` | raw + plain table names | `Raw2PlainDatasetConfig` |
+| `datasets.single_etl.<script>` | plain/ETL tables, source name, category and country maps, metric labels, lookup tables | one `<Name>EtlConfig` per script |
+
+Each script loads its own entry at import time and uses the model's fields directly — there are no per-field aliases:
+
+```python
+_cfg = load_dataset(__file__, "single_etl", AvalancheOrgEtlConfig)
+
+
+def _event_category() -> Column:
+    known = F.create_map(*[F.lit(item) for pair in _cfg.category_map.items() for item in pair])
+    ...
+```
+
+`load_dataset()` (`model/config/datasets.py`) keys the entry by the caller's file stem and validates it against the model — models are frozen and reject unknown keys, so a typo in `config.json` fails when the script is imported. The two computed earthquake helpers (`_us_suffixes`, `_country_name_by_code`) are still derived in the script from the loaded lists and maps.
 
 ## Supabase Configuration
 

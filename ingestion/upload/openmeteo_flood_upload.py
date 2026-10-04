@@ -1,12 +1,13 @@
 """Upload OpenMeteo flood CSV files to Supabase."""
 
 from ingestion.upload.upload_script import UploadScript
-from model.raw import OpenMeteoFloodRaw
+from model.config.datasets import UploadDatasetConfig, load_dataset
+
+_cfg = load_dataset(__file__, "upload", UploadDatasetConfig)
 
 
 class OpenMeteoFloodUploadScript(UploadScript):
     """Upload OpenMeteo flood CSV files to Supabase."""
 
-    TABLE_NAME = "openmeteo_flood_raw"
-    MODEL = OpenMeteoFloodRaw
-    DATASET_FOLDER = "OpenMeteo_Flood"
+    TABLE_NAME = _cfg.table_name
+    DATASET_FOLDER = _cfg.dataset_folder

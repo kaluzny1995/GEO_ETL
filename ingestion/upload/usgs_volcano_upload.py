@@ -1,12 +1,13 @@
 """Upload USGS volcano CSV files to Supabase."""
 
 from ingestion.upload.upload_script import UploadScript
-from model.raw import UsgsVolcanoRaw
+from model.config.datasets import UploadDatasetConfig, load_dataset
+
+_cfg = load_dataset(__file__, "upload", UploadDatasetConfig)
 
 
 class UsgsVolcanoUploadScript(UploadScript):
     """Upload USGS volcano CSV files to Supabase."""
 
-    TABLE_NAME = "usgs_volcano_raw"
-    MODEL = UsgsVolcanoRaw
-    DATASET_FOLDER = "USGS_Volcano"
+    TABLE_NAME = _cfg.table_name
+    DATASET_FOLDER = _cfg.dataset_folder

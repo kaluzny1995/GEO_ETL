@@ -1,12 +1,13 @@
 """Upload USGS earthquake CSV files to Supabase."""
 
 from ingestion.upload.upload_script import UploadScript
-from model.raw import UsgsEarthquakeRaw
+from model.config.datasets import UploadDatasetConfig, load_dataset
+
+_cfg = load_dataset(__file__, "upload", UploadDatasetConfig)
 
 
 class UsgsEarthquakeUploadScript(UploadScript):
     """Upload USGS earthquake CSV files to Supabase."""
 
-    TABLE_NAME = "usgs_earthquake_raw"
-    MODEL = UsgsEarthquakeRaw
-    DATASET_FOLDER = "USGS_Earthquake"
+    TABLE_NAME = _cfg.table_name
+    DATASET_FOLDER = _cfg.dataset_folder

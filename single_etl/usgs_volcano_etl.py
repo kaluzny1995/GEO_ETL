@@ -24,27 +24,17 @@ detection are described in :func:`utils.etl_utils.run_etl`.
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
+from model.config.datasets import UsgsVolcanoEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_NAME = "USGS"
-EVENT_CATEGORY = "volcano"
-METRIC_NAME = "alert_level"
-COUNTRY_CODE = "US"
-EVENT_NAME_PREFIX = "Volcano - "
-EVENT_NAME_FALLBACK = "Volcano"
-ALERT_SCALE = {
-    "NORMAL": 0.0,
-    "ADVISORY": 1.0,
-    "WATCH": 2.0,
-    "WARNING": 3.0,
-}
+_cfg = load_dataset(__file__, "single_etl", UsgsVolcanoEtlConfig)
 
 
 def _event_name() -> Column:
     """``"Volcano - <volcano_name>"``; ``"Volcano"`` when the name is blank."""
     name = F.trim(F.col("volcano_name"))
-    named = F.when(name != "", F.concat(F.lit(EVENT_NAME_PREFIX), name))
-    return F.coalesce(named, F.lit(EVENT_NAME_FALLBACK))
+    named = F.when(name != "", F.concat(F.lit(_cfg.event_name_prefix), name))
+    return F.coalesce(named, F.lit(_cfg.event_name_fallback))
 
 
 def _event_subcategory() -> Column:
@@ -86,7 +76,7 @@ def _metric_value() -> Column:
         ``WARNING`` → ``3.0`` (case-insensitive); ``NULL`` for a blank or
         unrecognised level — an unknown level must not read as ``NORMAL``.
     """
-    scale = F.create_map(*[F.lit(item) for pair in ALERT_SCALE.items() for item in pair])
+    scale = F.create_map(*[F.lit(item) for pair in _cfg.alert_scale.items() for item in pair])
     return scale[F.upper(F.trim(F.coalesce(F.col("alert_level"), F.lit(""))))]
 
 
@@ -121,8 +111,8 @@ def _description(synopsis: Column) -> Column:
 class UsgsVolcanoEtlScript(SingleEtlScript):
     """USGS volcanic activity notices → ``geo.usgs_volcano_etl`` (canonical event structure)."""
 
-    SOURCE_TABLE = "usgs_volcano"
-    TARGET_TABLE = "usgs_volcano_etl"
+    SOURCE_TABLE = _cfg.source_table
+    TARGET_TABLE = _cfg.target_table
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.usgs_volcano`` columns onto the canonical ETL structure.
@@ -140,18 +130,18 @@ class UsgsVolcanoEtlScript(SingleEtlScript):
             The DataFrame in :attr:`TARGET_TABLE` column order.
         """
         return df.select(
-            F.lit(SOURCE_NAME).alias("source_name"),
+            F.lit(_cfg.source_name).alias("source_name"),
             F.col("observatory_name").alias("subsource_name"),
             _event_name().alias("event_name"),
-            F.lit(EVENT_CATEGORY).alias("event_category"),
+            F.lit(_cfg.event_category).alias("event_category"),
             _event_subcategory().alias("event_subcategory"),
             _description(F.col("synopsis")).alias("event_description"),
             F.col("latitude"),
             F.col("longitude"),
-            F.lit(COUNTRY_CODE).alias("country_code"),
+            F.lit(_cfg.country_code).alias("country_code"),
             _state_province(F.col("geocode_state")).alias("state_province"),
             _place_location(F.col("region")).alias("place_location"),
-            F.lit(METRIC_NAME).alias("metric_name"),
+            F.lit(_cfg.metric_name).alias("metric_name"),
             _metric_value().alias("metric_value"),
             F.lit(None).cast("string").alias("metric_unit"),
             F.col("alert_level").alias("danger_rating"),

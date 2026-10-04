@@ -40,7 +40,7 @@ Current state: `ruff check .` → **0 findings**.
 
 ### Format
 
-`ruff format .` has been applied repo-wide: **210 files already formatted** (194 Python files + `README.md` + 15 files under `docs/`).
+`ruff format .` has been applied repo-wide: **212 files already formatted** (196 Python files + `README.md` + 15 files under `docs/`).
 
 > `ruff format` also walks `README.md` and `docs/*.md`, but only rewrites code inside fenced blocks tagged `python` — prose, tables and `bash`/`json`/`text` blocks are left untouched. `ruff check` (lint) only looks at `.py` files.
 
@@ -51,7 +51,7 @@ mypy                 # targets come from [tool.mypy] files in pyproject.toml
 tox -e typecheck     # same, in an isolated environment
 ```
 
-Checked packages: `model`, `utils`, `factory`, `jobs`, `ingestion` (`upload/` + `raw2plain/`), `single_etl` and the six `run_*.py` entry points — **99 source files**, tests excluded.
+Checked packages: `model`, `utils`, `factory`, `jobs`, `ingestion` (`upload/` + `raw2plain/`), `single_etl` and the six `run_*.py` entry points — **100 source files**, tests excluded.
 
 `pyspark`, `findspark` and `py4j` ship no type stubs, so they are listed under `[[tool.mypy.overrides]]` with `ignore_missing_imports = true`.
 
@@ -65,10 +65,10 @@ Current state: `mypy` → **0 errors**.
 |---------|-----------|--------|
 | `tox` | default gate = `lint` + `py311` | ✅ |
 | `tox -e lint` | `ruff check --output-format=concise .` | ✅ 0 findings |
-| `tox -e py311` | full pytest suite (1146 tests) | ✅ |
-| `tox -e format` | `ruff format --check .` | ✅ 210 files already formatted |
+| `tox -e py311` | full pytest suite (1156 tests) | ✅ |
+| `tox -e format` | `ruff format --check .` | ✅ 212 files already formatted |
 | `tox -e format-fix` | `ruff format .` — writes the changes | – |
-| `tox -e typecheck` | `mypy` (99 files) | ✅ 0 errors |
+| `tox -e typecheck` | `mypy` (100 files) | ✅ 0 errors |
 | `tox -e warnings` | `pytest -W error::DeprecationWarning` | ✅ |
 | `tox -e lint,py311,typecheck` | any list of environments in one invocation | – |
 

@@ -21,14 +21,10 @@ detection are described in :func:`utils.etl_utils.run_etl`.
 from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
+from model.config.datasets import EonetEventEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_NAME = "EONET"
-CATEGORY_MAP = {
-    "severeStorms": "storm",
-    "wildfires": "fire",
-    "seaLakeIce": "iceberg",
-}
+_cfg = load_dataset(__file__, "single_etl", EonetEventEtlConfig)
 
 
 def _state_from_description() -> Column:
@@ -73,8 +69,8 @@ def _state_province(description_state: Column, geocode_state: Column) -> Column:
 
 
 def _event_category() -> Column:
-    """``event_category`` from ``category_id`` (``CATEGORY_MAP``), snake_cased otherwise."""
-    known = F.create_map(*[F.lit(item) for pair in CATEGORY_MAP.items() for item in pair])
+    """``event_category`` from ``category_id`` (``_cfg.category_map``), snake_cased otherwise."""
+    known = F.create_map(*[F.lit(item) for pair in _cfg.category_map.items() for item in pair])
     snake_cased = F.lower(F.regexp_replace(F.col("category_id"), r"([a-z0-9])([A-Z])", "$1_$2"))
     return F.coalesce(known[F.col("category_id")], snake_cased)
 
@@ -155,8 +151,8 @@ def _other_metrics() -> Column:
 class EonetEventEtlScript(SingleEtlScript):
     """NASA EONET → ``geo.eonet_event_etl`` (canonical event structure)."""
 
-    SOURCE_TABLE = "eonet_event"
-    TARGET_TABLE = "eonet_event_etl"
+    SOURCE_TABLE = _cfg.source_table
+    TARGET_TABLE = _cfg.target_table
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.eonet_event`` columns onto the canonical ETL structure.
@@ -177,7 +173,7 @@ class EonetEventEtlScript(SingleEtlScript):
         category = _event_category()
 
         return df.select(
-            F.lit(SOURCE_NAME).alias("source_name"),
+            F.lit(_cfg.source_name).alias("source_name"),
             F.col("source_id").alias("subsource_name"),
             F.col("event_name"),
             category.alias("event_category"),
