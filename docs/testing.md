@@ -20,6 +20,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/factory/test_job_factory.py` | JobFactory (register, create, clear) |
 | `test/factory/test_factory_init.py` | Unknown-attribute access raises AttributeError |
 | `test/factory/test_script_factories.py` | UploadScriptFactory, Raw2PlainScriptFactory, SingleEtlFactory parametrized (register, get, tables/scripts, clear) |
+| `test/factory/test_table_factory.py` | TableFactory registry mechanics (register/get, unknown table raises `ValueError`, clear + restore, overwrite, `tables()` listing) |
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
 | `test/jobs/test_data_quality.py` | DATA_QUALITY job (HISTORICAL + INCREMENTAL load types, stale-metric purge, replace, no-new-data, logging, unknown table) |
 | `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logger passing, logging) |

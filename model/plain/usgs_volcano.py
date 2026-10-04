@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class UsgsVolcano(BaseModel):
-    """Typed USGS volcanic activity data (int, timestamp)."""
+    """Typed USGS volcanic activity data (int, float, datetime)."""
 
     model_config = ConfigDict(json_schema_extra={})
 

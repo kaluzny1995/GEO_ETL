@@ -14,7 +14,7 @@ python run_etl.py DATA_QUALITY avalanche_org
 python run_etl.py DATA_QUALITY avalanche_org --overall
 ```
 
-> **Note:** `CREATE` and `INGESTION` append `_raw` internally for their own lookups; `DATA_QUALITY` does not — pass the plain table name.
+> **Note:** `INGESTION` appends `_raw` internally for its own lookups, `CREATE` takes the exact table name it is given, and `DATA_QUALITY` adds nothing — pass the plain table name.
 
 ## How it works
 
@@ -94,7 +94,9 @@ DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org' AND file_date = 
 - The `file_date_iso` rule does not apply here — the grouping key is the sentinel, not a date — so it is left out of the metric set and `bad_row_pct` is not inflated. `null_pct__file_date` is `0` by construction, and `distinct__file_date` is never emitted because `file_date` is the grouping key.
 - The stored-date probe ignores `overall` rows (they are not dates), so a table holding only a snapshot still measures as `HISTORICAL` on its first normal run.
 
-## Expected output
+## Expected log file content
+
+Written to `logs/data_quality/data_quality_<table>_<timestamp>.log` (the job's logger writes only to the file — `run_etl.py` prints nothing):
 
 First run (every `file_date`):
 

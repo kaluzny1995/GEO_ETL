@@ -75,7 +75,9 @@ cd ../GEO_ETL
 # 3. Verify cluster connectivity
 python run_pyspark_csv_test.py
 
-# 4. Create tables, ingest a data source and measure its quality
+# 4. Create the raw + plain tables, ingest a data source and measure its quality
+#    (one CREATE per table: <table>_raw and <table>)
+python run_etl.py CREATE avalanche_org_raw
 python run_etl.py CREATE avalanche_org
 python run_etl.py INGESTION avalanche_org
 python run_etl.py DATA_QUALITY avalanche_org

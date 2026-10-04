@@ -14,8 +14,10 @@ flowchart TD
     SCHEMA --> DDL
     DDL --> EXEC["execute_ddl over JDBC"]
     CFG --> EXEC
-    EXEC --> DB[("geo.avalanche_org_raw<br/>geo.avalanche_org")]
+    EXEC --> DB[("geo.avalanche_org")]
 ```
+
+One run creates **one** table: `jobs/create_table.py` builds a single `CREATE TABLE` statement for the exact `table_name` it is given. The raw (`geo.avalanche_org_raw`) and the plain (`geo.avalanche_org`) tables are therefore created by two separate `CREATE` runs.
 
 How the data flows:
 
@@ -28,11 +30,13 @@ How the data flows:
 
 Spark schemas are derived from the same models via `utils/schema_converter.py` (Pydantic → `StructType`), so DDL, Spark schema and validation always agree.
 
+Log lines written to `logs/create/create_<table_name>_<timestamp>.log` (logger output — nothing is printed to the terminal):
+
 ```
 INFO Creating schema 'geo' if not exists...
 INFO Schema 'geo' ready
-INFO Generated DDL for geo.avalanche_org_raw
+INFO Generated DDL for geo.avalanche_org
 INFO Executing DDL against Supabase...
-INFO Table geo.avalanche_org_raw created.
+INFO Table geo.avalanche_org created.
 ```
 

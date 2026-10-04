@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 
 class UsgsNwis(BaseModel):
-    """Typed USGS NWIS stream gauge data (date, float, double)."""
+    """Typed USGS NWIS stream gauge data (date, float)."""
 
     model_config = ConfigDict(json_schema_extra={})
 

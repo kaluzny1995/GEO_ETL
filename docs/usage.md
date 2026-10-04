@@ -29,27 +29,31 @@ conda activate geo_etl_311
 python run_pyspark_csv_test.py
 ```
 
-Expected output:
+Expected log file content (`logs/pyspark_csv_test/pyspark_csv_test_<timestamp>.log` — `setup_logger` writes only to the file, nothing goes to the terminal):
 
 ```
 Connected to: spark://localhost:7078
 Spark version: 3.5.5
 Data path:     /path/to/GEO_Download/data
 
-  Avalanche_ORG                  -> 19 CSV file(s)
-  EONET                          -> 18 CSV file(s)
-  GDACS                          -> 19 CSV file(s)
+  Avalanche_ORG                  -> 33 CSV file(s)
+  EONET                          -> 32 CSV file(s)
+  GDACS                          -> 33 CSV file(s)
   ...
 ```
 
+The CSV counts are illustrative — they grow with every [GEO_Download](../../GEO_Download) run.
+
 ## Create tables and run ingestion
 
-The `run_etl.py` CLI creates tables in Supabase by generating DDL from Pydantic models:
+The `run_etl.py` CLI creates tables in Supabase by generating DDL from Pydantic models — one `CREATE` run creates exactly one table, so the raw and the plain table need their own run:
 
 ```bash
 conda activate geo_etl_311
 
-# Create raw + plain tables for a data source
+# Create the tables for a data source — one CREATE per table:
+# raw (all-TEXT) and plain (typed)
+python run_etl.py CREATE avalanche_org_raw
 python run_etl.py CREATE avalanche_org
 
 # Run full ingestion pipeline (upload CSVs → raw table → typed plain table)
@@ -85,7 +89,18 @@ GEO_ETL makes no reverse-geocoding API calls: the lookup and the fetching live i
 **All registered tables:**
 
 ```bash
-# Create tables
+# Create the raw tables (all TEXT) — one CREATE per table
+python run_etl.py CREATE avalanche_org_raw
+python run_etl.py CREATE eonet_event_raw
+python run_etl.py CREATE gdacs_event_raw
+python run_etl.py CREATE ibtracs_cyclone_raw
+python run_etl.py CREATE nifc_fire_raw
+python run_etl.py CREATE openmeteo_flood_raw
+python run_etl.py CREATE usgs_earthquake_raw
+python run_etl.py CREATE usgs_nwis_raw
+python run_etl.py CREATE usgs_volcano_raw
+
+# Create the plain tables (typed) — again one CREATE per table
 python run_etl.py CREATE avalanche_org
 python run_etl.py CREATE eonet_event
 python run_etl.py CREATE gdacs_event
@@ -119,13 +134,13 @@ python run_etl.py INGESTION usgs_nwis
 python run_etl.py INGESTION usgs_volcano
 ```
 
-> **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org`, not `avalanche_org_raw`.
+> **Note:** `CREATE` takes the exact table name — one run creates one table, so raw and plain tables need their own `CREATE`. Only `INGESTION` appends the `_raw` suffix itself: pass `avalanche_org`, not `avalanche_org_raw`.
 
 **How it works:**
 
 1. Reads config from `config.json` (Spark master, DB schema, JDBC driver) and `supabase_config.json` (credentials)
 2. Connects to the Spark cluster
-3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model, executes it against Supabase
+3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model for the **exact** table name passed on the command line, executes it against Supabase — one table per run
 4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories — **exits with code 1 when nothing was ingested** (no CSV newer than the raw table's max `file_date` and no raw row newer than the plain table's)
 5. For `DATA_QUALITY`: measures only the selected `file_date`s of the plain table and replaces those rows in `geo.data_quality`
 6. For `SINGLE_ETL`: resolves the script name (`single_etl/<name>.py`) via `SingleEtlFactory` and runs it with the selected load type
@@ -157,7 +172,7 @@ The first run measures every `file_date` (`HISTORICAL`); later runs measure only
 
 Add `--overall` to measure the entire table as a single snapshot stored under `file_date = 'overall'` instead — it replaces a previously stored snapshot on every run and never touches the per-`file_date` rows — see [Overall mode](etl_jobs/data-quality.md#overall-mode).
 
-Expected output:
+Expected log file content (`logs/data_quality/data_quality_avalanche_org_<timestamp>.log` — the job's logger writes only to the file):
 
 ```
 INFO Creating table 'geo.data_quality' if not exists...
@@ -178,13 +193,13 @@ conda activate geo_etl_311
 python run_pyspark_supabase_test.py
 ```
 
-Expected output:
+Expected output — the `Connected to:` … `JDBC URL:` header and `Done.` go to the log file (`logs/pyspark_supabase_test/pyspark_supabase_test_<timestamp>.log`), the table itself is printed to stdout by `.show()`:
 
 ```
 Connected to:   spark://localhost:7078
 Spark version:  3.5.5
 Supabase host:  aws-1-eu-west-1.pooler.supabase.com
-JDBC URL:       jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postgres
+JDBC URL:       jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:6543/postgres
 
 +------------------+------+
 |schema            |tables|
@@ -210,7 +225,7 @@ conda activate geo_etl_311
 python run_drop_table.py <table_name>
 ```
 
-Expected output:
+Expected log file content (`logs/drop_table/drop_table_<table_name>_<timestamp>.log`):
 
 ```
 Table geo.<table_name> dropped.
@@ -225,7 +240,7 @@ conda activate geo_etl_311
 python run_drop_schema.py <schema_name>
 ```
 
-Expected output (empty schema):
+Expected log file content (`logs/drop_schema/drop_schema_<schema_name>_<timestamp>.log`, empty schema):
 
 ```
 Schema '<schema_name>' dropped.
@@ -256,7 +271,7 @@ for t in avalanche_org eonet_event gdacs_event ibtracs_cyclone nifc_fire openmet
 done
 ```
 
-> **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org`, not `avalanche_org_raw`.
+> **Note:** Both forms are accepted — the script appends the `_raw` suffix itself when you pass the plain name, so `avalanche_org` and `avalanche_org_raw` do the same thing.
 
 The script derives the plain table name automatically by stripping the `_raw` suffix (e.g. `avalanche_org_raw` → `avalanche_org`).
 
@@ -264,7 +279,7 @@ With the `_etl` suffix the script targets the ETL table only: it reads that tabl
 
 The `data_quality` table is rejected with a `ValueError` (in any suffix form) — its rows are per-table metric snapshots, not daily source data. Delete metric rows with SQL against `geo.data_quality`, or let the [DATA_QUALITY job](etl_jobs/data-quality.md) purge stale dates automatically.
 
-Expected output:
+Expected log file content (`logs/delete_last_filedate/delete_last_filedate_<table>_<timestamp>.log`):
 
 ```
 Latest file_date: 2026-09-22

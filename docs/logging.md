@@ -6,54 +6,71 @@ Every script writes structured log files to `logs/`, organized by job type. The 
 
 When called via the INGESTION job, `upload()` and `raw2plain()` receive the ingestion logger, so all logs are consolidated into a single ingestion log file. When called standalone, they create their own separate log files.
 
-**Spark internal logs** (Log4j output from the Spark driver) are captured via a file-descriptor redirect before the JVM starts and appended to the same log file with a `[spark]` prefix after the job completes. This means every `.log` file contains both our application messages and Spark's internal diagnostics in one place.
+**Spark internal logs** (Log4j output from the Spark driver) are captured via a file-descriptor redirect before the JVM starts and merged into the same log file with a `[spark]` prefix when the job completes. This means every `.log` file contains both our application messages and Spark's internal diagnostics in one place.
 
 ## Log structure
 
 ```
 logs/
 ├── ingestion/
-│   └── ingestion_avalanche_org_2026-09-21T10:42:00.777888.log
-├── create_table/
-│   └── create_table_avalanche_org_raw_2026-09-21T10:30:00.123456.log
+│   └── ingestion_avalanche_org_2026-10-03T22:31:51.141617.log
+├── create/
+│   └── create_avalanche_org_raw_2026-10-03T22:31:01.313539.log
+├── single_etl/
+│   └── single_etl_avalanche_org_etl_2026-10-04T21:09:27.962397.log
 ├── data_quality/
-│   └── data_quality_avalanche_org_2026-09-21T10:32:00.654321.log
+│   └── data_quality_avalanche_org_2026-09-27T17:50:36.838342.log
 ├── drop_table/
-│   └── drop_table_avalanche_org_raw_2026-09-21T10:35:00.654321.log
+│   └── drop_table_avalanche_org_2026-10-03T22:30:44.744051.log
 ├── drop_schema/
-│   └── drop_schema_geo_2026-09-21T10:40:00.111222.log
+│   └── drop_schema_geo_<timestamp>.log
 ├── delete_last_filedate/
-│   └── delete_last_filedate_avalanche_org_raw_2026-09-21T10:42:00.777888.log
+│   └── delete_last_filedate_avalanche_org_raw_<timestamp>.log
+├── memory/
+│   └── stage_memory_<timestamp>.log            # transient — merged into the job log, then deleted
 ├── upload/                          # standalone only
-│   └── upload_avalanche_org_raw_2026-09-21T10:42:00.777888.log
+│   └── upload_avalanche_org_raw_<timestamp>.log
 ├── raw2plain/                       # standalone only
-│   └── raw2plain_avalanche_org_2026-09-21T10:45:00.333444.log
+│   └── raw2plain_avalanche_org_<timestamp>.log
 ├── pyspark_csv_test/
-│   └── pyspark_csv_test_2026-09-21T10:45:00.333444.log
+│   └── pyspark_csv_test_<timestamp>.log
 └── pyspark_supabase_test/
-    └── pyspark_supabase_test_2026-09-21T10:50:00.555666.log
+    └── pyspark_supabase_test_<timestamp>.log
 ```
+
+Directory names come from the job name (`run_etl.py` lowercases the `JobType` value), so the `CREATE` job writes to `logs/create/` with the file pattern `create_<table>_<timestamp>.log` — one file per run, named after the exact table passed on the command line (`create_avalanche_org_raw_…`, `create_avalanche_org_…`, `create_avalanche_org_etl_…`). An empty `logs/create_table/` directory may exist from an earlier naming scheme; nothing writes to it any more.
 
 ## Log format
 
+After a `run_etl.py` job finishes, `_merge_logs_by_timestamp` (`run_etl.py`) rewrites the file so the Python lines, the captured Spark stderr lines and the stage memory lines sit together. A real `logs/create/create_…log` looks like this:
+
 ```
-2026-09-24 22:05:45,466 INFO ---- ETL job started: create avalanche_org_raw ----
-2026-09-24 22:05:48,472 INFO Connected to Spark: spark://localhost:7078
-2026-09-24 22:05:48,473 INFO Spark version: 3.5.5
-2026-09-24 22:05:48,473 INFO Creating schema 'geo' if not exists...
-2026-09-24 22:05:50,222 INFO ---- Spark internal logs ----
-2026-09-24 22:05:50,222 INFO [spark] 26/09/24 22:05:46 WARN Utils: Your hostname ... resolves to a loopback address
-2026-09-24 22:05:50,222 INFO [spark] Setting default log level to "WARN".
-2026-09-24 22:05:50,222 INFO [spark] 26/09/24 22:05:47 WARN NativeCodeLoader: Unable to load native-hadoop library
-2026-09-24 22:05:50,400 INFO Schema 'geo' ready
-2026-09-24 22:05:50,400 INFO Generated DDL for geo.avalanche_org_raw
-2026-09-24 22:05:50,401 INFO Executing DDL against Supabase...
-2026-09-24 22:05:50,500 INFO DDL executed successfully
-2026-09-24 22:05:50,500 INFO Table geo.avalanche_org_raw created.
-2026-09-24 22:05:50,600 INFO Spark session stopped
+[spark] 26/10/04 03:18:38 WARN Utils: Your hostname ... resolves to a loopback address ... ; using 192.168.0.174 instead
+[spark] 26/10/04 03:18:38 WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
+[spark] Setting default log level to "WARN".
+[spark] 26/10/04 03:18:38 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+2026-10-04 03:18:37,482 INFO ---- ETL job started: create avalanche_org_raw ----
+
+2026-10-04 03:18:40,267 INFO Connected to Spark: spark://localhost:7078
+
+2026-10-04 03:18:40,268 INFO Spark version: 3.5.5
+
+2026-10-04 03:18:40,268 INFO Creating schema 'geo' if not exists...
+
+2026-10-04 03:18:41,184 INFO Schema 'geo' ready
+
+2026-10-04 03:18:41,185 INFO Generated DDL for geo.avalanche_org_raw
+
+2026-10-04 03:18:41,185 INFO Executing DDL against Supabase...
+
+2026-10-04 03:18:41,596 INFO DDL executed successfully
+
+2026-10-04 03:18:41,596 INFO Table geo.avalanche_org_raw created.
+
+2026-10-04 03:18:42,028 INFO Spark session stopped
 ```
 
-Lines prefixed with `[spark]` are Spark-internal Log4j output. All other lines are from our Python application code.
+Python lines carry the usual `%(asctime)s %(levelname)s %(message)s` prefix (`2026-10-04 03:18:41,596 INFO …`) and are separated by a blank line — the merge rewrites every original line together with its newline. `[spark]` lines are raw Log4j output from Spark's stderr with no Python timestamp or level: their Log4j timestamps (`26/10/04 …`) do not match the `YYYY-MM-DD HH:MM:SS` key the merge sorts on, so they sort to the top of the file. Stage memory lines (see below) use `YYYY-MM-DD HH:MM:SS` and interleave with the Python lines in chronological order.
 
 ## Logger usage in code
 
@@ -112,14 +129,14 @@ usage, Spark execution/storage memory, spill metrics, and GC time.
 | `utils/spark_listener/ListenerHelper.java` | Java bridge source — allows Py4J to register the listener | Yes |
 | `utils/spark_listener/StageMemoryListener.class` | Compiled bytecode | Yes |
 | `utils/spark_listener/ListenerHelper.class` | Compiled bytecode | Yes |
-| `utils/spark_listener/spark-monitor.jar` | Packaged JAR installed into PySpark's `jars/` directory | No (`*.jar` in `.gitignore`) |
+| `utils/spark_listener/spark-monitor.jar` | Packaged JAR installed into PySpark's `jars/` directory | Yes |
 | `utils/spark_monitor.py` | Python wrapper — `register_memory_logger()` | Yes |
 
-The `.java` source and `.class` bytecode are committed.  The `.jar` is excluded by `.gitignore` (`*.jar`) because the same rule also excludes the large third-party JARs in `spark_cluster_image/jars/` (267 MB total).  End users build the `.jar` from source as a one-time setup step (see below) — JDK 11+ with `javac` and `jar` is required only for this step.
+The `.java` source, the `.class` bytecode and the `.jar` are all committed.  The only JAR-related `.gitignore` rule is `/spark_cluster_image/jars/`, which keeps the large third-party JARs (~270 MB total: `hadoop-aws`, `aws-java-sdk-bundle`, `postgresql`) out of the repository — there is no `*.jar` rule.  Rebuild the `.jar` only when the Java source changes (or if the file is missing); JDK 11+ with `javac` and `jar` is required for that step.
 
 ### How to build the .jar from source
 
-The `.jar` is excluded from the repository (by the `*.jar` gitignore rule).  To build it, you need JDK 11+ with `javac` and `jar`.  This is a one-time step (or when Java source changes):
+The `.jar` is committed, so this step is only needed after changing the Java sources or if `utils/spark_listener/spark-monitor.jar` is missing.  To build it, you need JDK 11+ with `javac` and `jar` (a one-time step, or when Java source changes):
 
 ```bash
 conda activate geo_etl_311
@@ -152,7 +169,7 @@ rm -rf sparkmonitor/
 
 ### Deploying to a new environment
 
-When setting up the project on a new machine, first build the `.jar` from source (see above), then:
+When setting up the project on a new machine, use the committed `.jar` (rebuild from source only if the Java sources changed — see above), then:
 
 **1. Rebuild the Spark Docker image** (includes `spark-monitor.jar` for workers):
 
@@ -161,7 +178,7 @@ cd spark_cluster_image
 docker build -t geo_spark_custom .
 ```
 
-Then update the Docker Compose in [GEO_E2E](../../GEO_E2E) to use `geo_spark_custom` as the image for master and workers, and restart the cluster.
+GEO_E2E's `docker-compose.yaml` builds this image directly from `spark_cluster_image/` (`build: ../GEO_ETL/spark_cluster_image` for master and both workers), so run `docker compose build` in [GEO_E2E](../../GEO_E2E) and recreate the cluster instead of pointing the compose file at the `geo_spark_custom` tag.
 
 **2. Copy the JAR to the host-side PySpark** (driver runs on the host, not in Docker):
 

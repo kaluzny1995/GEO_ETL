@@ -186,7 +186,7 @@ The jurisdiction's full name ships with every source row — GEO_Download resolv
 | `other_metrics` | `NULL` — the daily mean is the single measurement (the lead time `date - file_date` is derivable) |
 | `file_date` | `file_date` |
 
-Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so no deduplication is needed. The country map runs in-script; the country fallback and the subdivision come from the `geocode_country` / `geocode_state` columns GEO_Download stamps into every downloaded file at download time, so this ETL performs no lookup and needs no network.
+Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days — the current CSVs hold exactly that: 111 rivers, two `date` values each, out of the candidates listed in `rivers.json`; only rivers that returned discharge data are written), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so no deduplication is needed. The country map runs in-script; the country fallback and the subdivision come from the `geocode_country` / `geocode_state` columns GEO_Download stamps into every downloaded file at download time, so this ETL performs no lookup and needs no network.
 
 ## usgs_earthquake_etl
 

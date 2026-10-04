@@ -4,7 +4,7 @@
 
 Every run of the [`DATA_QUALITY` job](etl_jobs/data-quality.md) stores one row per `(table_name, file_date, metric)` in `geo.data_quality`. This page documents what the metrics mean, which rules are applied and how to query the results with plain SQL.
 
-The job itself — CLI, flow diagram, [load type detection](etl_jobs/load-types.md#data_quality), [`--overall` mode](etl_jobs/data-quality.md#overall-mode) and expected output — is documented under [ETL jobs](etl-jobs.md).
+The job itself — CLI, flow diagram, [load type detection](etl_jobs/load-types.md#data_quality), [`--overall` mode](etl_jobs/data-quality.md#overall-mode) and expected log file content — is documented under [ETL jobs](etl-jobs.md).
 
 ## Metric families
 

@@ -8,6 +8,8 @@ The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` re
 GEO_ETL/
 ├── config.json                       # App config (Spark, database, logging, data paths, dataset constants)
 ├── environment.yml                   # Conda environment definition
+├── pyproject.toml                    # Ruff, pytest, mypy and coverage configuration
+├── tox.ini                           # Tox environments (lint, format, typecheck, py311, warnings)
 ├── supabase_config.json              # Supabase credentials (not in git)
 ├── run_etl.py                        # Main CLI entry point for ETL jobs
 ├── run_drop_table.py                 # Drop a table from Supabase
@@ -106,8 +108,8 @@ GEO_ETL/
 │       ├── nifc_fire.py              # NifcFire — typed model (float, str, datetime)
 │       ├── openmeteo_flood.py        # OpenMeteoFlood — typed model (float, date)
 │       ├── usgs_earthquake.py        # UsgsEarthquake — typed model (float, int, datetime)
-│       ├── usgs_nwis.py              # UsgsNwis — typed model (date, float, double)
-│       └── usgs_volcano.py           # UsgsVolcano — typed model (int, timestamp)
+│       ├── usgs_nwis.py              # UsgsNwis — typed model (date, float)
+│       └── usgs_volcano.py           # UsgsVolcano — typed model (int, float, datetime)
 │   └── other/
 │       └── data_quality.py           # DataQuality — metric row (str, float, datetime)
 │
@@ -124,14 +126,15 @@ GEO_ETL/
 │   │   ├── StageMemoryListener.java  # Logs JVM + Spark memory on stage completion
 │   │   ├── StageMemoryListener.class
 │   │   ├── ListenerHelper.java       # Py4J bridge for listener registration
-│   │   └── ListenerHelper.class
+│   │   ├── ListenerHelper.class
+│   │   └── spark-monitor.jar         # Packaged JAR (committed), installed into PySpark's jars/
 │   └── upload_utils.py               # Shared upload logic (DRY: parse_file_date, get_max_file_date, upload template)
 │
 ├── docs/                             # Documentation (this file included)
 │
 ├── logs/                             # Runtime log output (gitignored)
 │   ├── ingestion/                    # INGESTION job logs
-│   ├── create_table/                 # CREATE TABLE job logs
+│   ├── create/                       # CREATE TABLE job logs
 │   ├── data_quality/                 # DATA_QUALITY job logs
 │   ├── drop_table/                   # Drop table job logs
 │   ├── drop_schema/                  # Drop schema job logs
@@ -148,10 +151,11 @@ GEO_ETL/
 │   └── jars/
 │       ├── hadoop-aws-3.3.4.jar
 │       ├── aws-java-sdk-bundle-1.12.262.jar
-│       └── postgresql-42.7.4.jar
+│       ├── postgresql-42.7.4.jar
+│       └── spark-monitor.jar         # Stage memory SparkListener (copied from utils/spark_listener/)
 │
 └── test/                             # Unit tests (pytest)
-    ├── conftest.py                   # Shared test fixtures (mock_F, mock_app_config, mock_db_config, mock_spark, spark_session)
+    ├── conftest.py                   # Shared test helpers (mock_F_upload, mock_F_raw2plain, mock_app_config_upload, mock_app_config_raw2plain, mock_db_config, mock_spark_upload, mock_spark_raw2plain) + the spark_session fixture
     ├── factory/
     │   ├── test_factory_init.py      # TableFactory registration mechanics
     │   ├── test_job_factory.py

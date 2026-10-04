@@ -12,13 +12,34 @@
 - [SINGLE_ETL job](etl_jobs/single-etl.md) — maps a source table onto the canonical `*_etl` structure.
 - [Load type detection](etl_jobs/load-types.md) — how every pipeline picks HISTORICAL/INCREMENTAL and behaves when there is nothing to do.
 
+## CLI synopsis
+
+```bash
+python run_etl.py <job> <table_name> [--overall] [--load-type {auto,historical,incremental}]
+```
+
+| Argument | Required | Valid for | Description |
+|----------|----------|-----------|-------------|
+| `job` | yes | every job | Positional. One of `CREATE`, `INGESTION`, `DATA_QUALITY`, `SINGLE_ETL` — case-insensitive (`create` is accepted, the value is upper-cased before lookup). See [Jobs](#jobs). |
+| `table_name` | yes | every job | Positional. For [`CREATE`](etl_jobs/create-table.md) it is the **exact** table to create (`avalanche_org_raw` / `avalanche_org` / `avalanche_org_etl` — one table per run). For [`INGESTION`](etl_jobs/ingestion.md) GEO_ETL appends `_raw` itself, so pass `avalanche_org`. [`DATA_QUALITY`](etl_jobs/data-quality.md) takes the plain table name (`DATA_QUALITY` adds nothing). [`SINGLE_ETL`](etl_jobs/single-etl.md) takes the script name from `single_etl/` (e.g. `avalanche_org_etl`). |
+| `--overall` | no | `DATA_QUALITY` only | Measure the whole table as one snapshot stored under `file_date = 'overall'` — see [Overall mode](etl_jobs/data-quality.md#overall-mode). Passing it with any other job aborts with `parser.error` (`--overall can only be used with the DATA_QUALITY job`). |
+| `--load-type {auto,historical,incremental}` | no (default `auto`) | `SINGLE_ETL` only | Force the load type instead of auto-detecting it — see [Load type detection](etl_jobs/load-types.md#single_etl). Forcing `historical` or `incremental` on any other job aborts with `parser.error` (`--load-type can only be used with the SINGLE_ETL job`). |
+
+```bash
+python run_etl.py create avalanche_org_raw          # job name is case-insensitive
+python run_etl.py INGESTION avalanche_org           # _raw appended for you
+python run_etl.py DATA_QUALITY avalanche_org --overall
+python run_etl.py SINGLE_ETL avalanche_org_etl --load-type historical
+python run_etl.py DATA_QUALITY avalanche_org --load-type historical   # → parser.error
+```
+
 ## Job registry and dispatch
 
 `JobFactory` (`factory/job_factory.py`) maps a job type from the `JobType` enum (`model/enums.py`) to its module in `jobs/`:
 
 | Job Type | Module | What it does |
 |----------|--------|--------------|
-| `CREATE` | `jobs/create_table.py` | Creates the schema and the tables from Pydantic DDL |
+| `CREATE` | `jobs/create_table.py` | Creates the schema and one table from its Pydantic DDL |
 | `INGESTION` | `jobs/ingestion.py` | Upload CSVs → raw table, then raw → typed table |
 | `DATA_QUALITY` | `jobs/data_quality.py` | Computes per-`file_date` quality metrics into `geo.data_quality` |
 | `SINGLE_ETL` | `jobs/single_etl.py` | Runs one standalone PySpark script from `single_etl/` |
@@ -31,6 +52,7 @@ Every run:
 4. Stops the Spark session.
 
 ```bash
+python run_etl.py CREATE avalanche_org_raw
 python run_etl.py CREATE avalanche_org
 python run_etl.py INGESTION avalanche_org
 python run_etl.py DATA_QUALITY avalanche_org

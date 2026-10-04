@@ -38,7 +38,7 @@ cd spark_cluster_image
 docker build -t geo_spark_custom .
 ```
 
-Point the master and worker services in GEO_E2E's `docker-compose.yaml` at `geo_spark_custom` and restart the cluster to use it.
+GEO_E2E's `docker-compose.yaml` builds this image itself (`build: ../GEO_ETL/spark_cluster_image` for master and both workers), so after changing the Dockerfile run `docker compose build` in GEO_E2E and recreate the cluster — no manual tagging or compose edits needed. The `geo_spark_custom` tag above is only for other compose files or registries that expect a pre-built image name.
 
 ## Spark JARs
 
@@ -91,15 +91,17 @@ conda activate geo_etl_311
 python run_pyspark_csv_test.py
 ```
 
-Expected output:
+Expected log file content (`logs/pyspark_csv_test/pyspark_csv_test_<timestamp>.log` — the script logs to the file only):
 
 ```
 Connected to: spark://localhost:7078
 Spark version: 3.5.5
 Data path:     /path/to/GEO_Download/data
 
-  Avalanche_ORG                  -> 19 CSV file(s)
-  EONET                          -> 18 CSV file(s)
-  GDACS                          -> 19 CSV file(s)
+  Avalanche_ORG                  -> 33 CSV file(s)
+  EONET                          -> 32 CSV file(s)
+  GDACS                          -> 33 CSV file(s)
   ...
 ```
+
+The CSV counts are illustrative — they grow with every [GEO_Download](../../GEO_Download) run.

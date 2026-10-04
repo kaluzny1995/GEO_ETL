@@ -101,17 +101,19 @@ Create `supabase_config.json` in the project root with your Supabase credentials
   "username": "postgres.<YOUR-PROJECT-REF>",
   "password": "<YOUR-PASSWORD>",
   "host": "aws-1-eu-west-1.pooler.supabase.com",
-  "port": 5432,
+  "port": 6543,
   "database": "postgres"
 }
 ```
+
+> **Note:** `6543` is Supabase's **transaction pooler** port (the primary listener uses `5432`); the shipped `supabase_config.json` sets `6543`, and every JDBC URL in this documentation uses the same value.
 
 > **Important:** This file contains database credentials and is excluded from git (listed in `.gitignore`). Never commit it to version control.
 
 `SupabaseConnectionConfig` (`model/config/supabase_config.py`) reads this file and builds the JDBC URL and connection properties used by every upload, transform and DDL execution:
 
 ```
-jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:5432/postgres
+jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:6543/postgres
 ```
 
 The properties also carry `prepareThreshold=0`, which disables server-side prepared statements. Supabase's pooler shares server connections between clients, so named statements (`S_1`, …) can otherwise be prepared twice and the write fails with `prepared statement "S_1" already exists`.

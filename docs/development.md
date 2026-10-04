@@ -57,6 +57,19 @@ Checked packages: `model`, `utils`, `factory`, `jobs`, `ingestion` (`upload/` + 
 
 Current state: `mypy` → **0 errors**.
 
+## Coverage — pytest-cov
+
+Coverage is configured in `pyproject.toml` and reported by `pytest-cov` (already installed in the `geo_etl_311` env; it is **not** listed in `environment.yml`/`tox.ini`, so re-add it with `pip install pytest-cov` if you rebuild the env). `addopts` does not include it, so pass it explicitly:
+
+```bash
+python -m pytest test/ -q -o addopts= --cov=. --cov-report=term-missing
+```
+
+- `[tool.coverage.run]` omits the two manual Spark entry points, `run_pyspark_csv_test.py` and `run_pyspark_supabase_test.py` (hand-run against the cluster, not by pytest).
+- `[tool.coverage.report]` excludes `pragma: no cover` and `if __name__ == .__main__.:` lines.
+
+Current state: **100 %** of the executed lines across the 1173-test suite.
+
 ## tox environments
 
 `tox` with no arguments runs the default `envlist` from `tox.ini` (`lint, py311`):

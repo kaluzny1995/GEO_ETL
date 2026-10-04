@@ -5,7 +5,7 @@
 All tables live in the `geo` PostgreSQL schema of Supabase. Every data source is stored as a **pair of tables**:
 
 - **Raw table** (`<name>_raw`) — every column is TEXT, exactly as ingested from the CSV.
-- **Plain table** (`<name>`) — typed columns (int, bool, float, date, datetime, timestamp) produced by the raw2plain transform.
+- **Plain table** (`<name>`) — typed columns (int, bool, float, date, datetime) produced by the raw2plain transform.
 - **ETL table** (`<name>_etl`) — canonical event row (same 21 columns for every source) produced by the [`SINGLE_ETL` job](etl_jobs/single-etl.md), ready to be merged with the other `*_etl` tables.
 
 DDL is generated from the Pydantic models instead of being written by hand — see [ETL jobs — CREATE TABLE job](etl_jobs/create-table.md).
@@ -36,14 +36,14 @@ DDL is generated from the Pydantic models instead of being written by hand — s
 | `usgs_earthquake` | `UsgsEarthquake` | `model/plain/` | USGS earthquake data — typed (float, int, datetime) |
 | `usgs_earthquake_etl` | `UsgsEarthquakeEtl` | `model/etl/` | USGS seismic event in the canonical event structure (str, float, datetime) |
 | `usgs_nwis_raw` | `UsgsNwisRaw` | `model/raw/` | USGS NWIS stream gauge data — all fields as TEXT |
-| `usgs_nwis` | `UsgsNwis` | `model/plain/` | USGS NWIS stream gauge data — typed (date, float, double) |
+| `usgs_nwis` | `UsgsNwis` | `model/plain/` | USGS NWIS stream gauge data — typed (date, float) |
 | `usgs_nwis_etl` | `UsgsNwisEtl` | `model/etl/` | USGS stream gauge reading snapshot in the canonical event structure (str, float, datetime) |
 | `usgs_volcano_raw` | `UsgsVolcanoRaw` | `model/raw/` | USGS volcanic activity data — all fields as TEXT |
-| `usgs_volcano` | `UsgsVolcano` | `model/plain/` | USGS volcanic activity data — typed (int, timestamp) |
-| `usgs_volcano_etl` | `UsgsVolcanoEtl` | `model/etl/` | USGS volcanic activity notice in the canonical event structure (str, float, timestamp) |
-| `data_quality` | `DataQuality` | `model/other/` | Quality metrics per `file_date` — long format (str, float, timestamp) |
+| `usgs_volcano` | `UsgsVolcano` | `model/plain/` | USGS volcanic activity data — typed (int, float, datetime) |
+| `usgs_volcano_etl` | `UsgsVolcanoEtl` | `model/etl/` | USGS volcanic activity notice in the canonical event structure (str, float, datetime) |
+| `data_quality` | `DataQuality` | `model/other/` | Quality metrics per `file_date` — long format (str, float, datetime) |
 
-> **Note:** The `_raw` suffix is added automatically. Pass `avalanche_org` to the CLI, not `avalanche_org_raw`.
+> **Note:** One `CREATE` run builds exactly one table — the raw and the plain table need their own run (`python run_etl.py CREATE avalanche_org_raw`, then `python run_etl.py CREATE avalanche_org`). Only `INGESTION` appends the `_raw` suffix itself: pass `avalanche_org` to it, not `avalanche_org_raw`.
 
 > **Note:** `data_quality` is metadata rather than a data source — it is created and filled by the [`DATA_QUALITY` job](etl_jobs/data-quality.md), not by `CREATE` + `INGESTION`. It appears in the schema after the job's first run, so the table count in [Verifying the schema](#verifying-the-schema) goes from 27 to 28.
 

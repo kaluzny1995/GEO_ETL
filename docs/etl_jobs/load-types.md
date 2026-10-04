@@ -45,7 +45,7 @@ Details: [DATA_QUALITY job — load type notes](data-quality.md#load-type-detect
 
 ```
 WARNING No new files to upload for avalanche_org_raw — nothing to do, table is up to date
-WARNING No new records to process for avalanche_org_raw — nothing to do, table is up to date
+WARNING No new records to process for avalanche_org — nothing to do, table is up to date
 WARNING No new data to ingest for avalanche_org_raw — no file newer than the latest file_date
 ERROR ETL job failed   (RuntimeError)   → exit code 1
 ```

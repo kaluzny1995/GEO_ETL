@@ -74,16 +74,18 @@ When called from the INGESTION job, a logger is passed so all logs go to the sam
 script.upload(spark, config, db_config, logger=my_logger)
 ```
 
-Expected output:
+Expected log file content — `logs/upload/upload_<table>_<timestamp>.log` when run standalone, `logs/ingestion/ingestion_<table>_<timestamp>.log` when called from the INGESTION job (the logger writes only to the file):
 
 ```
----- Upload started: avalanche_org_raw (HISTORICAL) ----
+---- Upload started: avalanche_org_raw ----
 Data directory: /path/to/GEO_Download/data/Avalanche_ORG
-HISTORICAL: reading all 19 CSV files
+Found 33 CSV files
+Table empty → HISTORICAL: loading all files
 Writing to geo.avalanche_org_raw...
-Upload complete: 19 files written to geo.avalanche_org_raw
-Spark session stopped
+Upload complete: 33 files written to geo.avalanche_org_raw
 ```
+
+`Found N CSV files` counts everything in the data folder; when the table already has data the next lines become `Latest file_date in table: <date> → INCREMENTAL` and `<n> new files to upload` instead of the `Table empty` line (file counts are illustrative — they grow with every GEO_Download run).
 
 ## Raw2Plain pipeline
 
@@ -118,6 +120,8 @@ script.raw2plain(spark, config, db_config, logger=my_logger)
 | `forecast_start` | TEXT | TIMESTAMP |
 | `forecast_end` | TEXT | TIMESTAMP |
 | `date` | TEXT | DATE |
+| `latitude` | TEXT | DOUBLE |
+| `longitude` | TEXT | DOUBLE |
 
 ## Memory Optimization
 
