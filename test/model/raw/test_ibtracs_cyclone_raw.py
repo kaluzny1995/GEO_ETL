@@ -223,7 +223,7 @@ class TestIbtacsCycloneRawMissing:
 class TestIbtacsCycloneRawSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(IbtacsCycloneRaw)
-        assert len(schema.fields) == 175
+        assert len(schema.fields) == 177
 
     def test_all_fields_are_string_type(self):
         schema = pydantic_to_spark_schema(IbtacsCycloneRaw)

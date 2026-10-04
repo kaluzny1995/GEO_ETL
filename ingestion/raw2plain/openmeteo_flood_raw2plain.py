@@ -24,6 +24,8 @@ def _convert(df):
         F.col("longitude").cast("double"),
         F.to_date("date").alias("date"),
         F.col("discharge_m3s").cast("double"),
+        F.col("geocode_country"),
+        F.col("geocode_state"),
         F.col("file_date"),
     )
 

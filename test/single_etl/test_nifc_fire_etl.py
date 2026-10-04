@@ -51,6 +51,7 @@ def _source_row(**overrides):
         "poly_date": dt.datetime(2026, 9, 1, 12, 1, 2),
         "created_on": dt.datetime(2026, 8, 10, 17, 1, 9),
         "modified_on": dt.datetime(2026, 9, 15, 8, 0, 0),
+        "geocode_state": None,
         "file_date": "2026-09-01",
     }
     row.update(overrides)
@@ -115,58 +116,8 @@ class TestRun:
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.nifc_fire"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
-    @patch("single_etl.nifc_fire_etl.geocode_map")
-    @patch("single_etl.nifc_fire_etl.get_max_file_date", return_value=None)
-    def test_unbuildable_geocode_fails_the_run(self, mock_max, mock_geocode, spark_session):
-        mock_geocode.side_effect = RuntimeError("reverse geocode failed")
-        spark = _spark_with_rows()
-
-        with pytest.raises(RuntimeError, match="reverse geocode"):
-            nifc_fire_etl.run(spark, _mock_config(), _mock_db_config())
-
-
-class TestGeocodeMap:
-    @patch("single_etl.nifc_fire_etl.geocode_map")
-    def test_geocodes_only_rows_with_a_blank_state(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {
-            nifc_fire_etl.coord_key(33.2, -105.6): ("US", "NM"),
-            nifc_fire_etl.coord_key(34.7, -106.1): ("US", "NM"),
-        }
-        df = _source_df(
-            spark_session,
-            _source_row(),
-            _source_row(state=None, latitude=33.2, longitude=-105.6),
-            _source_row(state="", latitude=34.7, longitude=-106.1),
-        )
-
-        mapping = nifc_fire_etl._geocode_map(df)
-
-        assert mapping == {(33.2, -105.6): "NM", (34.7, -106.1): "NM"}
-        assert set(mock_geocode.call_args.args[0]) == {(33.2, -105.6), (34.7, -106.1)}
-        assert mock_geocode.call_args.kwargs["output"] == nifc_fire_etl.GEOCODE_FILE
-
-    @patch("single_etl.nifc_fire_etl.geocode_map")
-    def test_source_states_are_never_geocoded(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {}
-        df = _source_df(spark_session, _source_row())
-
-        assert nifc_fire_etl._geocode_map(df) == {}
-        assert set(mock_geocode.call_args.args[0]) == set()
-
-    @patch("single_etl.nifc_fire_etl.geocode_map")
-    def test_null_coordinates_are_skipped(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {}
-        df = _source_df(spark_session, _source_row(state=None, latitude=None, longitude=None))
-
-        assert nifc_fire_etl._geocode_map(df) == {}
-        assert set(mock_geocode.call_args.args[0]) == set()
-
 
 class TestConvert:
-    @pytest.fixture(autouse=True)
-    def _lookups(self, monkeypatch):
-        monkeypatch.setattr(nifc_fire_etl, "_geocode_map", lambda *args, **kwargs: {})
-
     def test_column_order_matches_the_model(self, spark_session):
         df = nifc_fire_etl._convert(_source_df(spark_session, _source_row()))
         assert df.columns == list(NifcFireEtl.model_fields)
@@ -216,26 +167,18 @@ class TestConvert:
 
         assert row.event_name is None
 
-    def test_source_state_wins_over_the_geocode(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            nifc_fire_etl, "_geocode_map", lambda *args, **kwargs: {(40.017760846821886, -112.14269529210874): "NM"}
-        )
-
-        (row,) = _convert(spark_session, _source_row(state="UT"))
+    def test_source_state_wins_over_the_stamped_geocode(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(state="UT", geocode_state="NM"))
 
         assert row.state_province == "UT"
 
     @pytest.mark.parametrize("state", [None, "", "   "])
-    def test_blank_state_falls_back_to_the_geocode(self, monkeypatch, spark_session, state):
-        monkeypatch.setattr(
-            nifc_fire_etl, "_geocode_map", lambda *args, **kwargs: {(40.017760846821886, -112.14269529210874): "NM"}
-        )
-
-        (row,) = _convert(spark_session, _source_row(state=state))
+    def test_blank_state_falls_back_to_the_stamped_geocode(self, spark_session, state):
+        (row,) = _convert(spark_session, _source_row(state=state, geocode_state="NM"))
 
         assert row.state_province == "NM"
 
-    def test_blank_state_without_a_geocode_is_null(self, spark_session):
+    def test_blank_state_without_a_stamped_geocode_is_null(self, spark_session):
         (row,) = _convert(spark_session, _source_row(state=None))
 
         assert row.state_province is None

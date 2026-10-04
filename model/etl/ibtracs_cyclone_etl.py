@@ -24,9 +24,11 @@ class IbtracsCycloneEtl(EventEtl):
       extended with the sub-basin (``North Atlantic - Gulf of Mexico``,
       ``Eastern North Pacific - Central Pacific``, …); just the basin name
       for the unnamed sub-basins.
-    * ``country_code`` / ``state_province`` — the reverse-geocoded position
-      of every point within 100 km of land (``cache/reverse_geocode.csv``),
-      else ``ZZ`` / ``NULL`` (open water); the source carries no country.
+    * ``country_code`` / ``state_province`` — the download-time stamped
+      ``geocode_country`` / ``geocode_state`` columns (GEO_Download
+      reverse-geocodes the points within 100 km of land and stamps cached
+      answers for the rest), else ``ZZ`` / ``NULL`` (open water); the source
+      carries no country.
     * ``metric_name`` — ``wind speed``; ``metric_value`` —
       ``coalesce(wmo_wind, usa_wind)`` (the WMO agency value when present,
       the US one otherwise — WMO values are absent in real-time data);

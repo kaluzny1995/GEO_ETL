@@ -56,6 +56,8 @@ def _source_row(**overrides):
         "status": "reviewed",
         "location_source": "ci",
         "mag_source": "ci",
+        "geocode_country": None,
+        "geocode_state": None,
         "file_date": "2026-09-01",
     }
     row.update(overrides)
@@ -122,61 +124,8 @@ class TestRun:
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.usgs_earthquake"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
-    @patch("single_etl.usgs_earthquake_etl.geocode_map")
-    @patch("single_etl.usgs_earthquake_etl.get_max_file_date", return_value=None)
-    def test_unbuildable_geocode_fails_the_run(self, mock_max, mock_geocode, spark_session):
-        mock_geocode.side_effect = RuntimeError("reverse geocode failed")
-        spark = _spark_with_rows()
-
-        with pytest.raises(RuntimeError, match="reverse geocode"):
-            usgs_earthquake_etl.run(spark, _mock_config(), _mock_db_config())
-
-
-class TestGeocodeMap:
-    @patch("single_etl.usgs_earthquake_etl.geocode_map")
-    def test_geocodes_only_places_the_suffix_cannot_answer(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {
-            usgs_earthquake_etl.coord_key(0.0, -150.0): ("KI", ""),
-        }
-        df = _source_df(
-            spark_session,
-            _source_row(),
-            _source_row(
-                place="105 km N of Vallenar, Chile",
-                latitude=-27.5,
-                longitude=-70.5,
-                net="us",
-                event_id="us1000abc",
-            ),
-            _source_row(
-                place="south of the Fiji Islands",
-                latitude=0.0,
-                longitude=-150.0,
-                net="us",
-                event_id="us1000def",
-            ),
-        )
-
-        mapping = usgs_earthquake_etl._geocode_map(df)
-
-        assert mapping == {(0.0, -150.0): ("KI", "")}
-        assert set(mock_geocode.call_args.args[0]) == {(0.0, -150.0)}
-        assert mock_geocode.call_args.kwargs["output"] == usgs_earthquake_etl.GEOCODE_FILE
-
-    @patch("single_etl.usgs_earthquake_etl.geocode_map")
-    def test_null_coordinates_are_skipped(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {}
-        df = _source_df(spark_session, _source_row(place="Mid-Indian Ridge", latitude=None, longitude=None))
-
-        assert usgs_earthquake_etl._geocode_map(df) == {}
-        assert set(mock_geocode.call_args.args[0]) == set()
-
 
 class TestConvert:
-    @pytest.fixture(autouse=True)
-    def _lookups(self, monkeypatch):
-        monkeypatch.setattr(usgs_earthquake_etl, "_geocode_map", lambda *args, **kwargs: {})
-
     def test_column_order_matches_the_model(self, spark_session):
         df = usgs_earthquake_etl._convert(_source_df(spark_session, _source_row()))
         assert df.columns == list(UsgsEarthquakeEtl.model_fields)
@@ -229,19 +178,16 @@ class TestConvert:
         assert row.country_code == expected_code
         assert row.event_name == f"Earthquake - {place.rsplit(', ', 1)[-1]}"
 
-    def test_unknown_suffix_falls_back_to_the_geocode(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            usgs_earthquake_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(33.704166666667, -116.80866666667): ("JP", "")},
+    def test_unknown_suffix_falls_back_to_the_stamped_geocode(self, spark_session):
+        (row,) = _convert(
+            spark_session,
+            _source_row(place="3 km NE of Nowhere, Atlantis", geocode_country="JP", geocode_state=""),
         )
-
-        (row,) = _convert(spark_session, _source_row(place="3 km NE of Nowhere, Atlantis"))
 
         assert row.country_code == "JP"
         assert row.event_name == "Earthquake - Japan"
 
-    def test_unknown_suffix_without_a_geocode_is_zz(self, spark_session):
+    def test_unknown_suffix_without_a_stamped_geocode_is_zz(self, spark_session):
         (row,) = _convert(spark_session, _source_row(place="3 km NE of Nowhere, Atlantis"))
 
         assert row.country_code == "ZZ"
@@ -254,18 +200,12 @@ class TestConvert:
         assert row.state_province == net.upper()
         assert row.subsource_name == net
 
-    def test_blank_net_falls_back_to_the_geocode_state(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            usgs_earthquake_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(33.704166666667, -116.80866666667): ("US", "CA")},
-        )
-
-        (row,) = _convert(spark_session, _source_row(net=None))
+    def test_blank_net_falls_back_to_the_stamped_geocode_state(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(net=None, geocode_state="CA"))
 
         assert row.state_province == "CA"
 
-    def test_blank_net_without_a_geocode_state_is_null(self, spark_session):
+    def test_blank_net_without_a_stamped_geocode_state_is_null(self, spark_session):
         (row,) = _convert(spark_session, _source_row(net=None))
 
         assert row.state_province is None

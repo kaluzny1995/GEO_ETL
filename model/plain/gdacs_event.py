@@ -23,4 +23,6 @@ class GdacsEvent(BaseModel):
     source: str
     report_url: str
     is_current: bool
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str

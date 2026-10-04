@@ -21,4 +21,5 @@ class NifcFireRaw(BaseModel):
     poly_date: str | None = None
     created_on: str | None = None
     modified_on: str | None = None
+    geocode_state: str | None = None
     file_date: str

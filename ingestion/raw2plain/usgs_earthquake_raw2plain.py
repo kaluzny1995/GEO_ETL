@@ -40,6 +40,8 @@ def _convert(df):
         F.col("status"),
         F.col("locationSource").alias("location_source"),
         F.col("magSource").alias("mag_source"),
+        F.col("geocode_country"),
+        F.col("geocode_state"),
         F.col("file_date"),
     )
 

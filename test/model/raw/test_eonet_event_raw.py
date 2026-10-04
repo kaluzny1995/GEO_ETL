@@ -68,7 +68,7 @@ class TestEonetEventRawMissing:
 class TestEonetEventRawSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(EonetEventRaw)
-        assert len(schema.fields) == 18
+        assert len(schema.fields) == 20
 
     def test_schema_field_names(self):
         schema = pydantic_to_spark_schema(EonetEventRaw)
@@ -91,6 +91,8 @@ class TestEonetEventRawSparkSchema:
             "last_latitude",
             "last_longitude",
             "last_date",
+            "geocode_country",
+            "geocode_state",
             "file_date",
         ]
 
@@ -102,4 +104,12 @@ class TestEonetEventRawSparkSchema:
     def test_nullable_fields(self):
         schema = pydantic_to_spark_schema(EonetEventRaw)
         nullable_fields = {f.name for f in schema.fields if f.nullable}
-        assert nullable_fields == {"description", "source_url", "magnitude_value", "magnitude_unit", "closed"}
+        assert nullable_fields == {
+            "description",
+            "source_url",
+            "magnitude_value",
+            "magnitude_unit",
+            "closed",
+            "geocode_country",
+            "geocode_state",
+        }

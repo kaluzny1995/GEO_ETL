@@ -21,8 +21,8 @@ class UsgsNwisEtl(EventEtl):
       publication, estimated``); an unknown code is kept verbatim, a
       blank qualifier is ``NULL``.
     * ``country_code`` — always ``US`` (the network publishes US gauges);
-      ``state_province`` — the reverse-geocoded gauge point, ``NULL`` when
-      the API found no subdivision.
+      ``state_province`` — the stamped ``geocode_state`` of the gauge
+      point, ``NULL`` when the stamp found no subdivision.
     * ``place_location`` — ``"<river name>, <place text>"``, both parts
       extracted from ``site_name`` around its first ``NEAR``/``AT``
       marker (``Potomac river, WASH, DC LITTLE FALLS PUMP STA``); without

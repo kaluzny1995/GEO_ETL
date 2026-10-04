@@ -51,7 +51,7 @@ mypy                 # targets come from [tool.mypy] files in pyproject.toml
 tox -e typecheck     # same, in an isolated environment
 ```
 
-Checked packages: `model`, `utils`, `factory`, `jobs`, `ingestion` (`upload/` + `raw2plain/`) and the six `run_*.py` entry points — **70 source files**, tests excluded.
+Checked packages: `model`, `utils`, `factory`, `jobs`, `ingestion` (`upload/` + `raw2plain/`), `single_etl` and the six `run_*.py` entry points — **95 source files**, tests excluded.
 
 `pyspark`, `findspark` and `py4j` ship no type stubs, so they are listed under `[[tool.mypy.overrides]]` with `ignore_missing_imports = true`.
 
@@ -65,10 +65,10 @@ Current state: `mypy` → **0 errors**.
 |---------|-----------|--------|
 | `tox` | default gate = `lint` + `py311` | ✅ |
 | `tox -e lint` | `ruff check --output-format=concise .` | ✅ 0 findings |
-| `tox -e py311` | full pytest suite (650 tests) | ✅ |
-| `tox -e format` | `ruff format --check .` | ✅ 150 files already formatted |
+| `tox -e py311` | full pytest suite (1181 tests) | ✅ |
+| `tox -e format` | `ruff format --check .` | ✅ 204 files already formatted |
 | `tox -e format-fix` | `ruff format .` — writes the changes | – |
-| `tox -e typecheck` | `mypy` (70 files) | ✅ 0 errors |
+| `tox -e typecheck` | `mypy` (95 files) | ✅ 0 errors |
 | `tox -e warnings` | `pytest -W error::DeprecationWarning` | ✅ |
 | `tox -e lint,py311,typecheck` | any list of environments in one invocation | – |
 

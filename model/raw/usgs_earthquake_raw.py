@@ -26,4 +26,6 @@ class UsgsEarthquakeRaw(BaseModel):
     status: str | None = None
     locationSource: str | None = None
     magSource: str | None = None
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str

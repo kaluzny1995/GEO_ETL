@@ -66,19 +66,21 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type historical
 python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 ```
 
+GEO_ETL makes no reverse-geocoding API calls: the lookup and the fetching live in GEO_Download, whose downloaders stamp `geocode_country` / `geocode_state` into the daily CSVs at download time — the scripts below only read those columns and apply their own fallbacks.
+
 `avalanche_org_etl` needs no lookup and no network access: the zone coordinates ship with every source row (`latitude`/`longitude`, polygon centroids computed by GEO_Download), see [ETL jobs — avalanche_org_etl](etl_jobs/single-etl.md#avalanche_org_etl).
 
-`eonet_event_etl` reverse-geocodes the coordinates it has not seen before into `cache/reverse_geocode.csv` (built automatically, one entry per new coordinate), see [ETL jobs — eonet_event_etl](etl_jobs/single-etl.md#eonet_event_etl).
+`eonet_event_etl` takes the country/state from the event description when it names a US state, otherwise from the `geocode_country`/`geocode_state` columns stamped into the CSVs at download time; open-sea events that neither answers get `ZZ`/`NULL`, see [ETL jobs — eonet_event_etl](etl_jobs/single-etl.md#eonet_event_etl).
 
-`nifc_fire_etl` needs no unit lookup: the full jurisdiction name ships with every source row (`unit_name`, resolved by GEO_Download through its `data/nifc_unit_names.csv` lookup when the daily CSVs are written). It reverse-geocodes the perimeters that predate the `state` field into the shared `cache/reverse_geocode.csv`, see [ETL jobs — nifc_fire_etl](etl_jobs/single-etl.md#nifc_fire_etl).
+`nifc_fire_etl` needs no unit lookup: the full jurisdiction name ships with every source row (`unit_name`, resolved by GEO_Download through its `data/nifc_unit_names.csv` lookup when the daily CSVs are written). The source's own `state` wins; perimeters whose `state` is blank use the `geocode_state` column stamped at download time, see [ETL jobs — nifc_fire_etl](etl_jobs/single-etl.md#nifc_fire_etl).
 
-`openmeteo_flood_etl` maps the source's country names to ISO codes in-script and reverse-geocodes every river reference point once into the shared `cache/reverse_geocode.csv` (~111 coordinates), see [ETL jobs — openmeteo_flood_etl](etl_jobs/single-etl.md#openmeteo_flood_etl).
+`openmeteo_flood_etl` maps the source's country names to ISO codes in-script (an unknown name falls back to the `geocode_country` column stamped at download time) and reads the subdivision from `geocode_state`, see [ETL jobs — openmeteo_flood_etl](etl_jobs/single-etl.md#openmeteo_flood_etl).
 
-`usgs_earthquake_etl` parses the country from the `place` suffix and reverse-geocodes only the ~93 remote places that have no usable suffix into the shared `cache/reverse_geocode.csv`, see [ETL jobs — usgs_earthquake_etl](etl_jobs/single-etl.md#usgs_earthquake_etl).
+`usgs_earthquake_etl` parses the country from the `place` suffix first; rows the suffix cannot answer use the `geocode_country`/`geocode_state` columns stamped at download time, see [ETL jobs — usgs_earthquake_etl](etl_jobs/single-etl.md#usgs_earthquake_etl).
 
-`usgs_nwis_etl` parses the river and place names out of `site_name` and reverse-geocodes the gauge point of every site once into the shared `cache/reverse_geocode.csv` (1 coordinate today), see [ETL jobs — usgs_nwis_etl](etl_jobs/single-etl.md#usgs_nwis_etl).
+`usgs_nwis_etl` parses the river and place names out of `site_name`; the subdivision comes from the `geocode_state` column stamped at download time, see [ETL jobs — usgs_nwis_etl](etl_jobs/single-etl.md#usgs_nwis_etl).
 
-`usgs_volcano_etl` passes the notice details the GEO_Download downloader stamped into the CSVs (coordinates, region, status line, full notice type) straight through and reverse-geocodes the volcano points into the shared `cache/reverse_geocode.csv` (4 coordinates today), see [ETL jobs — usgs_volcano_etl](etl_jobs/single-etl.md#usgs_volcano_etl).
+`usgs_volcano_etl` passes the notice details the GEO_Download downloader stamped into the CSVs (coordinates, region, status line, full notice type) straight through; `state_province` comes from the `geocode_state` column stamped at download time (`ZZ` when empty, e.g. the Ahyi Seamount ocean point), see [ETL jobs — usgs_volcano_etl](etl_jobs/single-etl.md#usgs_volcano_etl).
 
 **All registered tables:**
 

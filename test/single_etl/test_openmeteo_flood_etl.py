@@ -40,6 +40,8 @@ def _source_row(**overrides):
         "longitude": -59.98,
         "date": dt.date(2026, 9, 1),
         "discharge_m3s": 77982.05,
+        "geocode_country": None,
+        "geocode_state": None,
         "file_date": "2026-09-01",
     }
     row.update(overrides)
@@ -106,50 +108,8 @@ class TestRun:
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.openmeteo_flood"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
-    @patch("single_etl.openmeteo_flood_etl.geocode_map")
-    @patch("single_etl.openmeteo_flood_etl.get_max_file_date", return_value=None)
-    def test_unbuildable_geocode_fails_the_run(self, mock_max, mock_geocode, spark_session):
-        mock_geocode.side_effect = RuntimeError("reverse geocode failed")
-        spark = _spark_with_rows()
-
-        with pytest.raises(RuntimeError, match="reverse geocode"):
-            openmeteo_flood_etl.run(spark, _mock_config(), _mock_db_config())
-
-
-class TestGeocodeMap:
-    @patch("single_etl.openmeteo_flood_etl.geocode_map")
-    def test_geocodes_every_distinct_point(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {
-            openmeteo_flood_etl.coord_key(-3.14, -59.98): ("BR", "AM"),
-            openmeteo_flood_etl.coord_key(52.52, 13.405): ("DE", "BE"),
-        }
-        df = _source_df(
-            spark_session,
-            _source_row(),
-            _source_row(river_name="Amazon", date=dt.date(2026, 9, 2), file_date="2026-09-02"),
-            _source_row(river_name="Spree", country="Germany", latitude=52.52, longitude=13.405),
-        )
-
-        mapping = openmeteo_flood_etl._geocode_map(df)
-
-        assert mapping == {(-3.14, -59.98): ("BR", "AM"), (52.52, 13.405): ("DE", "BE")}
-        assert set(mock_geocode.call_args.args[0]) == {(-3.14, -59.98), (52.52, 13.405)}
-        assert mock_geocode.call_args.kwargs["output"] == openmeteo_flood_etl.GEOCODE_FILE
-
-    @patch("single_etl.openmeteo_flood_etl.geocode_map")
-    def test_null_coordinates_are_skipped(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {}
-        df = _source_df(spark_session, _source_row(latitude=None, longitude=None))
-
-        assert openmeteo_flood_etl._geocode_map(df) == {}
-        assert set(mock_geocode.call_args.args[0]) == set()
-
 
 class TestConvert:
-    @pytest.fixture(autouse=True)
-    def _lookups(self, monkeypatch):
-        monkeypatch.setattr(openmeteo_flood_etl, "_geocode_map", lambda *args, **kwargs: {})
-
     def test_column_order_matches_the_model(self, spark_session):
         df = openmeteo_flood_etl._convert(_source_df(spark_session, _source_row()))
         assert df.columns == list(OpenMeteoFloodEtl.model_fields)
@@ -193,53 +153,29 @@ class TestConvert:
 
         assert row.country_code == expected_code
 
-    def test_known_country_name_wins_over_the_geocode(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            openmeteo_flood_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(-3.14, -59.98): ("AR", "C")},
-        )
-
-        (row,) = _convert(spark_session, _source_row(country="Brazil"))
+    def test_known_country_name_wins_over_the_stamped_geocode(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(country="Brazil", geocode_country="AR", geocode_state="C"))
 
         assert row.country_code == "BR"
 
-    def test_unknown_country_name_falls_back_to_the_geocode(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            openmeteo_flood_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(-3.14, -59.98): ("AR", "C")},
-        )
-
-        (row,) = _convert(spark_session, _source_row(country="Atlantis"))
+    def test_unknown_country_name_falls_back_to_the_stamped_geocode(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(country="Atlantis", geocode_country="AR", geocode_state="C"))
 
         assert row.country_code == "AR"
 
-    def test_unknown_country_without_a_geocode_is_zz(self, spark_session):
+    def test_unknown_country_without_a_stamped_geocode_is_zz(self, spark_session):
         (row,) = _convert(spark_session, _source_row(country="Atlantis"))
 
         assert row.country_code == "ZZ"
 
-    def test_state_province_comes_from_the_geocode(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            openmeteo_flood_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(-3.14, -59.98): ("BR", "AM")},
-        )
-
-        (row,) = _convert(spark_session, _source_row())
+    def test_state_province_comes_from_the_stamped_geocode(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(geocode_country="BR", geocode_state="AM"))
 
         assert row.state_province == "AM"
 
     @pytest.mark.parametrize("state", ["", None])
-    def test_missing_geocode_state_is_null(self, monkeypatch, spark_session, state):
-        monkeypatch.setattr(
-            openmeteo_flood_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(-3.14, -59.98): ("BR", state or "")},
-        )
-
-        (row,) = _convert(spark_session, _source_row())
+    def test_missing_stamped_geocode_state_is_null(self, spark_session, state):
+        (row,) = _convert(spark_session, _source_row(geocode_country="BR", geocode_state=state))
 
         assert row.state_province is None
 

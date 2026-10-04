@@ -27,8 +27,8 @@ class UsgsVolcanoEtl(EventEtl):
       location).
     * ``country_code`` — always ``US`` (the three observatories are US:
       Alaska, Hawaii, Northern Mariana Islands); ``state_province`` — the
-      reverse-geocoded volcano point, ``ZZ`` when the geocode found no
-      subdivision (the Ahyi Seamount is an ocean point).
+      stamped ``geocode_state`` of the notice point, ``ZZ`` when the stamp
+      found no subdivision (the Ahyi Seamount is an ocean point).
     * ``place_location`` — ``"<volcano_name>, <region>"``
       (``Great Sitkin, Aleutians``); without a region only the name
       remains, a blank name is ``NULL``.

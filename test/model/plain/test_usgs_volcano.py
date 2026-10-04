@@ -56,7 +56,7 @@ class TestUsgsVolcanoMissing:
 class TestUsgsVolcanoSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(UsgsVolcano)
-        assert len(schema.fields) == 17
+        assert len(schema.fields) == 18
 
     def test_int_field(self):
         schema = pydantic_to_spark_schema(UsgsVolcano)

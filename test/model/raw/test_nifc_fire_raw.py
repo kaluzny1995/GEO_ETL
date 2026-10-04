@@ -48,6 +48,7 @@ CSV_HEADER_ORDER = [
     "poly_date",
     "created_on",
     "modified_on",
+    "geocode_state",
 ]
 
 
@@ -81,7 +82,7 @@ class TestNifcFireRawMissing:
 class TestNifcFireRawSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(NifcFireRaw)
-        assert len(schema.fields) == 18
+        assert len(schema.fields) == 19
 
     def test_all_fields_are_string_type(self):
         schema = pydantic_to_spark_schema(NifcFireRaw)

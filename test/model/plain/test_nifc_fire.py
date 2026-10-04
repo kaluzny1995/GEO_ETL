@@ -59,7 +59,7 @@ class TestNifcFireMissing:
 class TestNifcFireSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(NifcFire)
-        assert len(schema.fields) == 18
+        assert len(schema.fields) == 19
 
     def test_double_fields(self):
         schema = pydantic_to_spark_schema(NifcFire)

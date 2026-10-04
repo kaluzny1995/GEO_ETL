@@ -18,11 +18,10 @@ class OpenMeteoFloodEtl(EventEtl):
     * ``country_code`` — the source ``country`` name mapped through the
       script's 54-entry ISO map (``USA`` → ``US``, ``UK`` → ``GB``,
       ``DRC`` → ``CD``); a name the map does not know falls back to the
-      reverse-geocoded reference point, an empty geocode counts as a miss
-      and resolves to ``ZZ``.
-    * ``state_province`` — the reverse-geocoded reference point
-      (``cache/reverse_geocode.csv``), ``NULL`` when the API found no
-      subdivision.
+      download-time stamped ``geocode_country``, an empty stamp counts as a
+      miss and resolves to ``ZZ``.
+    * ``state_province`` — the stamped ``geocode_state`` of the reference
+      point, ``NULL`` when the stamp found no subdivision.
     * ``place_location`` — ``"<river_name> - <country>"``
       (``Amazon - Brazil``); a blank part is dropped, both blank is
       ``NULL``.

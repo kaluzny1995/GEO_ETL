@@ -71,7 +71,7 @@ Each source file holds the analysis day plus the next day's forecast (the shared
 | `event_subcategory` | storm type parsed from `event_name` (`hurricane`, `typhoon`, `tropical storm`, `tropical cyclone`, `cyclone`); `wildfire` for fires; `sea_lake_ice` for ice; `NULL` when no keyword applies |
 | `event_description` | `description`, `NULL` when blank |
 | `latitude` / `longitude` | `latitude` / `longitude` — the event's own position |
-| `country_code` / `state_province` | the US state at the end of `description` (fires: `… from Miles City, MT`), else the reverse-geocoded coordinate from `cache/reverse_geocode.csv`, else `ZZ` / `NULL` (open water) |
+| `country_code` / `state_province` | the US state at the end of `description` (fires: `… from Miles City, MT`), else the stamped `geocode_country` / `geocode_state` columns, else `ZZ` / `NULL` (open water) |
 | `place_location` | `event_name` minus its type prefix (`Wildfire`, `Prescribed Fire`, `Incident Complex`, `Emergency Stabilization BAER`) when a place is left, e.g. `Wildfire Snow, Custer, Montana` → `Snow, Custer, Montana`; `NULL` for `Hurricane Polo` / `Iceberg D32` |
 | `metric_name` | `wind speed` (storms), `area` (fires), `surface` (ice), `magnitude` for any other category |
 | `metric_value` / `metric_unit` | `magnitude_value` / `magnitude_unit` |
@@ -82,7 +82,7 @@ Each source file holds the analysis day plus the next day's forecast (the shared
 | `last_latitude` / `last_longitude` | `last_latitude` / `last_longitude` — the latest position |
 | `file_date` | `file_date` |
 
-Coordinates missing from `cache/reverse_geocode.csv` are reverse-geocoded on the driver through `utils/reverse_geocode.py` (Nominatim / OpenStreetMap, keyless, paced to one request per second) the first time they appear: successful answers are written back to the cache and reused by every later run, while a failed fetch stops the run before anything is written. The CSV is read on the driver and embedded as literal columns, because the Spark containers only mount `GEO_Download/data`. The API answers open water with an empty country (the `ZZ` fallback).
+Both answers arrive with every row: GEO_Download stamps `geocode_country` / `geocode_state` into the daily CSVs at download time (its own cached Nominatim / OpenStreetMap lookup), and this ETL only reads the two plain-table columns and applies the precedence in the table — the description's US state first, the stamped answer second, `ZZ` / `NULL` when neither resolves (open water). GEO_ETL performs no lookup and no API call of its own.
 
 ## gdacs_event_etl
 
@@ -96,8 +96,8 @@ Coordinates missing from `cache/reverse_geocode.csv` are reverse-geocoded on the
 | `event_subcategory` | cyclone intensity class from `severity_text` (`tropical depression`, `tropical storm`, `hurricane` — GDACS's `Hurricane/Typhoon` counts as `hurricane`, matching the EONET keyword); `wildfire` for fires; `agricultural drought` for droughts; `NULL` when no subtype applies |
 | `event_description` | `NULL` — GDACS carries no event description |
 | `latitude` / `longitude` | `latitude` / `longitude` — epicentre (EQ) or affected-area centroid (the rest) |
-| `country_code` | the source's ISO 3166-1 alpha-3 `country_code` translated to alpha-2 (`COUNTRY_CODE_MAP`: `USA` → `US`, `DEU` → `DE`, …), else the reverse-geocoded coordinate from `cache/reverse_geocode.csv`, else `ZZ` |
-| `state_province` | the reverse-geocoded subdivision (GDACS has none), `NULL` when unknown |
+| `country_code` | the source's ISO 3166-1 alpha-3 `country_code` translated to alpha-2 (`COUNTRY_CODE_MAP`: `USA` → `US`, `DEU` → `DE`, …), else the stamped `geocode_country` column, else `ZZ` |
+| `state_province` | the stamped `geocode_state` column (GDACS has none), `NULL` when empty |
 | `place_location` | `country` — region at the centroid or affected-country list (e.g. `Brazil, Colombia`), `NULL` when blank |
 | `metric_name` | `magnitude` (EQ/FL/VO), `wind speed` (TC), `area` (WF/DR) |
 | `metric_value` | `severity`, with `0` ("not defined" — every FL and VO row) mapped to `NULL` |
@@ -108,7 +108,7 @@ Coordinates missing from `cache/reverse_geocode.csv` are reverse-geocoded on the
 | `event_end` | `to_date` (= `from_date` for the instantaneous earthquakes) |
 | `file_date` | `file_date` |
 
-The source's alpha-3 country code wins because GDACS knows the affected country better than a centroid lookup; blank and unknown codes fall through to the same `cache/reverse_geocode.csv` lookup the EONET ETL uses — and since GDACS has no subdivision at all, **every** distinct coordinate of the run is reverse-geocoded on the driver through `utils/reverse_geocode.py` to fill `state_province` (a one-time cost per coordinate, kept in the shared cache). The CSV is read on the driver and embedded as literal columns, because the Spark containers only mount `GEO_Download/data`.
+The source's alpha-3 country code wins because GDACS knows the affected country better than a centroid lookup; blank and unknown codes fall through to the stamped `geocode_country`, and `state_province` comes from the stamped `geocode_state` (GDACS carries no subdivision of its own). GEO_Download fills both columns for every distinct coordinate when the daily CSVs are written, so this ETL reads them off the plain table and applies only its maps and fallbacks — no lookup file, no API call, no driver-side map.
 
 ## ibtracs_cyclone_etl
 
@@ -122,7 +122,7 @@ The source's alpha-3 country code wins because GDACS knows the affected country 
 | `event_subcategory` | the ATCF system status `usa_status` (`hurricane`, `typhoon`, `tropical storm`, `tropical depression`, `disturbance`, `low`, …), falling back to the cross-agency `nature` (`tropical`, `disturbance`, `extratropical`, `subtropical`, `contradictory`) when no US agency reported a status; `NULL` when neither states a type (`nature = NR` in non-US basins) |
 | `event_description` | `NULL` — a best track carries no advisory prose |
 | `latitude` / `longitude` | `lat` / `lon` — the position itself |
-| `country_code` / `state_province` | the reverse-geocoded position of every point within 100 km of land (`cache/reverse_geocode.csv`), else `ZZ` / `NULL` (open water) — the source carries no country at all |
+| `country_code` / `state_province` | the stamped `geocode_country` / `geocode_state` columns, else `ZZ` / `NULL` (open water) — the source carries no country at all |
 | `place_location` | full basin name extended with the sub-basin (`North Atlantic - Gulf of Mexico`, `Eastern North Pacific - Central Pacific`, `North Indian - Bay of Bengal`, …); just the basin name for the unnamed sub-basins (`NA`, `MM`) |
 | `metric_name` | always `wind speed` |
 | `metric_value` | `coalesce(wmo_wind, usa_wind)` — WMO values are absent in real-time data, so the US agency's knots win today |
@@ -133,7 +133,7 @@ The source's alpha-3 country code wins because GDACS knows the affected country 
 | `last_latitude` / `last_longitude` | `lat` / `lon` of the maximum `iso_time` per `sid` — the storm's latest position |
 | `file_date` | `file_date` |
 
-The source knows no country, so geocoding is scoped to the points where it can answer: only positions with `dist2land ≤ 100 km` are looked up (open ocean resolves to `ZZ` anyway; a one-time cost per coordinate, kept in the shared cache), while already-cached answers of any other point are still embedded. `last_*` is a window maximum over `iso_time` per `sid`, which stays correct under `INCREMENTAL`: the newest points always arrive in the newest `file_date`, and storms that stopped reporting keep their previous `last_*` values.
+The source knows no country, so GEO_Download answers it at download time: every row carries the stamped `geocode_country` / `geocode_state` columns (its fetch set is the positions within 100 km of land; far-ocean points keep an already-cached answer or stay empty), and this ETL only reads them, resolving an empty answer to `ZZ` / `NULL` (open water). `last_*` is a window maximum over `iso_time` per `sid`, which stays correct under `INCREMENTAL`: the newest points always arrive in the newest `file_date`, and storms that stopped reporting keep their previous `last_*` values.
 
 ## nifc_fire_etl
 
@@ -148,7 +148,7 @@ The source knows no country, so geocoding is scoped to the points where it can a
 | `event_description` / `danger_rating` | `NULL` — the perimeter layer carries no advisory prose or alert level |
 | `latitude` / `longitude` | the feature centroid of the perimeter |
 | `country_code` | always `US` — the layer only publishes US perimeters |
-| `state_province` | `state` when present (the 2026-09-18 vintage on), else the reverse-geocoded centroid (`cache/reverse_geocode.csv`), `NULL` when neither resolves |
+| `state_province` | `state` when present (the 2026-09-18 vintage on), else the stamped `geocode_state` column, `NULL` when neither resolves |
 | `place_location` | the full name as it ships with the source row in `unit_name` (GEO_Download resolves `jurisdiction_label` through its `data/nifc_unit_names.csv` lookup when the daily CSVs are written: `WAOWF` → `Okanogan-Wenatchee National Forest`, `CAYNP` → `Yosemite National Park`, `TXTXS` → `Texas A & M Forest Service`, …); a code the lookup does not know keeps its raw value, a blank one is `NULL` — the agency codes in `jurisdiction` have no published domain and are not used |
 | `metric_name` | always `area` |
 | `metric_value` | `acres`, counting a missing acreage as `0` (the pre-2026-09-18 vintage predates the field) |
@@ -159,7 +159,7 @@ The source knows no country, so geocoding is scoped to the points where it can a
 | `last_latitude` / `last_longitude` | `NULL` — the layer carries no latest position |
 | `file_date` | `file_date` |
 
-The jurisdiction's full name ships with every source row — GEO_Download resolves it at download time through its consolidated `data/nifc_unit_names.csv` lookup, so this ETL performs no unit lookup and no network request for it. The one remaining lookup (reverse geocoding) runs on the driver and is embedded as literal map columns (the Spark containers only mount `GEO_Download/data`): it answers only the rows with a blank `state` (the pre-state vintage, ~127 coordinates today), the source's own subdivision always wins.
+The jurisdiction's full name ships with every source row — GEO_Download resolves it at download time through its consolidated `data/nifc_unit_names.csv` lookup, so this ETL performs no unit lookup and no network request for it. The subdivision follows the same pass-through pattern: the source's own `state` always wins, and only the rows with a blank `state` (the pre-state vintage) fall back to the `geocode_state` column GEO_Download stamped into the CSVs at download time — GEO_ETL runs no lookup of its own, and a row neither answers resolves to `NULL`.
 
 ## openmeteo_flood_etl
 
@@ -173,8 +173,8 @@ The jurisdiction's full name ships with every source row — GEO_Download resolv
 | `event_category` | always `flood` |
 | `event_subcategory` / `event_description` / `danger_rating` | `NULL` — the daily value carries no subtype or alert level |
 | `latitude` / `longitude` | the `rivers.json` reference point of the river (stable per river; the GloFAS cell actually used is the nearest 0.05°/~5 km grid cell) |
-| `country_code` | the source `country` name mapped through the script's 54-entry ISO map (`USA` → `US`, `UK` → `GB`, `DRC` → `CD`); an unknown name falls back to the reverse-geocoded reference point, an empty geocode resolves to `ZZ` |
-| `state_province` | the reverse-geocoded reference point (`cache/reverse_geocode.csv`), `NULL` when the API found no subdivision |
+| `country_code` | the source `country` name mapped through the script's 54-entry ISO map (`USA` → `US`, `UK` → `GB`, `DRC` → `CD`); an unknown name falls back to the stamped `geocode_country` column, an empty value resolves to `ZZ` |
+| `state_province` | the stamped `geocode_state` column of the river's reference point, `NULL` when empty |
 | `place_location` | `"<river_name> - <country>"` (`Amazon - Brazil`); a blank part is dropped, both blank is `NULL` |
 | `metric_name` | always `discharge` |
 | `metric_value` | `discharge_m3s` — the GloFAS 24-h mean in m³/s, counting a missing value as `0` (the source skips null-discharge days, so none occur) |
@@ -185,7 +185,7 @@ The jurisdiction's full name ships with every source row — GEO_Download resolv
 | `other_metrics` | `NULL` — the daily mean is the single measurement (the lead time `date - file_date` is derivable) |
 | `file_date` | `file_date` |
 
-Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so no deduplication is needed. The country map and both geocode lookups run on the driver and are embedded as literal map columns (the Spark containers only mount `GEO_Download/data`); every distinct reference point of the plain table is reverse-geocoded once into the shared `cache/reverse_geocode.csv` (~111 coordinates) and reused by every later run.
+Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so no deduplication is needed. The country map runs in-script; the country fallback and the subdivision come from the `geocode_country` / `geocode_state` columns GEO_Download stamps into every downloaded file at download time, so this ETL performs no lookup and needs no network.
 
 ## usgs_earthquake_etl
 
@@ -195,13 +195,13 @@ Each downloaded file holds the analysis day plus the next day's forecast (222 ro
 |---------------|--------|
 | `source_name` | always `USGS` |
 | `subsource_name` | `net` verbatim — the preferred origin's network (`ak`, `nc`, `ci`, …) |
-| `event_name` | `"Earthquake - <country name>"` — `United States` for a US state suffix, the `place` suffix itself for international events (`Earthquake - Chile`), the reverse-geocoded country for places the suffix does not cover; `Earthquake` alone when no country resolves |
+| `event_name` | `"Earthquake - <country name>"` — `United States` for a US state suffix, the `place` suffix itself for international events (`Earthquake - Chile`), the stamped `geocode_country` for places the suffix does not cover; `Earthquake` alone when no country resolves |
 | `event_category` | always `earthquake` |
 | `event_subcategory` | `event_type`: `earthquake`, `quarry blast`, `explosion`, `ice quake` |
 | `event_description` | `"<event_type> <status>"` (`earthquake reviewed`, `quarry blast automatic`) |
 | `latitude` / `longitude` | the epicentre (WGS84 decimal degrees) |
-| `country_code` | from the `place` suffix: a US state (2-letter code or full name) → `US`, an international suffix → the 60-entry name→ISO map (`Chile` → `CL`, `MX` → `MX`, `Japan region` → `JP`, `Guam` → `US`), otherwise the reverse-geocoded epicentre; `ZZ` when nothing resolves |
-| `state_province` | `net` uppercased (`ak` → `AK`, `ci` → `CI`), the reverse-geocoded epicentre when `net` is blank, `NULL` when neither resolves |
+| `country_code` | from the `place` suffix: a US state (2-letter code or full name) → `US`, an international suffix → the 60-entry name→ISO map (`Chile` → `CL`, `MX` → `MX`, `Japan region` → `JP`, `Guam` → `US`), otherwise the stamped `geocode_country` column; `ZZ` when nothing resolves |
+| `state_province` | `net` uppercased (`ak` → `AK`, `ci` → `CI`), the stamped `geocode_state` column when `net` is blank, `NULL` when neither resolves |
 | `place_location` | `place` verbatim (`9 km WSW of Idyllwild, CA`) |
 | `metric_name` | always `magnitude` |
 | `metric_value` | `mag`, counting a missing magnitude as `0` (none occur) |
@@ -213,7 +213,7 @@ Each downloaded file holds the analysis day plus the next day's forecast (222 ro
 | `danger_rating` | `NULL` — `status` is QC, not severity |
 | `file_date` | `file_date` |
 
-Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `magError`, `magNst`, `updated`, `locationSource`, `magSource`. The country parse needs no network for ~99% of rows — only the ~93 places without a usable suffix are reverse-geocoded once into the shared `cache/reverse_geocode.csv` and embedded as literal map columns (the Spark containers only mount `GEO_Download/data`).
+Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `magError`, `magNst`, `updated`, `locationSource`, `magSource`. The country parse runs in-script and needs no network for ~99% of rows — the ~93 places without a usable suffix (and the rows with a blank `net`) read the `geocode_country` / `geocode_state` columns GEO_Download stamped into the CSVs at download time, so GEO_ETL performs no lookup of its own.
 
 ## usgs_nwis_etl
 
@@ -229,7 +229,7 @@ Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `ma
 | `event_description` | the `qualifiers` expanded to their full names (`P` → `provisional`, `A,e` → `approved for publication, estimated`); an unknown code is kept verbatim, a blank qualifier is `NULL` |
 | `latitude` / `longitude` | the gauge point (WGS84 decimal degrees) |
 | `country_code` | always `US` — the network publishes US gauges |
-| `state_province` | the reverse-geocoded gauge point (`cache/reverse_geocode.csv`), `NULL` when the API found no subdivision |
+| `state_province` | the stamped `geocode_state` column of the gauge point, `NULL` when empty |
 | `place_location` | `"<river name>, <place text>"` — both parts extracted from `site_name` around its first `NEAR`/`AT` marker (`Potomac river, WASH, DC LITTLE FALLS PUMP STA`); without a marker only the sentence-cased name remains, a missing name is `NULL` |
 | `metric_name` | always `discharge` (parameter `00060`) |
 | `metric_value` | `value` — the daily mean, counting a missing reading as `0` (none occur) |
@@ -240,7 +240,7 @@ Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `ma
 | `danger_rating` / `other_metrics` | `NULL` — the qualifiers live in the description |
 | `file_date` | `file_date` |
 
-Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Each downloaded file holds the measurement day plus sometimes the next day (45 rows over 28 files for one gauge), so a `(site, date)` pair can appear in two files — yesterday's next-day row is today's reading — and the ETL keeps every snapshot as its own row; `(site, date, file_date)` is unique, so no deduplication is needed. The gauge point is reverse-geocoded once into the shared `cache/reverse_geocode.csv` (1 coordinate today) and embedded as a literal map column (the Spark containers only mount `GEO_Download/data`).
+Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Each downloaded file holds the measurement day plus sometimes the next day (45 rows over 28 files for one gauge), so a `(site, date)` pair can appear in two files — yesterday's next-day row is today's reading — and the ETL keeps every snapshot as its own row; `(site, date, file_date)` is unique, so no deduplication is needed. The subdivision comes from the `geocode_state` column GEO_Download stamped into the CSVs at download time — this ETL performs no lookup of its own.
 
 ## usgs_volcano_etl
 
@@ -256,7 +256,7 @@ Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Ea
 | `event_description` | the stamped `synopsis` status line (`AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …`), `NULL` when blank |
 | `latitude` / `longitude` | the volcano's coordinates the downloader stamped into the CSV — the HANS feed itself carries no location |
 | `country_code` | always `US` — the three observatories are US |
-| `state_province` | the reverse-geocoded volcano point (`cache/reverse_geocode.csv`), `ZZ` when the geocode found no subdivision (the Ahyi Seamount is an ocean point) |
+| `state_province` | the stamped `geocode_state` column of the volcano point, `ZZ` when it is empty (the Ahyi Seamount is an ocean point) |
 | `place_location` | `"<volcano_name>, <region>"` (`Great Sitkin, Aleutians`); without a region only the name remains, a blank name is `NULL` |
 | `metric_name` | always `alert_level` |
 | `metric_value` | the USGS alert scale as a number — `NORMAL` 0, `ADVISORY` 1, `WATCH` 2, `WARNING` 3 (case-insensitive); an unknown code stays `NULL` (an unknown level is not `NORMAL`) |
@@ -269,7 +269,7 @@ Dropped from the ETL: `parameter_code` (its value *is* the discharge metric). Ea
 
 Dropped from the ETL: `vnum`, `observatory`, `color_code`, `notice_type`, `notice_identifier`, `notice_url`, `notice_data_url` — the stamped detail columns carry the enrichment instead (`notice_type` only remains as the fallback for `event_subcategory`), the color repeats `alert_level`, and the URLs are document references rather than data.
 
-The coordinates, region, status line and full notice type arrive with every row: the GEO_Download downloader resolves them through `data/usgs_volcano_notices.csv` at download time and stamps them into the CSVs, so this ETL performs a single driver-side lookup — the volcano point of every row is reverse-geocoded once into the shared `cache/reverse_geocode.csv` (4 volcano points today) and embedded as a literal map column keyed by `struct(latitude, longitude)` (the Spark containers only mount `GEO_Download/data`). The geocode is strict: a failure raises and fails the build instead of leaving holes, while successful answers are persisted for every later run.
+The coordinates, region, status line and full notice type arrive with every row: the GEO_Download downloader resolves them through `data/usgs_volcano_notices.csv` at download time and stamps them into the CSVs, and it stamps the `geocode_state` column the same way (strict on fetch failure — a failed lookup raises and fails the download instead of leaving holes, successful answers are kept for every later run). This ETL passes all of it straight through: no lookup file, no API call, no driver-side map.
 
 ## Adding a new script
 

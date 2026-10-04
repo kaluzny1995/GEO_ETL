@@ -4,10 +4,9 @@ Reads the typed plain table ``geo.eonet_event`` and writes every event into
 ``geo.eonet_event_etl`` using the schema from ``model/etl/event_etl.py``, so it
 can be merged with the other ``*_etl`` tables. Country and state come from the
 US state at the end of ``description`` when the source states one, otherwise
-from the coordinate lookup ``cache/reverse_geocode.csv``; coordinates missing
-from that file are reverse-geocoded through ``utils.reverse_geocode`` on the
-driver (the same literal-map pattern as the avalanche zone lookup, because the
-Spark containers only mount ``GEO_Download/data``).
+from the ``geocode_country``/``geocode_state`` columns stamped into the CSVs
+at download time (through GEO_Download's ``data/reverse_geocode.csv``).
+No reverse-geocoding API is called here.
 
 Run::
 
@@ -30,7 +29,6 @@ otherwise ``INCREMENTAL``. Both types append to the target.
 
 import datetime as dt
 import logging
-import os
 
 from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -38,71 +36,17 @@ from pyspark.sql import functions as F
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
 from utils.raw2plain_utils import get_max_file_date
-from utils.reverse_geocode import coord_key, geocode_map
 
 SOURCE_TABLE = "eonet_event"
 TARGET_TABLE = "eonet_event_etl"
 FILE_DATE_COL = "file_date"
 SOURCE_NAME = "EONET"
 FALLBACK_COUNTRY = "ZZ"
-GEOCODE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache", "reverse_geocode.csv")
 CATEGORY_MAP = {
     "severeStorms": "storm",
     "wildfires": "fire",
     "seaLakeIce": "iceberg",
 }
-
-
-def _geocode_map(df: DataFrame, logger: logging.Logger | None = None) -> dict[tuple[float, float], tuple[str, str]]:
-    """Resolve every coordinate of *df* to ``(country_code, state_province)``.
-
-    The distinct coordinates are collected on the driver and handed to
-    :func:`utils.reverse_geocode.geocode_map`, which answers them from
-    :data:`GEOCODE_FILE` and queries the API only for coordinates the cache
-    does not cover yet. The answers are embedded as column literals in
-    :func:`_geocode_columns`, because the Spark containers only mount
-    ``GEO_Download/data``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the fetch messages.
-
-    Returns:
-        ``(latitude, longitude) -> (country_code, state_province)`` for every
-        coordinate of *df*; the country is ``""`` where the API found none
-        (open water) and the ETL turns that into :data:`FALLBACK_COUNTRY`.
-
-    Raises:
-        RuntimeError: When new coordinates could not be fetched (no network).
-    """
-    points = {
-        (row["latitude"], row["longitude"])
-        for row in df.select("latitude", "longitude").distinct().collect()
-        if row["latitude"] is not None and row["longitude"] is not None
-    }
-    cache = geocode_map(points, output=GEOCODE_FILE, logger=logger)
-    return {point: cache[coord_key(*point)] for point in points}
-
-
-def _geocode_columns(df: DataFrame, logger: logging.Logger | None = None) -> tuple[Column, Column]:
-    """Coordinate lookup embedded as a literal map keyed by ``struct(lat, lon)``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to :func:`_geocode_map`.
-
-    Returns:
-        ``(country_code, state_province)`` columns; a coordinate missing from
-        the lookup resolves to ``NULL`` and the ETL applies its fallback.
-    """
-    entries: list[Column] = []
-    for (latitude, longitude), (country, state) in _geocode_map(df, logger).items():
-        entries.append(F.struct(F.lit(latitude).alias("latitude"), F.lit(longitude).alias("longitude")))
-        entries.append(F.struct(F.lit(country).alias("country"), F.lit(state).alias("state")))
-    if not entries:
-        return F.lit(None).cast("string"), F.lit(None).cast("string")
-    geocode = F.create_map(*entries)[F.struct(F.col("latitude"), F.col("longitude"))]
-    return geocode["country"], geocode["state"]
 
 
 def _state_from_description() -> Column:
@@ -111,11 +55,12 @@ def _state_from_description() -> Column:
 
 
 def _country_code(description_state: Column, geocode_country: Column) -> Column:
-    """US when the description names a state, else the geocoded country, else ``ZZ``.
+    """US when the description names a state, else the stamped country, else ``ZZ``.
 
     Args:
         description_state: Result of :func:`_state_from_description`.
-        geocode_country: ``country_code`` of the coordinate lookup.
+        geocode_country: ``geocode_country`` column stamped into the CSVs at
+            download time.
 
     Returns:
         The row's ISO 3166-1 alpha-2 country code.
@@ -128,11 +73,12 @@ def _country_code(description_state: Column, geocode_country: Column) -> Column:
 
 
 def _state_province(description_state: Column, geocode_state: Column) -> Column:
-    """The description's state, else the geocoded subdivision, else ``NULL``.
+    """The description's state, else the stamped subdivision, else ``NULL``.
 
     Args:
         description_state: Result of :func:`_state_from_description`.
-        geocode_state: ``state_province`` of the coordinate lookup.
+        geocode_state: ``geocode_state`` column stamped into the CSVs at
+            download time.
 
     Returns:
         The row's subdivision code (``US-MT`` → ``MT``).
@@ -230,17 +176,16 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     One row per event: ``last_latitude``/``last_longitude``/``last_date`` keep the
     latest position and time, ``latitude``/``longitude``/``event_date`` the
     event's own. Country and state are resolved from the description first
-    (fires state their US location), then from the reverse-geocoded coordinate;
+    (fires state their US location), then from the stamped geocode columns;
     storms and ice on the open sea that neither answers get the ``ZZ`` fallback.
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the coordinate lookup fetch.
+        logger: Unused; kept for call-site compatibility.
 
     Returns:
         The DataFrame in :data:`TARGET_TABLE` column order.
     """
-    geocode_country, geocode_state = _geocode_columns(df, logger)
     description_state = _state_from_description()
     category = _event_category()
 
@@ -253,8 +198,8 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
         _event_description().alias("event_description"),
         F.col("latitude"),
         F.col("longitude"),
-        _country_code(description_state, geocode_country).alias("country_code"),
-        _state_province(description_state, geocode_state).alias("state_province"),
+        _country_code(description_state, F.col("geocode_country")).alias("country_code"),
+        _state_province(description_state, F.col("geocode_state")).alias("state_province"),
         _place_location().alias("place_location"),
         _metric_name(category).alias("metric_name"),
         F.col("magnitude_value").alias("metric_value"),

@@ -106,7 +106,7 @@ class TestIbtacsCycloneMissing:
 class TestIbtacsCycloneSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(IbtacsCyclone)
-        assert len(schema.fields) == 46
+        assert len(schema.fields) == 48
 
     def test_schema_field_names(self):
         schema = pydantic_to_spark_schema(IbtacsCyclone)

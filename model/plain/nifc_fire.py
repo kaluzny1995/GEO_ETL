@@ -25,4 +25,5 @@ class NifcFire(BaseModel):
     poly_date: dt.datetime | None = None
     created_on: dt.datetime | None = None
     modified_on: dt.datetime | None = None
+    geocode_state: str | None = None
     file_date: str

@@ -80,6 +80,8 @@ def _source_row(**overrides):
         "storm_speed": 8,
         "storm_dir": 280,
         "usa_gust": None,
+        "geocode_country": None,
+        "geocode_state": None,
         "file_date": "2026-09-01",
     }
     row.update(overrides)
@@ -173,56 +175,8 @@ class TestRun:
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.ibtracs_cyclone"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
-    @patch("single_etl.ibtracs_cyclone_etl.geocode_map")
-    @patch("single_etl.ibtracs_cyclone_etl.get_max_file_date", return_value=None)
-    def test_unbuildable_geocode_fails_the_run(self, mock_max, mock_geocode, spark_session):
-        mock_geocode.side_effect = RuntimeError("reverse geocode failed")
-        spark = _spark_with_rows()
-
-        with pytest.raises(RuntimeError, match="reverse geocode"):
-            ibtracs_cyclone_etl.run(spark, _mock_config(), _mock_db_config())
-
-
-class TestGeocodeMap:
-    @patch("single_etl.ibtracs_cyclone_etl.geocode_map")
-    def test_only_near_land_points_are_fetched(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {"29.9000,-93.9000": ("US", "TX")}
-        df = _source_df(
-            spark_session,
-            _source_row(),
-            _source_row(lat=20.0, lon=-160.0, dist2land=800, landfall=None, sid="EP092026", basin="EP"),
-        )
-
-        mapping = ibtracs_cyclone_etl._geocode_map(df)
-
-        assert mapping == {(29.9, -93.9): ("US", "TX"), (20.0, -160.0): ("", "")}
-        assert set(mock_geocode.call_args.args[0]) == {(29.9, -93.9)}
-        assert mock_geocode.call_args.kwargs["output"] == ibtracs_cyclone_etl.GEOCODE_FILE
-
-    @patch("single_etl.ibtracs_cyclone_etl.geocode_map")
-    def test_cached_answers_of_far_points_are_still_embedded(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {"20.0000,-160.0000": ("WS", "")}
-        df = _source_df(spark_session, _source_row(lat=20.0, lon=-160.0, dist2land=800))
-
-        mapping = ibtracs_cyclone_etl._geocode_map(df)
-
-        assert mapping == {(20.0, -160.0): ("WS", "")}
-        assert set(mock_geocode.call_args.args[0]) == set()
-
-    @patch("single_etl.ibtracs_cyclone_etl.geocode_map")
-    def test_null_coordinates_are_skipped(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {}
-        df = _source_df(spark_session, _source_row(lat=None, lon=None))
-
-        assert ibtracs_cyclone_etl._geocode_map(df) == {}
-        assert set(mock_geocode.call_args.args[0]) == set()
-
 
 class TestConvert:
-    @pytest.fixture(autouse=True)
-    def _geocode(self, monkeypatch):
-        monkeypatch.setattr(ibtracs_cyclone_etl, "_geocode_map", lambda *args, **kwargs: {})
-
     def test_column_order_matches_the_model(self, spark_session):
         df = ibtracs_cyclone_etl._convert(_source_df(spark_session, _source_row()))
         assert df.columns == list(IbtracsCycloneEtl.model_fields)
@@ -401,26 +355,14 @@ class TestConvert:
 
         assert row.event_name is None
 
-    def test_geocode_supplies_country_and_state(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            ibtracs_cyclone_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(29.9, -93.9): ("US", "TX")},
-        )
-
-        (row,) = _convert(spark_session, _source_row())
+    def test_stamped_geocode_supplies_country_and_state(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(geocode_country="US", geocode_state="TX"))
 
         assert row.country_code == "US"
         assert row.state_province == "TX"
 
-    def test_ocean_point_resolves_to_zz_without_a_state(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            ibtracs_cyclone_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(29.9, -93.9): ("", "")},
-        )
-
-        (row,) = _convert(spark_session, _source_row())
+    def test_ocean_point_resolves_to_zz_without_a_state(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(geocode_country=None, geocode_state=None))
 
         assert row.country_code == "ZZ"
         assert row.state_province is None

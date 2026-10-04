@@ -50,6 +50,7 @@ def _source_row(**overrides):
         "longitude": -176.1109,
         "region": "Aleutians",
         "synopsis": "AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues.",
+        "geocode_state": None,
         "file_date": "2026-09-29",
     }
     row.update(overrides)
@@ -114,42 +115,8 @@ class TestRun:
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.usgs_volcano"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
-    @patch("single_etl.usgs_volcano_etl.geocode_map")
-    @patch("single_etl.usgs_volcano_etl.get_max_file_date", return_value=None)
-    def test_unfetchable_geocode_fails_the_run(self, mock_max, mock_geocode, spark_session):
-        mock_geocode.side_effect = RuntimeError("geocode fetch failed")
-        spark = _spark_with_rows()
-
-        with pytest.raises(RuntimeError, match="geocode fetch failed"):
-            usgs_volcano_etl.run(spark, _mock_config(), _mock_db_config())
-
-
-class TestGeocode:
-    def test_geocodes_the_notice_coordinates(self, monkeypatch, spark_session):
-        geocoded = MagicMock(return_value={usgs_volcano_etl.coord_key(52.0765, -176.1109): ("US", "AK")})
-        monkeypatch.setattr(usgs_volcano_etl, "geocode_map", geocoded)
-
-        _convert(spark_session, _source_row())
-
-        assert set(geocoded.call_args.args[0]) == {(52.0765, -176.1109)}
-        assert geocoded.call_args.kwargs["output"] == usgs_volcano_etl.GEOCODE_FILE
-
-    def test_a_notice_without_coordinates_skips_the_geocode(self, monkeypatch, spark_session):
-        geocoded = MagicMock(return_value={})
-        monkeypatch.setattr(usgs_volcano_etl, "geocode_map", geocoded)
-
-        (row,) = _convert(spark_session, _source_row(latitude=None, longitude=None))
-
-        assert geocoded.call_args.args[0] == set()
-        assert row.latitude is None and row.longitude is None
-        assert row.state_province == "ZZ"
-
 
 class TestConvert:
-    @pytest.fixture(autouse=True)
-    def _lookups(self, monkeypatch):
-        monkeypatch.setattr(usgs_volcano_etl, "geocode_map", lambda *args, **kwargs: {})
-
     def test_column_order_matches_the_model(self, spark_session):
         df = usgs_volcano_etl._convert(_source_df(spark_session, _source_row()))
         assert df.columns == list(UsgsVolcanoEtl.model_fields)
@@ -201,23 +168,22 @@ class TestConvert:
     @pytest.mark.parametrize(
         ("geocode_state", "expected_state"),
         [
-            (("US", "AK"), "AK"),
-            (("US", ""), "ZZ"),
+            ("AK", "AK"),
+            ("", "ZZ"),
+            (None, "ZZ"),
         ],
     )
-    def test_state_province_is_the_geocode_with_zz_fallback(
-        self, monkeypatch, spark_session, geocode_state, expected_state
-    ):
-        monkeypatch.setattr(
-            usgs_volcano_etl,
-            "geocode_map",
-            lambda *args, **kwargs: {usgs_volcano_etl.coord_key(52.0765, -176.1109): geocode_state},
-        )
-
-        (row,) = _convert(spark_session, _source_row())
+    def test_state_province_is_the_stamped_geocode_with_zz_fallback(self, spark_session, geocode_state, expected_state):
+        (row,) = _convert(spark_session, _source_row(geocode_state=geocode_state))
 
         assert row.state_province == expected_state
         assert row.country_code == "US"
+
+    def test_a_notice_without_coordinates_keeps_the_zz_fallback(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(latitude=None, longitude=None))
+
+        assert row.latitude is None and row.longitude is None
+        assert row.state_province == "ZZ"
 
     @pytest.mark.parametrize(
         ("notice_type_name", "expected_subcategory"),

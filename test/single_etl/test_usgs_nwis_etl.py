@@ -43,6 +43,7 @@ def _source_row(**overrides):
         "qualifiers": "P",
         "latitude": 39.0016667,
         "longitude": -77.1591667,
+        "geocode_state": None,
         "file_date": "2026-09-01",
     }
     row.update(overrides)
@@ -107,55 +108,8 @@ class TestRun:
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.usgs_nwis"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
-    @patch("single_etl.usgs_nwis_etl.geocode_map")
-    @patch("single_etl.usgs_nwis_etl.get_max_file_date", return_value=None)
-    def test_unbuildable_geocode_fails_the_run(self, mock_max, mock_geocode, spark_session):
-        mock_geocode.side_effect = RuntimeError("reverse geocode failed")
-        spark = _spark_with_rows()
-
-        with pytest.raises(RuntimeError, match="reverse geocode"):
-            usgs_nwis_etl.run(spark, _mock_config(), _mock_db_config())
-
-
-class TestGeocodeMap:
-    @patch("single_etl.usgs_nwis_etl.geocode_map")
-    def test_geocodes_every_gauge_point(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {
-            usgs_nwis_etl.coord_key(39.0016667, -77.1591667): ("US", "DC"),
-            usgs_nwis_etl.coord_key(40.5, -80.1): ("US", "PA"),
-        }
-        df = _source_df(
-            spark_session,
-            _source_row(),
-            _source_row(
-                site_id="USGS-03105500",
-                site_name="BEAVER RIVER AT BEAVER FALLS, PA",
-                latitude=40.5,
-                longitude=-80.1,
-                file_date="2026-09-02",
-            ),
-        )
-
-        mapping = usgs_nwis_etl._geocode_map(df)
-
-        assert mapping == {(39.0016667, -77.1591667): ("US", "DC"), (40.5, -80.1): ("US", "PA")}
-        assert set(mock_geocode.call_args.args[0]) == {(39.0016667, -77.1591667), (40.5, -80.1)}
-        assert mock_geocode.call_args.kwargs["output"] == usgs_nwis_etl.GEOCODE_FILE
-
-    @patch("single_etl.usgs_nwis_etl.geocode_map")
-    def test_null_coordinates_are_skipped(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {}
-        df = _source_df(spark_session, _source_row(latitude=None, longitude=None))
-
-        assert usgs_nwis_etl._geocode_map(df) == {}
-        assert set(mock_geocode.call_args.args[0]) == set()
-
 
 class TestConvert:
-    @pytest.fixture(autouse=True)
-    def _lookups(self, monkeypatch):
-        monkeypatch.setattr(usgs_nwis_etl, "_geocode_map", lambda *args, **kwargs: {})
-
     def test_column_order_matches_the_model(self, spark_session):
         df = usgs_nwis_etl._convert(_source_df(spark_session, _source_row()))
         assert df.columns == list(UsgsNwisEtl.model_fields)
@@ -235,28 +189,19 @@ class TestConvert:
 
         assert row.event_description is None
 
-    def test_state_province_is_the_reverse_geocoded_point(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            usgs_nwis_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(39.0016667, -77.1591667): ("US", "DC")},
-        )
+    @pytest.mark.parametrize(
+        ("geocode_state", "expected_state"),
+        [
+            ("DC", "DC"),
+            ("", None),
+            (None, None),
+        ],
+    )
+    def test_state_province_is_the_stamped_geocode(self, spark_session, geocode_state, expected_state):
+        (row,) = _convert(spark_session, _source_row(geocode_state=geocode_state))
 
-        (row,) = _convert(spark_session, _source_row())
-
-        assert row.state_province == "DC"
+        assert row.state_province == expected_state
         assert row.country_code == "US"
-
-    def test_empty_geocode_state_is_null(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            usgs_nwis_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(39.0016667, -77.1591667): ("US", "")},
-        )
-
-        (row,) = _convert(spark_session, _source_row())
-
-        assert row.state_province is None
 
     @pytest.mark.parametrize(
         ("value", "expected_value"),

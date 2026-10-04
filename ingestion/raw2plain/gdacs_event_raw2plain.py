@@ -37,6 +37,8 @@ def _convert(df):
         F.when(F.col("is_current").isin("true", "True", "1", "yes"), F.lit(True))
         .otherwise(F.lit(False))
         .alias("is_current"),
+        F.col("geocode_country"),
+        F.col("geocode_state"),
         F.col("file_date"),
     )
 

@@ -12,9 +12,9 @@ class UsgsEarthquakeEtl(EventEtl):
       of the preferred origin (``us``, ``ak``, ``ci``, …, verbatim).
     * ``event_name`` — ``"Earthquake - <country name>"``: ``United States``
       for US-suffixed places, the ``place`` suffix itself for
-      international events (``Earthquake - Chile``), the reverse-geocoded
-      country for places the suffix does not cover; ``"Earthquake"``
-      alone when no country resolves.
+      international events (``Earthquake - Chile``), the stamped
+      ``geocode_country`` for places the suffix does not cover;
+      ``"Earthquake"`` alone when no country resolves.
     * ``event_category`` — always ``earthquake``; ``event_subcategory`` —
       the source ``event_type`` (``earthquake``, ``quarry blast``,
       ``explosion``, ``ice quake``).
@@ -23,10 +23,10 @@ class UsgsEarthquakeEtl(EventEtl):
     * ``country_code`` — from the country name in ``place``: a US state
       suffix (2-letter code or full name) → ``US``, an international
       suffix → the 60-entry name→ISO map (``Chile`` → ``CL``, ``MX`` →
-      ``MX``, territories → ``US``), otherwise the reverse-geocoded
-      epicentre; ``ZZ`` when nothing resolves.
+      ``MX``, territories → ``US``), otherwise the stamped
+      ``geocode_country``; ``ZZ`` when nothing resolves.
     * ``state_province`` — ``net`` uppercased (``ak`` → ``AK``), the
-      reverse-geocoded epicentre when ``net`` is blank, ``NULL`` when
+      stamped ``geocode_state`` when ``net`` is blank, ``NULL`` when
       neither resolves.
     * ``place_location`` — the source ``place`` verbatim.
     * ``metric_name`` — always ``magnitude``; ``metric_value`` — ``mag``

@@ -6,13 +6,11 @@ perimeter snapshot into ``geo.nifc_fire_etl`` using the schema from
 tables. The jurisdiction's full name ships with every source row
 (``unit_name``, resolved by GEO_Download through its consolidated
 ``data/nifc_unit_names.csv`` lookup when the daily CSVs are written), so
-this ETL performs no unit lookup and needs no network for it. The one
-remaining lookup runs on the driver and is embedded as literal map
-columns, because the Spark containers only mount ``GEO_Download/data``:
-
-- the ``state`` of the pre-state vintage comes from the shared
-  ``cache/reverse_geocode.csv`` — only rows with a blank ``state`` are
-  reverse-geocoded, the source's own subdivision always wins.
+this ETL performs no unit lookup and needs no network for it. The
+subdivision of a perimeter that predates the source's ``state`` field comes
+from the ``geocode_state`` column stamped into the CSVs at download time —
+only rows with a blank ``state`` carry a stamped value, the source's own
+subdivision always wins. No reverse-geocoding API is called here.
 
 Run::
 
@@ -35,7 +33,6 @@ otherwise ``INCREMENTAL``. Both types append to the target.
 
 import datetime as dt
 import logging
-import os
 
 from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -43,7 +40,6 @@ from pyspark.sql import functions as F
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
 from utils.raw2plain_utils import get_max_file_date
-from utils.reverse_geocode import coord_key, geocode_map
 
 SOURCE_TABLE = "nifc_fire"
 TARGET_TABLE = "nifc_fire_etl"
@@ -59,69 +55,6 @@ FIRE_TYPE_MAP = {
     "WF": "wildfire",
     "RX": "prescribed fire",
 }
-GEOCODE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache", "reverse_geocode.csv")
-
-
-def _needs_geocode() -> Column:
-    """Rows whose ``state`` is blank — only those coordinates are looked up.
-
-    Returns:
-        ``TRUE`` when ``state`` is ``NULL`` or trims to an empty string.
-    """
-    state = F.trim(F.col("state"))
-    return state.isNull() | (state == "")
-
-
-def _geocode_map(df: DataFrame, logger: logging.Logger | None = None) -> dict[tuple[float, float], str]:
-    """Resolve every stateless coordinate of *df* to a subdivision code.
-
-    The distinct coordinates of rows with a blank ``state`` are collected on
-    the driver and handed to :func:`utils.reverse_geocode.geocode_map`, which
-    answers them from :data:`GEOCODE_FILE` and queries the API only for
-    coordinates the cache does not cover yet. The answers are embedded as
-    column literals in :func:`_state_geocode_column`, because the Spark
-    containers only mount ``GEO_Download/data``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the fetch messages.
-
-    Returns:
-        ``(latitude, longitude) -> state_province`` for every stateless
-        coordinate of *df*; the state is ``""`` where the API found none
-        and the ETL keeps ``NULL``.
-
-    Raises:
-        RuntimeError: When new coordinates could not be fetched (no network).
-    """
-    points = {
-        (row["latitude"], row["longitude"])
-        for row in df.filter(_needs_geocode()).select("latitude", "longitude").distinct().collect()
-        if row["latitude"] is not None and row["longitude"] is not None
-    }
-    cache = geocode_map(points, output=GEOCODE_FILE, logger=logger)
-    return {point: cache[coord_key(*point)][1] for point in points}
-
-
-def _state_geocode_column(df: DataFrame, logger: logging.Logger | None = None) -> Column:
-    """Coordinate lookup embedded as a literal map keyed by ``struct(lat, lon)``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to :func:`_geocode_map`.
-
-    Returns:
-        The geocoded ``state_province``; a coordinate missing from the lookup
-        resolves to ``NULL`` and the ETL keeps its own ``NULL``.
-    """
-    entries: list[Column] = []
-    for (latitude, longitude), state in _geocode_map(df, logger).items():
-        entries.append(F.struct(F.lit(latitude).alias("latitude"), F.lit(longitude).alias("longitude")))
-        entries.append(F.lit(state))
-    if not entries:
-        return F.lit(None).cast("string")
-    geocode = F.create_map(*entries)[F.struct(F.col("latitude"), F.col("longitude"))]
-    return geocode
 
 
 def _event_subcategory() -> Column:
@@ -131,15 +64,16 @@ def _event_subcategory() -> Column:
 
 
 def _state_province(geocode_state: Column) -> Column:
-    """The source's subdivision, else the geocoded one, ``NULL`` when neither resolves.
+    """The source's subdivision, else the stamped one, ``NULL`` when neither resolves.
 
     Args:
-        geocode_state: ``state_province`` of the coordinate lookup.
+        geocode_state: ``geocode_state`` column stamped into the CSVs at
+            download time (only for rows whose source ``state`` is blank).
 
     Returns:
         The trimmed source ``state`` (the field exists from the 2026-09-18
-        vintage on), otherwise the reverse-geocoded answer, otherwise
-        ``NULL`` (no coordinate).
+        vintage on), otherwise the stamped answer, otherwise ``NULL`` (no
+        coordinate).
     """
     source = F.trim(F.col("state"))
     return F.when(source != "", source).when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
@@ -183,18 +117,16 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     jurisdiction, acres, containment) describes the perimeter while the
     centroid and ``created_on`` place it in space and time.
     The source's ``state`` wins; the pre-state vintage resolves from the
-    reverse-geocoded centroid. ``unit_name`` ships with the row, so no
+    stamped ``geocode_state``. ``unit_name`` ships with the row, so no
     unit lookup runs here.
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to :func:`_state_geocode_column`.
+        logger: Unused; kept for call-site compatibility.
 
     Returns:
         The DataFrame in :data:`TARGET_TABLE` column order.
     """
-    logger = logger or logging.getLogger(__name__)
-    geocode_state = _state_geocode_column(df, logger)
     place_location = _place_location()
 
     return df.select(
@@ -207,7 +139,7 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
         F.col("latitude"),
         F.col("longitude"),
         F.lit(COUNTRY_CODE).alias("country_code"),
-        _state_province(geocode_state).alias("state_province"),
+        _state_province(F.col("geocode_state")).alias("state_province"),
         place_location.alias("place_location"),
         F.lit(METRIC_NAME).alias("metric_name"),
         F.coalesce(F.col("acres"), F.lit(0.0)).alias("metric_value"),

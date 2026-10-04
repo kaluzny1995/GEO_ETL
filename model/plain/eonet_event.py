@@ -23,4 +23,6 @@ class EonetEvent(BaseModel):
     last_latitude: float
     last_longitude: float
     last_date: dt.datetime
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str

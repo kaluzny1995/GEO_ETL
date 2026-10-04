@@ -34,6 +34,7 @@ def _convert(df):
         F.col("longitude").cast("double"),
         F.col("region"),
         F.col("synopsis"),
+        F.col("geocode_state"),
         F.col("file_date"),
     )
 

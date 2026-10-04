@@ -5,9 +5,9 @@ event into ``geo.usgs_earthquake_etl`` using the schema from
 ``model/etl/event_etl.py``, so it can be merged with the other ``*_etl``
 tables. The country is parsed from the ``place`` suffix on the driver-free
 path (US state sets + the name→ISO map below); only places neither can
-answer are reverse-geocoded through the shared ``cache/reverse_geocode.csv``
-and embedded as literal map columns, because the Spark containers only
-mount ``GEO_Download/data``.
+answer fall back to the ``geocode_country``/``geocode_state`` columns
+stamped into the CSVs at download time (through GEO_Download's
+``data/reverse_geocode.csv``). No reverse-geocoding API is called here.
 
 Run::
 
@@ -30,7 +30,6 @@ otherwise ``INCREMENTAL``. Both types append to the target.
 
 import datetime as dt
 import logging
-import os
 
 from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -38,7 +37,6 @@ from pyspark.sql import functions as F
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
 from utils.raw2plain_utils import get_max_file_date
-from utils.reverse_geocode import coord_key, geocode_map
 
 SOURCE_TABLE = "usgs_earthquake"
 TARGET_TABLE = "usgs_earthquake_etl"
@@ -229,7 +227,6 @@ COUNTRY_CODE_MAP = {
 COUNTRY_NAME_BY_CODE = {"US": US_STATE_NAMES}
 for _country, _iso_code in COUNTRY_CODE_MAP.items():
     COUNTRY_NAME_BY_CODE.setdefault(_iso_code, _country)
-GEOCODE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache", "reverse_geocode.csv")
 
 
 def _country_map() -> Column:
@@ -252,87 +249,17 @@ def _place_suffix() -> Column:
     return F.trim(F.regexp_extract(F.coalesce(F.col("place"), F.lit("")), r", ([^,]*)$", 1))
 
 
-def _country_known(suffix: Column) -> Column:
-    """Whether the suffix alone answers the country (US suffix or mapped name).
-
-    Args:
-        suffix: Column from :func:`_place_suffix`.
-
-    Returns:
-        ``TRUE`` for a US state suffix or a name in :data:`COUNTRY_CODE_MAP`;
-        ``FALSE`` otherwise (including a missing suffix) — those rows are
-        the ones :func:`_geocode_map` looks up.
-    """
-    return F.coalesce(
-        F.when(suffix.isin(US_SUFFIXES), F.lit(True)),
-        _country_map()[suffix].isNotNull(),
-        F.lit(False),
-    )
-
-
-def _geocode_map(df: DataFrame, logger: logging.Logger | None = None) -> dict[tuple[float, float], tuple[str, str]]:
-    """Resolve the epicentres whose ``place`` suffix cannot answer the country.
-
-    The distinct coordinates of those rows are collected on the driver and
-    handed to :func:`utils.reverse_geocode.geocode_map`, which answers them
-    from :data:`GEOCODE_FILE` and queries the API only for coordinates the
-    cache does not cover yet (~93 remote oceanic events today).
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the fetch messages.
-
-    Returns:
-        ``(latitude, longitude) -> (country_code, state_province)`` for
-        every unmapped coordinate of *df*; both parts are empty strings
-        where the API found nothing (open ocean).
-
-    Raises:
-        RuntimeError: When new coordinates could not be fetched (no network).
-    """
-    suffix = _place_suffix()
-    points = {
-        (row["latitude"], row["longitude"])
-        for row in df.filter(~_country_known(suffix)).select("latitude", "longitude").distinct().collect()
-        if row["latitude"] is not None and row["longitude"] is not None
-    }
-    cache = geocode_map(points, output=GEOCODE_FILE, logger=logger)
-    return {point: cache[coord_key(*point)] for point in points}
-
-
-def _geocode_columns(df: DataFrame, logger: logging.Logger | None = None) -> tuple[Column, Column]:
-    """Coordinate lookups embedded as literal maps keyed by ``struct(lat, lon)``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to :func:`_geocode_map`.
-
-    Returns:
-        ``(country_column, state_column)``; a coordinate missing from the
-        lookup resolves to ``NULL`` in both columns.
-    """
-    country_entries: list[Column] = []
-    state_entries: list[Column] = []
-    for (latitude, longitude), (country, state) in _geocode_map(df, logger).items():
-        key = F.struct(F.lit(latitude).alias("latitude"), F.lit(longitude).alias("longitude"))
-        country_entries.extend((key, F.lit(country)))
-        state_entries.extend((key, F.lit(state)))
-    if not country_entries:
-        return F.lit(None).cast("string"), F.lit(None).cast("string")
-    lookup = F.struct(F.col("latitude"), F.col("longitude"))
-    return F.create_map(*country_entries)[lookup], F.create_map(*state_entries)[lookup]
-
-
 def _country_code(suffix: Column, geocode_country: Column) -> Column:
-    """The ISO country code: place suffix parsed, else geocoded, else ``ZZ``.
+    """The ISO country code: place suffix parsed, else stamped geocode, else ``ZZ``.
 
     Args:
         suffix: Column from :func:`_place_suffix`.
-        geocode_country: ``country_code`` of the coordinate lookup.
+        geocode_country: ``geocode_country`` column stamped into the CSVs at
+            download time.
 
     Returns:
         ``US`` for a US state suffix, the :data:`COUNTRY_CODE_MAP` answer
-        for an international suffix, the reverse-geocoded country when the
+        for an international suffix, the stamped country when the
         suffix cannot answer, ``UNKNOWN_COUNTRY_CODE`` when nothing
         resolves.
     """
@@ -345,15 +272,16 @@ def _country_code(suffix: Column, geocode_country: Column) -> Column:
 
 
 def _country_name(suffix: Column, geocode_country: Column) -> Column:
-    """The country name for ``event_name``: place suffix, else geocode, else ``NULL``.
+    """The country name for ``event_name``: place suffix, else stamped geocode, else ``NULL``.
 
     Args:
         suffix: Column from :func:`_place_suffix`.
-        geocode_country: ``country_code`` of the coordinate lookup.
+        geocode_country: ``geocode_country`` column stamped into the CSVs at
+            download time.
 
     Returns:
         ``United States`` for a US suffix, the suffix itself for a known
-        international name, the reverse-geocoded country's name (or its
+        international name, the stamped country's name (or its
         code when no name is known) for geocoded rows, ``NULL`` when the
         country stays unknown.
     """
@@ -382,14 +310,15 @@ def _event_name(country: Column) -> Column:
 
 
 def _state_province(geocode_state: Column) -> Column:
-    """``net`` uppercased, the geocoded subdivision when ``net`` is blank, else ``NULL``.
+    """``net`` uppercased, the stamped subdivision when ``net`` is blank, else ``NULL``.
 
     Args:
-        geocode_state: ``state_province`` of the coordinate lookup.
+        geocode_state: ``geocode_state`` column stamped into the CSVs at
+            download time.
 
     Returns:
-        ``ak`` → ``AK``; a blank ``net`` falls back to the reverse-geocoded
-        epicentre, and an empty answer is ``NULL``.
+        ``ak`` → ``AK``; a blank ``net`` falls back to the stamped
+        epicentre subdivision, and an empty answer is ``NULL``.
     """
     net = F.trim(F.col("net"))
     return (
@@ -435,30 +364,29 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
 
     One row per seismic event: the epicentre and origin time place the
     rupture, the magnitude (with its ``magType``) measures it, and the
-    ``place`` suffix supplies the country unless the reverse geocode has to.
+    ``place`` suffix supplies the country unless the stamped geocode
+    columns have to.
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the lookup fetches.
+        logger: Unused; kept for call-site compatibility.
 
     Returns:
         The DataFrame in :data:`TARGET_TABLE` column order.
     """
-    logger = logger or logging.getLogger(__name__)
-    geocode_country, geocode_state = _geocode_columns(df, logger)
     suffix = _place_suffix()
 
     return df.select(
         F.lit(SOURCE_NAME).alias("source_name"),
         F.col("net").alias("subsource_name"),
-        _event_name(_country_name(suffix, geocode_country)).alias("event_name"),
+        _event_name(_country_name(suffix, F.col("geocode_country"))).alias("event_name"),
         F.lit(EVENT_CATEGORY).alias("event_category"),
         F.col("event_type").alias("event_subcategory"),
         _event_description().alias("event_description"),
         F.col("latitude"),
         F.col("longitude"),
-        _country_code(suffix, geocode_country).alias("country_code"),
-        _state_province(geocode_state).alias("state_province"),
+        _country_code(suffix, F.col("geocode_country")).alias("country_code"),
+        _state_province(F.col("geocode_state")).alias("state_province"),
         F.col("place").alias("place_location"),
         F.lit(METRIC_NAME).alias("metric_name"),
         F.coalesce(F.col("mag"), F.lit(0.0)).alias("metric_value"),

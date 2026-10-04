@@ -3,14 +3,11 @@
 Reads the typed plain table ``geo.openmeteo_flood`` and writes every river
 discharge snapshot into ``geo.openmeteo_flood_etl`` using the schema from
 ``model/etl/event_etl.py``, so it can be merged with the other ``*_etl``
-tables. Two lookups run on the driver and are embedded as literal map
-columns, because the Spark containers only mount ``GEO_Download/data``:
-
-- the ISO ``country_code`` comes from the script's own name map over the
-  source's ``country`` full names (unknown names fall back to the geocode),
-- the reference point's ``state_province`` (and the country fallback) comes
-  from the shared ``cache/reverse_geocode.csv`` — every distinct
-  ``(latitude, longitude)`` of the plain table is answered there.
+tables. The ISO ``country_code`` comes from the script's own name map over
+the source's ``country`` full names (unknown names fall back to the
+``geocode_country`` column stamped into the CSVs at download time), and the
+reference point's ``state_province`` is the stamped ``geocode_state``
+column. No reverse-geocoding API is called here.
 
 Run::
 
@@ -33,7 +30,6 @@ otherwise ``INCREMENTAL``. Both types append to the target.
 
 import datetime as dt
 import logging
-import os
 
 from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -41,7 +37,6 @@ from pyspark.sql import functions as F
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
 from utils.raw2plain_utils import get_max_file_date
-from utils.reverse_geocode import coord_key, geocode_map
 
 SOURCE_TABLE = "openmeteo_flood"
 TARGET_TABLE = "openmeteo_flood_etl"
@@ -108,74 +103,20 @@ COUNTRY_CODE_MAP = {
     "Venezuela": "VE",
     "Vietnam": "VN",
 }
-GEOCODE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache", "reverse_geocode.csv")
-
-
-def _geocode_map(df: DataFrame, logger: logging.Logger | None = None) -> dict[tuple[float, float], tuple[str, str]]:
-    """Resolve every reference point of *df* to a ``(country, state)`` pair.
-
-    The distinct coordinates of *df* are collected on the driver and handed
-    to :func:`utils.reverse_geocode.geocode_map`, which answers them from
-    :data:`GEOCODE_FILE` and queries the API only for coordinates the cache
-    does not cover yet. The answers are embedded as column literals in
-    :func:`_geocode_columns`, because the Spark containers only mount
-    ``GEO_Download/data``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the fetch messages.
-
-    Returns:
-        ``(latitude, longitude) -> (country_code, state_province)`` for
-        every coordinate of *df*; both parts are empty strings where the
-        API found nothing (the ETL keeps ``NULL`` and falls back to ``ZZ``).
-
-    Raises:
-        RuntimeError: When new coordinates could not be fetched (no network).
-    """
-    points = {
-        (row["latitude"], row["longitude"])
-        for row in df.select("latitude", "longitude").distinct().collect()
-        if row["latitude"] is not None and row["longitude"] is not None
-    }
-    cache = geocode_map(points, output=GEOCODE_FILE, logger=logger)
-    return {point: cache[coord_key(*point)] for point in points}
-
-
-def _geocode_columns(df: DataFrame, logger: logging.Logger | None = None) -> tuple[Column, Column]:
-    """Coordinate lookups embedded as literal maps keyed by ``struct(lat, lon)``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to :func:`_geocode_map`.
-
-    Returns:
-        ``(country_column, state_column)``; a coordinate missing from the
-        lookup resolves to ``NULL`` in both columns.
-    """
-    country_entries: list[Column] = []
-    state_entries: list[Column] = []
-    for (latitude, longitude), (country, state) in _geocode_map(df, logger).items():
-        key = F.struct(F.lit(latitude).alias("latitude"), F.lit(longitude).alias("longitude"))
-        country_entries.extend((key, F.lit(country)))
-        state_entries.extend((key, F.lit(state)))
-    if not country_entries:
-        return F.lit(None).cast("string"), F.lit(None).cast("string")
-    lookup = F.struct(F.col("latitude"), F.col("longitude"))
-    return F.create_map(*country_entries)[lookup], F.create_map(*state_entries)[lookup]
 
 
 def _country_code(geocode_country: Column) -> Column:
-    """The ISO country code: source name mapped, else geocoded, else ``ZZ``.
+    """The ISO country code: source name mapped, else stamped geocode, else ``ZZ``.
 
     Args:
-        geocode_country: ``country_code`` of the coordinate lookup.
+        geocode_country: ``geocode_country`` column stamped into the CSVs at
+            download time.
 
     Returns:
         :data:`COUNTRY_CODE_MAP` applied to the trimmed source ``country``;
-        a name the map does not know falls back to the reverse-geocoded
-        country of the reference point, and an empty geocode counts as a
-        miss (``UNKNOWN_COUNTRY_CODE``).
+        a name the map does not know falls back to the stamped country of
+        the reference point, and an empty stamp counts as a miss
+        (``UNKNOWN_COUNTRY_CODE``).
     """
     mapping = F.create_map(*[F.lit(item) for pair in COUNTRY_CODE_MAP.items() for item in pair])
     return F.coalesce(
@@ -186,14 +127,15 @@ def _country_code(geocode_country: Column) -> Column:
 
 
 def _state_province(geocode_state: Column) -> Column:
-    """The reverse-geocoded subdivision of the reference point, ``NULL`` when empty.
+    """The stamped subdivision of the reference point, ``NULL`` when empty.
 
     Args:
-        geocode_state: ``state_province`` of the coordinate lookup.
+        geocode_state: ``geocode_state`` column stamped into the CSVs at
+            download time.
 
     Returns:
-        The geocode answer; an empty string (no subdivision found) or a
-        missing coordinate resolves to ``NULL``.
+        The stamped answer; an empty string (no subdivision found) or a
+        ``NULL`` (no coordinate) resolves to ``NULL``.
     """
     return F.when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
 
@@ -222,19 +164,16 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     One row per river discharge value snapshot: the river's identity (name,
     country, reference point) describes the event while ``date`` places the
     GloFAS 24-h mean in time. The source's country name wins; unknown names
-    fall back to the reverse-geocoded point, which also supplies the
-    subdivision.
+    fall back to the stamped ``geocode_country``, which also supplies the
+    subdivision through ``geocode_state``.
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the lookup fetches.
+        logger: Unused; kept for call-site compatibility.
 
     Returns:
         The DataFrame in :data:`TARGET_TABLE` column order.
     """
-    logger = logger or logging.getLogger(__name__)
-    geocode_country, geocode_state = _geocode_columns(df, logger)
-
     return df.select(
         F.lit(SOURCE_NAME).alias("source_name"),
         F.lit(SUBSOURCE_NAME).alias("subsource_name"),
@@ -244,8 +183,8 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
         F.lit(None).cast("string").alias("event_description"),
         F.col("latitude"),
         F.col("longitude"),
-        _country_code(geocode_country).alias("country_code"),
-        _state_province(geocode_state).alias("state_province"),
+        _country_code(F.col("geocode_country")).alias("country_code"),
+        _state_province(F.col("geocode_state")).alias("state_province"),
         _place_location().alias("place_location"),
         F.lit(METRIC_NAME).alias("metric_name"),
         F.coalesce(F.col("discharge_m3s"), F.lit(0.0)).alias("metric_value"),

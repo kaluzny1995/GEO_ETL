@@ -5,12 +5,11 @@ into ``geo.usgs_volcano_etl`` using the schema from
 ``model/etl/event_etl.py``, so it can be merged with the other ``*_etl``
 tables. The notice details (coordinates, region, status line and full notice
 type) are already stamped into the source CSVs by the downloader in
-GEO_Download and arrive through the plain table, so this ETL only performs
-one driver-side lookup: the ``state_province`` of the volcano point comes
-from the shared ``cache/reverse_geocode.csv`` (``ZZ`` when the geocode has
-no subdivision, e.g. the Ahyi Seamount ocean point). The geocode is strict —
-a failed request raises and fails the build instead of leaving holes, while
-successful answers are persisted for every later run.
+GEO_Download and arrive through the plain table, and so is the reverse-geocoded
+subdivision of the notice point (``geocode_state``, stamped at download time
+through GEO_Download's ``data/reverse_geocode.csv``): this ETL only reads that
+column — ``ZZ`` when it is empty (e.g. the Ahyi Seamount ocean point). No
+reverse-geocoding API is called here.
 
 Run::
 
@@ -33,7 +32,6 @@ otherwise ``INCREMENTAL``. Both types append to the target.
 
 import datetime as dt
 import logging
-import os
 
 from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -41,7 +39,6 @@ from pyspark.sql import functions as F
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
 from utils.raw2plain_utils import get_max_file_date
-from utils.reverse_geocode import coord_key, geocode_map
 
 SOURCE_TABLE = "usgs_volcano"
 TARGET_TABLE = "usgs_volcano_etl"
@@ -59,43 +56,6 @@ ALERT_SCALE = {
     "WATCH": 2.0,
     "WARNING": 3.0,
 }
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GEOCODE_FILE = os.path.join(_PROJECT_ROOT, "cache", "reverse_geocode.csv")
-
-
-def _state_map_column(df: DataFrame, logger: logging.Logger | None = None) -> Column:
-    """Reverse-geocoded subdivision embedded as a literal map keyed by ``struct(lat, lon)``.
-
-    The distinct coordinates of *df* are collected on the driver and handed
-    to :func:`utils.reverse_geocode.geocode_map`, which answers them from
-    :data:`GEOCODE_FILE` and queries the API only for coordinates the cache
-    does not cover yet. The answers are embedded as column literals,
-    because the Spark containers only mount ``GEO_Download/data``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the fetch messages.
-
-    Returns:
-        ``state_province`` map column keyed by the row's
-        ``(latitude, longitude)`` struct; a point missing from the lookup
-        (or a row without coordinates) resolves to ``NULL`` and the
-        downstream :func:`_state_province` fallback answers ``ZZ``.
-    """
-    points = {
-        (row["latitude"], row["longitude"])
-        for row in df.select("latitude", "longitude").distinct().collect()
-        if row["latitude"] is not None and row["longitude"] is not None
-    }
-    geos = geocode_map(points, output=GEOCODE_FILE, logger=logger)
-    entries: list[Column] = []
-    for point in points:
-        key = F.struct(F.lit(point[0]).alias("latitude"), F.lit(point[1]).alias("longitude"))
-        state = geos.get(coord_key(*point), ("", ""))[1]
-        entries.extend((key, F.lit(state)))
-    if not entries:
-        return F.lit(None).cast("string")
-    return F.create_map(*entries)[F.struct(F.col("latitude"), F.col("longitude"))]
 
 
 def _event_name() -> Column:
@@ -149,15 +109,15 @@ def _metric_value() -> Column:
 
 
 def _state_province(state: Column) -> Column:
-    """The reverse-geocoded subdivision, ``ZZ`` when the geocode found none.
+    """The stamped subdivision of the notice point, ``ZZ`` when it found none.
 
     Args:
-        state: ``state_province`` of the coordinate lookup.
+        state: ``geocode_state`` column stamped into the CSVs at download time.
 
     Returns:
-        The geocode answer (``AK``, ``HI``, ``MP``); an empty answer (the
-        Ahyi Seamount sits in open water), a point missing from the lookup
-        or a row without coordinates resolves to :data:`UNKNOWN_CODE`.
+        The stamped answer (``AK``, ``HI``, ``MP``); an empty answer (the
+        Ahyi Seamount sits in open water) or a ``NULL`` (no coordinate)
+        resolves to :data:`UNKNOWN_CODE`.
     """
     return F.coalesce(F.when(state != "", state), F.lit(UNKNOWN_CODE))
 
@@ -182,18 +142,16 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     One row per volcano per notice per snapshot: the feed supplies the
     volcano, observatory, alert level and notice time, the downloader-stamped
     detail columns supply the coordinates, region, status line and full
-    notice type — the country is always ``US`` and the subdivision comes
-    from the reverse-geocoded volcano point.
+    notice type — the country is always ``US`` and the subdivision is the
+    stamped ``geocode_state`` of the notice point.
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the geocode fetches.
+        logger: Unused; kept for call-site compatibility.
 
     Returns:
         The DataFrame in :data:`TARGET_TABLE` column order.
     """
-    state = _state_map_column(df, logger)
-
     return df.select(
         F.lit(SOURCE_NAME).alias("source_name"),
         F.col("observatory_name").alias("subsource_name"),
@@ -204,7 +162,7 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
         F.col("latitude"),
         F.col("longitude"),
         F.lit(COUNTRY_CODE).alias("country_code"),
-        _state_province(state).alias("state_province"),
+        _state_province(F.col("geocode_state")).alias("state_province"),
         _place_location(F.col("region")).alias("place_location"),
         F.lit(METRIC_NAME).alias("metric_name"),
         _metric_value().alias("metric_value"),

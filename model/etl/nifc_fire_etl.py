@@ -17,8 +17,8 @@ class NifcFireEtl(EventEtl):
       ``NULL`` when the source states no type.
     * ``country_code`` — always ``US`` (the layer only publishes US
       perimeters); ``state_province`` — the source ``state`` when present,
-      otherwise the reverse-geocoded centroid (``cache/reverse_geocode.csv``,
-      covering the ~127 rows whose vintage predates the ``state`` field),
+      otherwise the download-time stamped ``geocode_state`` (filled in for
+      rows whose vintage predates the ``state`` field),
       ``NULL`` when neither resolves.
     * ``place_location`` — the jurisdiction unit's full name as it ships
       with the source row in ``unit_name`` (GEO_Download resolves

@@ -46,7 +46,7 @@ class TestUsgsNwisMissing:
 class TestUsgsNwisSparkSchema:
     def test_schema_field_count(self):
         schema = pydantic_to_spark_schema(UsgsNwis)
-        assert len(schema.fields) == 10
+        assert len(schema.fields) == 11
 
     def test_double_fields(self):
         schema = pydantic_to_spark_schema(UsgsNwis)

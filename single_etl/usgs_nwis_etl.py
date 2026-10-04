@@ -5,9 +5,8 @@ reading into ``geo.usgs_nwis_etl`` using the schema from
 ``model/etl/event_etl.py``, so it can be merged with the other ``*_etl``
 tables. The event name and place are parsed from ``site_name`` around its
 first ``NEAR``/``AT`` marker on the driver-free path; the gauge point's
-``state_province`` is reverse-geocoded through the shared
-``cache/reverse_geocode.csv`` and embedded as literal map columns,
-because the Spark containers only mount ``GEO_Download/data``.
+``state_province`` is the ``geocode_state`` column stamped into the CSVs at
+download time (empty → ``NULL``). No reverse-geocoding API is called here.
 
 Run::
 
@@ -30,7 +29,6 @@ otherwise ``INCREMENTAL``. Both types append to the target.
 
 import datetime as dt
 import logging
-import os
 
 from pyspark.sql import Column, DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -38,7 +36,6 @@ from pyspark.sql import functions as F
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
 from utils.raw2plain_utils import get_max_file_date
-from utils.reverse_geocode import coord_key, geocode_map
 
 SOURCE_TABLE = "usgs_nwis"
 TARGET_TABLE = "usgs_nwis_etl"
@@ -63,7 +60,6 @@ QUALIFIER_NAMES = {
     "ZFL": "zero flow",
     "***": "value unavailable",
 }
-GEOCODE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache", "reverse_geocode.csv")
 
 
 def _qualifier_map() -> Column:
@@ -144,67 +140,16 @@ def _event_description() -> Column:
     )
 
 
-def _geocode_map(df: DataFrame, logger: logging.Logger | None = None) -> dict[tuple[float, float], tuple[str, str]]:
-    """Resolve every gauge point of *df* to a ``(country, state)`` pair.
-
-    The distinct coordinates of *df* are collected on the driver and handed
-    to :func:`utils.reverse_geocode.geocode_map`, which answers them from
-    :data:`GEOCODE_FILE` and queries the API only for coordinates the cache
-    does not cover yet. The answers are embedded as column literals in
-    :func:`_geocode_state`, because the Spark containers only mount
-    ``GEO_Download/data``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the fetch messages.
-
-    Returns:
-        ``(latitude, longitude) -> (country_code, state_province)`` for
-        every coordinate of *df*; both parts are empty strings where the
-        API found nothing (the ETL keeps ``NULL`` for the state).
-
-    Raises:
-        RuntimeError: When new coordinates could not be fetched (no network).
-    """
-    points = {
-        (row["latitude"], row["longitude"])
-        for row in df.select("latitude", "longitude").distinct().collect()
-        if row["latitude"] is not None and row["longitude"] is not None
-    }
-    cache = geocode_map(points, output=GEOCODE_FILE, logger=logger)
-    return {point: cache[coord_key(*point)] for point in points}
-
-
-def _geocode_state(df: DataFrame, logger: logging.Logger | None = None) -> Column:
-    """Coordinate → state lookup embedded as a literal map keyed by ``struct(lat, lon)``.
-
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to :func:`_geocode_map`.
-
-    Returns:
-        The ``state_province`` of the gauge's coordinate; a coordinate
-        missing from the lookup resolves to ``NULL``.
-    """
-    entries: list[Column] = []
-    for (latitude, longitude), (_country, state) in _geocode_map(df, logger).items():
-        key = F.struct(F.lit(latitude).alias("latitude"), F.lit(longitude).alias("longitude"))
-        entries.extend((key, F.lit(state)))
-    if not entries:
-        return F.lit(None).cast("string")
-    lookup = F.struct(F.col("latitude"), F.col("longitude"))
-    return F.create_map(*entries)[lookup]
-
-
 def _state_province(geocode_state: Column) -> Column:
-    """The reverse-geocoded subdivision of the gauge point, ``NULL`` when empty.
+    """The stamped subdivision of the gauge point, ``NULL`` when empty.
 
     Args:
-        geocode_state: ``state_province`` of the coordinate lookup.
+        geocode_state: ``geocode_state`` column stamped into the CSVs at
+            download time.
 
     Returns:
-        The geocode answer; an empty string (no subdivision found) or a
-        missing coordinate resolves to ``NULL``.
+        The stamped answer; an empty string (no subdivision found) or a
+        ``NULL`` (no coordinate) resolves to ``NULL``.
     """
     return F.when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
 
@@ -215,17 +160,15 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
     One row per gauge per measurement day per snapshot: the gauge's
     identity (site, name, point) describes the event while ``date``
     places the daily mean in time. The country is always ``US``; the
-    subdivision comes from the reverse-geocoded gauge point.
+    subdivision is the stamped ``geocode_state`` of the gauge point.
 
     Args:
         df: Rows read from :data:`SOURCE_TABLE`.
-        logger: Logger handed to the lookup fetches.
+        logger: Unused; kept for call-site compatibility.
 
     Returns:
         The DataFrame in :data:`TARGET_TABLE` column order.
     """
-    logger = logger or logging.getLogger(__name__)
-    geocode_state = _geocode_state(df, logger)
     river, place = _name_parts()
 
     return df.select(
@@ -238,7 +181,7 @@ def _convert(df: DataFrame, logger: logging.Logger | None = None) -> DataFrame:
         F.col("latitude"),
         F.col("longitude"),
         F.lit(COUNTRY_CODE).alias("country_code"),
-        _state_province(geocode_state).alias("state_province"),
+        _state_province(F.col("geocode_state")).alias("state_province"),
         _place_location(river, place).alias("place_location"),
         F.lit(METRIC_NAME).alias("metric_name"),
         F.coalesce(F.col("value"), F.lit(0.0)).alias("metric_value"),

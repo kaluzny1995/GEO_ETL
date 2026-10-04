@@ -21,9 +21,9 @@ class GdacsEventEtl(EventEtl):
     * ``place_location`` — ``country`` (region at the event centroid, or the
       affected-country list), ``NULL`` when the source states none.
     * ``country_code`` — the source's ISO 3166-1 alpha-3 ``country_code``
-      translated to alpha-2, else the reverse-geocoded coordinate pair
-      (``cache/reverse_geocode.csv``), else ``ZZ``; ``state_province`` — the
-      reverse-geocoded subdivision (GDACS has none), ``NULL`` when unknown.
+      translated to alpha-2, else the download-time stamped
+      ``geocode_country``, else ``ZZ``; ``state_province`` — the stamped
+      ``geocode_state`` (GDACS carries none), ``NULL`` when unknown.
     * ``metric_name`` — ``magnitude`` (EQ/FL/VO), ``wind speed`` (TC), ``area``
       (WF/DR); ``metric_value`` — ``severity`` with ``0`` ("not defined"
       everywhere FL and VO report one) mapped to ``NULL``; ``metric_unit`` —

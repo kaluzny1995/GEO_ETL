@@ -22,7 +22,7 @@ class EonetEventEtl(EventEtl):
       place (``Hurricane Polo``, ``Iceberg D32``).
     * ``country_code`` / ``state_province`` — the US state at the end of
       ``description`` (fires: ``… from Miles City, MT``), else the
-      reverse-geocoded coordinate pair (``cache/reverse_geocode.csv``), else
+      download-time stamped ``geocode_country`` / ``geocode_state`` pair, else
       ``ZZ`` / ``NULL`` for open water.
     * ``metric_name`` — ``wind speed`` (storms), ``area`` (fires), ``surface``
       (ice), ``magnitude`` for any other category; ``metric_value`` /

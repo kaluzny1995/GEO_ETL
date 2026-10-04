@@ -20,4 +20,5 @@ class UsgsVolcanoRaw(BaseModel):
     longitude: str | None = None
     region: str | None = None
     synopsis: str | None = None
+    geocode_state: str | None = None
     file_date: str

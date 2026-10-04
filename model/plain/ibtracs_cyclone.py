@@ -53,4 +53,6 @@ class IbtacsCyclone(BaseModel):
     storm_speed: int | None = None
     storm_dir: int | None = None
     usa_gust: int | None = None
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str

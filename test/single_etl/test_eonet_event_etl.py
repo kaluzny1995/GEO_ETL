@@ -51,6 +51,8 @@ def _source_row(**overrides):
         "last_latitude": 16.0,
         "last_longitude": -105.0,
         "last_date": dt.datetime(2026, 9, 21, 12, 0, 0),
+        "geocode_country": None,
+        "geocode_state": None,
         "file_date": "2026-09-21",
     }
     row.update(overrides)
@@ -144,47 +146,8 @@ class TestRun:
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.eonet_event"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
-    @patch("single_etl.eonet_event_etl.geocode_map")
-    @patch("single_etl.eonet_event_etl.get_max_file_date", return_value=None)
-    def test_unbuildable_geocode_fails_the_run(self, mock_max, mock_geocode, spark_session):
-        mock_geocode.side_effect = RuntimeError("reverse geocode failed")
-        spark = _spark_with_rows()
-
-        with pytest.raises(RuntimeError, match="reverse geocode"):
-            eonet_event_etl.run(spark, _mock_config(), _mock_db_config())
-
-
-class TestGeocodeMap:
-    @patch("single_etl.eonet_event_etl.geocode_map")
-    def test_resolves_each_distinct_coordinate(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {"15.1433,-104.7983": ("", ""), "1.0000,2.0000": ("US", "TX")}
-        df = _source_df(
-            spark_session,
-            _source_row(),
-            _source_row(file_date="2026-09-22", last_latitude=17.0),
-            _source_row(latitude=1.0, longitude=2.0),
-        )
-
-        mapping = eonet_event_etl._geocode_map(df)
-
-        assert mapping == {(15.1433, -104.7983): ("", ""), (1.0, 2.0): ("US", "TX")}
-        assert set(mock_geocode.call_args.args[0]) == {(15.1433, -104.7983), (1.0, 2.0)}
-        assert mock_geocode.call_args.kwargs["output"] == eonet_event_etl.GEOCODE_FILE
-
-    @patch("single_etl.eonet_event_etl.geocode_map")
-    def test_null_coordinates_are_skipped(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {}
-        df = _source_df(spark_session, _source_row(latitude=None, longitude=None))
-
-        assert eonet_event_etl._geocode_map(df) == {}
-        assert set(mock_geocode.call_args.args[0]) == set()
-
 
 class TestConvert:
-    @pytest.fixture(autouse=True)
-    def _geocode(self, monkeypatch):
-        monkeypatch.setattr(eonet_event_etl, "_geocode_map", lambda *args, **kwargs: {})
-
     def test_column_order_matches_the_model(self, spark_session):
         df = eonet_event_etl._convert(_source_df(spark_session, _source_row()))
         assert df.columns == list(EonetEventEtl.model_fields)
@@ -254,38 +217,23 @@ class TestConvert:
         assert row.metric_value == 120.0
         assert row.metric_unit == "acres"
 
-    def test_state_and_country_from_the_geocode_when_the_description_has_none(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            eonet_event_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(46.586036, -104.927967): ("US", "MT")},
-        )
-
-        (row,) = _convert(spark_session, _source_row(latitude=46.586036, longitude=-104.927967))
+    def test_state_and_country_from_the_stamped_geocode_when_the_description_has_none(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(geocode_country="US", geocode_state="MT"))
 
         assert row.country_code == "US"
         assert row.state_province == "MT"
 
-    def test_the_description_state_beats_the_geocode(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            eonet_event_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(15.1433, -104.7983): ("MX", "GRO")},
+    def test_the_description_state_beats_the_stamped_geocode(self, spark_session):
+        (row,) = _convert(
+            spark_session,
+            _source_row(description="3 Miles E from Meridian, TX", geocode_country="MX", geocode_state="GRO"),
         )
-
-        (row,) = _convert(spark_session, _source_row(description="3 Miles E from Meridian, TX"))
 
         assert row.country_code == "US"
         assert row.state_province == "TX"
 
-    def test_geocoded_country_without_subdivision_leaves_state_null(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            eonet_event_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(15.1433, -104.7983): ("PH", "")},
-        )
-
-        (row,) = _convert(spark_session, _source_row())
+    def test_stamped_country_without_subdivision_leaves_state_null(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(geocode_country="PH", geocode_state=""))
 
         assert row.country_code == "PH"
         assert row.state_province is None

@@ -51,6 +51,8 @@ def _source_row(**overrides):
         "source": "NOAA",
         "report_url": "https://www.gdacs.org/report.aspx?eventid=1001331&episodeid=2&eventtype=TC",
         "is_current": True,
+        "geocode_country": None,
+        "geocode_state": None,
         "file_date": "2026-09-29",
     }
     row.update(overrides)
@@ -144,47 +146,8 @@ class TestRun:
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.gdacs_event"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
-    @patch("single_etl.gdacs_event_etl.geocode_map")
-    @patch("single_etl.gdacs_event_etl.get_max_file_date", return_value=None)
-    def test_unbuildable_geocode_fails_the_run(self, mock_max, mock_geocode, spark_session):
-        mock_geocode.side_effect = RuntimeError("reverse geocode failed")
-        spark = _spark_with_rows()
-
-        with pytest.raises(RuntimeError, match="reverse geocode"):
-            gdacs_event_etl.run(spark, _mock_config(), _mock_db_config())
-
-
-class TestGeocodeMap:
-    @patch("single_etl.gdacs_event_etl.geocode_map")
-    def test_resolves_each_distinct_coordinate(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {"14.2000,-130.8000": ("", ""), "1.0000,2.0000": ("US", "TX")}
-        df = _source_df(
-            spark_session,
-            _source_row(),
-            _source_row(file_date="2026-09-30", to_date=dt.datetime(2026, 9, 30, 21, 0, 0)),
-            _source_row(latitude=1.0, longitude=2.0),
-        )
-
-        mapping = gdacs_event_etl._geocode_map(df)
-
-        assert mapping == {(14.2, -130.8): ("", ""), (1.0, 2.0): ("US", "TX")}
-        assert set(mock_geocode.call_args.args[0]) == {(14.2, -130.8), (1.0, 2.0)}
-        assert mock_geocode.call_args.kwargs["output"] == gdacs_event_etl.GEOCODE_FILE
-
-    @patch("single_etl.gdacs_event_etl.geocode_map")
-    def test_null_coordinates_are_skipped(self, mock_geocode, spark_session):
-        mock_geocode.return_value = {}
-        df = _source_df(spark_session, _source_row(latitude=None, longitude=None))
-
-        assert gdacs_event_etl._geocode_map(df) == {}
-        assert set(mock_geocode.call_args.args[0]) == set()
-
 
 class TestConvert:
-    @pytest.fixture(autouse=True)
-    def _geocode(self, monkeypatch):
-        monkeypatch.setattr(gdacs_event_etl, "_geocode_map", lambda *args, **kwargs: {})
-
     def test_column_order_matches_the_model(self, spark_session):
         df = gdacs_event_etl._convert(_source_df(spark_session, _source_row()))
         assert df.columns == list(GdacsEventEtl.model_fields)
@@ -346,33 +309,19 @@ class TestConvert:
 
         assert row.country_code == expected
 
-    def test_blank_country_code_falls_back_to_the_geocode(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            gdacs_event_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(14.2, -130.8): ("PH", "")},
-        )
-
-        (row,) = _convert(spark_session, _source_row())
+    def test_blank_country_code_falls_back_to_the_stamped_geocode(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(geocode_country="PH", geocode_state=""))
 
         assert row.country_code == "PH"
         assert row.state_province is None
 
-    def test_geocode_supplies_the_state_even_when_the_code_is_known(self, monkeypatch, spark_session):
-        monkeypatch.setattr(
-            gdacs_event_etl,
-            "_geocode_map",
-            lambda *args, **kwargs: {(14.2, -130.8): ("US", "TX")},
-        )
-
-        (row,) = _convert(spark_session, _source_row(country_code="USA"))
+    def test_stamped_geocode_supplies_the_state_even_when_the_code_is_known(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(country_code="USA", geocode_country="US", geocode_state="TX"))
 
         assert row.country_code == "US"
         assert row.state_province == "TX"
 
-    def test_unknown_country_code_resolves_from_the_geocode_then_falls_back(self, monkeypatch, spark_session):
-        monkeypatch.setattr(gdacs_event_etl, "_geocode_map", lambda *args, **kwargs: {})
-
+    def test_unknown_country_code_resolves_from_the_stamped_geocode_then_falls_back(self, spark_session):
         (row,) = _convert(spark_session, _source_row(event_type="EQ", country_code="XXX"))
 
         assert row.country_code == "ZZ"

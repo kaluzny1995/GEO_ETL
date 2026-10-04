@@ -15,7 +15,6 @@ GEO_ETL/
 ├── run_delete_last_filedate_data.py  # Delete latest file_date from raw + plain tables
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
-├── cache/                           # Local lookup caches (gitignored): reverse geocode, NIFC units, volcano notices
 │
 ├── ingestion/                        # Ingestion scripts (CSV upload + raw-to-plain transforms)
 │   ├── __init__.py
@@ -114,7 +113,6 @@ GEO_ETL/
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
-│   ├── reverse_geocode.py            # Cached reverse geocode lookup (country/state from coordinates)
 │   ├── schema_converter.py           # Pydantic -> PySpark StructType schemas
 │   ├── spark_monitor.py              # Stage memory logging via Java SparkListener
 │   ├── spark_listener/               # Compiled Java SparkListener classes
@@ -238,7 +236,6 @@ GEO_ETL/
         ├── test_dq_metrics.py
         ├── test_jdbc_retry.py
         ├── test_logger.py
-        ├── test_reverse_geocode.py
         ├── test_schema_converter.py
         └── test_spark_monitor.py
 ```

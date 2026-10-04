@@ -21,4 +21,6 @@ class EonetEventRaw(BaseModel):
     last_latitude: str
     last_longitude: str
     last_date: str
+    geocode_country: str | None = None
+    geocode_state: str | None = None
     file_date: str
