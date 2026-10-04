@@ -21,46 +21,62 @@ VALID_CONFIG = {
     "data": {"directory": "../GEO_Download/data"},
 }
 
+VALID_CASES = [
+    (SparkConfig, VALID_CONFIG["spark"], {"master": "spark://localhost:7078", "app_name_prefix": "geo_etl"}),
+    (DatabaseConfig, VALID_CONFIG["database"], {"db_schema": "geo", "jdbc_driver": "org.postgresql.Driver"}),
+    (LoggingConfig, VALID_CONFIG["logging"], {"directory": "logs", "level": "INFO"}),
+    (DataConfig, VALID_CONFIG["data"], {"directory": "../GEO_Download/data"}),
+    (
+        AppConfig,
+        VALID_CONFIG,
+        {
+            "spark.master": "spark://localhost:7078",
+            "database.db_schema": "geo",
+            "logging.directory": "logs",
+            "data.directory": "../GEO_Download/data",
+        },
+    ),
+]
+
+FROZEN_CASES = [
+    (SparkConfig, VALID_CONFIG["spark"], "master", "spark://other:7077"),
+    (DatabaseConfig, VALID_CONFIG["database"], "db_schema", "other"),
+    (LoggingConfig, VALID_CONFIG["logging"], "directory", "other"),
+    (DataConfig, VALID_CONFIG["data"], "directory", "other"),
+    (AppConfig, VALID_CONFIG, "spark", SparkConfig(master="spark://other:7077")),
+]
+
+
+class TestConfigModels:
+    @pytest.mark.parametrize("config_cls, values, expected", VALID_CASES)
+    def test_valid(self, config_cls, values, expected):
+        # Act
+        cfg = config_cls(**values)
+
+        # Assert
+        for path, value in expected.items():
+            obj = cfg
+            for part in path.split("."):
+                obj = getattr(obj, part)
+            assert obj == value
+
+    @pytest.mark.parametrize("config_cls, values, attr, new_value", FROZEN_CASES)
+    def test_frozen(self, config_cls, values, attr, new_value):
+        # Arrange
+        cfg = config_cls(**values)
+
+        # Assert
+        with pytest.raises(ValidationError):
+            setattr(cfg, attr, new_value)
+
 
 class TestSparkConfig:
-    def test_valid(self):
-        cfg = SparkConfig(**VALID_CONFIG["spark"])
-        assert cfg.master == "spark://localhost:7078"
-        assert cfg.app_name_prefix == "geo_etl"
-
-    def test_frozen(self):
-        cfg = SparkConfig(master="spark://localhost:7078")
-        with pytest.raises(ValidationError):
-            cfg.master = "spark://other:7077"
-
     def test_default_app_name_prefix(self):
         cfg = SparkConfig(master="spark://localhost:7078")
         assert cfg.app_name_prefix == "geo_etl"
 
 
-class TestDatabaseConfig:
-    def test_valid(self):
-        cfg = DatabaseConfig(**VALID_CONFIG["database"])
-        assert cfg.db_schema == "geo"
-        assert cfg.jdbc_driver == "org.postgresql.Driver"
-
-    def test_frozen(self):
-        cfg = DatabaseConfig(db_schema="geo", jdbc_driver="org.postgresql.Driver")
-        with pytest.raises(ValidationError):
-            cfg.db_schema = "other"
-
-
 class TestLoggingConfig:
-    def test_valid(self):
-        cfg = LoggingConfig(**VALID_CONFIG["logging"])
-        assert cfg.directory == "logs"
-        assert cfg.level == "INFO"
-
-    def test_frozen(self):
-        cfg = LoggingConfig(directory="logs", level="INFO")
-        with pytest.raises(ValidationError):
-            cfg.directory = "other"
-
     def test_level_int(self):
         cfg = LoggingConfig(level="INFO")
         assert cfg.level_int == logging.INFO
@@ -80,33 +96,12 @@ class TestLoggingConfig:
 
 
 class TestDataConfig:
-    def test_valid(self):
-        cfg = DataConfig(**VALID_CONFIG["data"])
-        assert cfg.directory == "../GEO_Download/data"
-
-    def test_frozen(self):
-        cfg = DataConfig(directory="data")
-        with pytest.raises(ValidationError):
-            cfg.directory = "other"
-
     def test_default_values(self):
         cfg = DataConfig()
         assert cfg.directory == "../GEO_Download/data"
 
 
 class TestAppConfig:
-    def test_valid(self):
-        cfg = AppConfig(**VALID_CONFIG)
-        assert cfg.spark.master == "spark://localhost:7078"
-        assert cfg.database.db_schema == "geo"
-        assert cfg.logging.directory == "logs"
-        assert cfg.data.directory == "../GEO_Download/data"
-
-    def test_frozen(self):
-        cfg = AppConfig(**VALID_CONFIG)
-        with pytest.raises(ValidationError):
-            cfg.spark = SparkConfig(master="spark://other:7077")
-
     def test_from_json(self):
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(VALID_CONFIG, f)
@@ -139,3 +134,9 @@ class TestAppConfig:
         assert cfg.logging.directory == "logs"
         assert cfg.logging.level == "INFO"
         assert cfg.data.directory == "../GEO_Download/data"
+
+    def test_from_json_without_path_uses_project_config(self):
+        cfg = AppConfig.from_json()
+        assert cfg.spark.master == "spark://localhost:7078"
+        assert cfg.logging.directory == "logs"
+        assert cfg.database.db_schema == "geo"

@@ -228,3 +228,52 @@ def test_execute_statement(mock_get_conn):
 
     stmt.execute.assert_called_once_with("DELETE FROM geo.data_quality WHERE table_name = 't'")
     conn.close.assert_called_once()
+
+
+@pytest.mark.parametrize("row_exists, expected", [(True, 42), (False, None)])
+def test_query_jdbc_should_return_first_value_or_none(row_exists, expected):
+    from utils.ddl_generator import _query_jdbc
+
+    # Arrange
+    spark = MagicMock()
+    conn = spark._jvm.java.sql.DriverManager.getConnection.return_value
+    rs = conn.createStatement.return_value.executeQuery.return_value
+    rs.next.return_value = row_exists
+    rs.getObject.return_value = 42
+    properties = {"user": "user", "password": "pass"}
+
+    # Act
+    result = _query_jdbc(spark, "SELECT 42", "jdbc:postgresql://db:5432/postgres", properties)
+
+    # Assert
+    assert result == expected
+    conn.close.assert_called_once()
+
+
+def test_get_jdbc_connection_should_use_spark_gateway():
+    from utils.ddl_generator import _get_jdbc_connection
+
+    # Arrange
+    spark = MagicMock()
+    properties = {"user": "user", "password": "pass"}
+
+    # Act
+    conn = _get_jdbc_connection(spark, "jdbc:postgresql://db:5432/postgres", properties)
+
+    # Assert
+    assert conn is spark._jvm.java.sql.DriverManager.getConnection.return_value
+    spark._jvm.java.sql.DriverManager.getConnection.assert_called_once_with(
+        "jdbc:postgresql://db:5432/postgres", "user", "pass"
+    )
+
+
+def test_get_jdbc_connection_should_raise_when_gateway_missing():
+    from utils.ddl_generator import _get_jdbc_connection
+
+    # Arrange
+    spark = MagicMock()
+    spark._jvm = None
+
+    # Act & Assert
+    with pytest.raises(RuntimeError, match="JVM gateway"):
+        _get_jdbc_connection(spark, "jdbc:postgresql://db:5432/postgres", {"user": "user", "password": "pass"})

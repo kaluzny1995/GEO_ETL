@@ -61,3 +61,21 @@ def test_drop_table_logs_success(mock_logger, mock_app, mock_db, mock_drop, mock
     main()
 
     mock_log.info.assert_any_call("Table geo.my_table dropped.")
+
+
+@patch("run_drop_table.SparkSession.builder")
+@patch("run_drop_table.drop_table", side_effect=RuntimeError("boom"))
+@patch("run_drop_table.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_table.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_drop_table.setup_logger")
+def test_drop_table_failure_is_reraised(mock_logger, mock_app, mock_db, mock_drop, mock_builder):
+    import sys
+
+    import pytest
+
+    sys.argv = ["run_drop_table.py", "my_table"]
+
+    from run_drop_table import main
+
+    with pytest.raises(RuntimeError, match="boom"):
+        main()

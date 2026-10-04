@@ -1,37 +1,15 @@
 import datetime as dt
-from unittest.mock import MagicMock, patch
 
 import pytest
 from pyspark.sql import Row
 from pyspark.sql.types import StructField, StructType
 
-from model.enums import LoadType
 from model.etl.eonet_event_etl import EonetEventEtl
 from model.plain.eonet_event import EonetEvent
 from single_etl.eonet_event_etl import EonetEventEtlScript
 from utils.schema_converter import pydantic_to_spark_schema
 
 _SCRIPT = EonetEventEtlScript()
-
-
-def _mock_config():
-    cfg = MagicMock()
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {"user": "user", "password": "pass"}
-    return cfg
-
-
-def _spark_with_rows():
-    spark = MagicMock()
-    spark.read.jdbc.return_value.head.return_value = [MagicMock()]
-    return spark
 
 
 def _source_row(**overrides):
@@ -68,71 +46,6 @@ def _source_df(spark, *rows):
 
 def _convert(spark, *rows):
     return _SCRIPT._convert(_source_df(spark, *rows)).collect()
-
-
-class TestRun:
-    @patch("single_etl.eonet_event_etl.EonetEventEtlScript._convert")
-    @patch("utils.etl_utils.get_max_file_date", return_value=None)
-    def test_auto_detects_historical(self, mock_max, mock_convert, spark_session):
-        spark = _spark_with_rows()
-
-        message = _SCRIPT.run(spark, _mock_config(), _mock_db_config())
-
-        assert message.startswith("HISTORICAL")
-        assert "wrote to geo.eonet_event_etl" in message
-        spark.read.jdbc.return_value.filter.assert_not_called()
-        writer = mock_convert.return_value.write.jdbc
-        writer.assert_called_once()
-        assert writer.call_args.kwargs["table"] == "geo.eonet_event_etl"
-        assert writer.call_args.kwargs["mode"] == "append"
-
-    @patch("single_etl.eonet_event_etl.EonetEventEtlScript._convert")
-    @patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28))
-    def test_auto_detects_incremental(self, mock_max, mock_convert, spark_session):
-        spark = _spark_with_rows()
-
-        message = _SCRIPT.run(spark, _mock_config(), _mock_db_config())
-
-        assert message.startswith("INCREMENTAL")
-        spark.read.jdbc.return_value.filter.assert_called_once()
-        condition = str(spark.read.jdbc.return_value.filter.call_args[0][0])
-        assert "file_date" in condition
-        assert "2026-09-28" in condition
-        mock_convert.return_value.write.jdbc.assert_called_once()
-
-    @patch("single_etl.eonet_event_etl.EonetEventEtlScript._convert")
-    @patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28))
-    def test_forced_historical_skips_filter(self, mock_max, mock_convert, spark_session):
-        spark = _spark_with_rows()
-
-        message = _SCRIPT.run(spark, _mock_config(), _mock_db_config(), load_type=LoadType.HISTORICAL)
-
-        assert message.startswith("HISTORICAL")
-        spark.read.jdbc.return_value.filter.assert_not_called()
-        mock_convert.return_value.write.jdbc.assert_called_once()
-
-    @patch("single_etl.eonet_event_etl.EonetEventEtlScript._convert")
-    @patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28))
-    def test_incremental_without_new_rows_writes_nothing(self, mock_max, mock_convert, spark_session):
-        spark = _spark_with_rows()
-        spark.read.jdbc.return_value.filter.return_value.head.return_value = []
-
-        message = _SCRIPT.run(spark, _mock_config(), _mock_db_config())
-
-        assert message.startswith("INCREMENTAL")
-        assert "nothing to do" in message
-        mock_convert.assert_not_called()
-        mock_convert.return_value.write.jdbc.assert_not_called()
-
-    @patch("single_etl.eonet_event_etl.EonetEventEtlScript._convert")
-    @patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28))
-    def test_reads_source_table(self, mock_max, mock_convert, spark_session):
-        spark = _spark_with_rows()
-
-        _SCRIPT.run(spark, _mock_config(), _mock_db_config())
-
-        assert spark.read.jdbc.call_args.kwargs["table"] == "geo.eonet_event"
-        assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
 
 
 class TestConvert:

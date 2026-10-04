@@ -40,7 +40,7 @@ Current state: `ruff check .` → **0 findings**.
 
 ### Format
 
-`ruff format .` has been applied repo-wide: **212 files already formatted** (196 Python files + `README.md` + 15 files under `docs/`).
+`ruff format .` has been applied repo-wide: **173 files already formatted** (157 Python files + `README.md` + 15 files under `docs/`).
 
 > `ruff format` also walks `README.md` and `docs/*.md`, but only rewrites code inside fenced blocks tagged `python` — prose, tables and `bash`/`json`/`text` blocks are left untouched. `ruff check` (lint) only looks at `.py` files.
 
@@ -65,8 +65,8 @@ Current state: `mypy` → **0 errors**.
 |---------|-----------|--------|
 | `tox` | default gate = `lint` + `py311` | ✅ |
 | `tox -e lint` | `ruff check --output-format=concise .` | ✅ 0 findings |
-| `tox -e py311` | full pytest suite (1156 tests) | ✅ |
-| `tox -e format` | `ruff format --check .` | ✅ 212 files already formatted |
+| `tox -e py311` | full pytest suite (1173 tests) | ✅ |
+| `tox -e format` | `ruff format --check .` | ✅ 173 files already formatted |
 | `tox -e format-fix` | `ruff format .` — writes the changes | – |
 | `tox -e typecheck` | `mypy` (100 files) | ✅ 0 errors |
 | `tox -e warnings` | `pytest -W error::DeprecationWarning` | ✅ |

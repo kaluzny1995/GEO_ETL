@@ -1,4 +1,5 @@
 import datetime as dt
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -560,3 +561,33 @@ def test_max_stored_file_date_ignores_overall_rows(mock_spark):
 def test_unknown_table_raises(mock_spark):
     with pytest.raises(ValueError, match="Unknown table"):
         run(mock_spark, "nonexistent_table")
+
+
+@patch("jobs.data_quality.retry_connection")
+def test_max_stored_file_date_should_return_stored_date(mock_retry):
+    from jobs.data_quality import _max_stored_file_date
+
+    # Arrange
+    mock_retry.return_value = SimpleNamespace(max_file_date=dt.date(2026, 9, 30))
+    spark = MagicMock()
+
+    # Act
+    result = _max_stored_file_date(spark, "jdbc:postgresql://db:5432/postgres", {}, "geo", "avalanche_org")
+
+    # Assert
+    assert result == dt.date(2026, 9, 30)
+
+
+@patch("jobs.data_quality.retry_connection")
+def test_max_stored_file_date_should_return_none_on_error(mock_retry):
+    from jobs.data_quality import _max_stored_file_date
+
+    # Arrange
+    mock_retry.side_effect = RuntimeError("connection refused")
+    spark = MagicMock()
+
+    # Act
+    result = _max_stored_file_date(spark, "jdbc:postgresql://db:5432/postgres", {}, "geo", "avalanche_org")
+
+    # Assert
+    assert result is None

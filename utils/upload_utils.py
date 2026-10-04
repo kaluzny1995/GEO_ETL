@@ -155,8 +155,8 @@ def upload(
         df = partial_df if df is None else df.unionByName(partial_df)
 
     full_table = f"{schema}.{table_name}"
-    if df is None:
-        raise RuntimeError(f"No CSV file was read for {table_name} — nothing to write")
+    if df is None:  # unreachable: csv_files is non-empty, so the loop always builds df
+        raise RuntimeError(f"No CSV file was read for {table_name} — nothing to write")  # pragma: no cover
     logger.info(f"Writing to {full_table}...")
     df.write.jdbc(url=jdbc_url, table=full_table, mode="append", properties=properties)
     logger.info(f"Upload complete: {len(csv_files)} files written to {full_table}")

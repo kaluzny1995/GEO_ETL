@@ -141,6 +141,19 @@ class TestRules:
         rules = dataset_rules("ibtracs_cyclone", ["lat", "lon", "wmo_wind"])
         assert [r.name for r in rules] == ["latitude_range", "longitude_range", "wmo_wind_non_negative"]
 
+    @pytest.mark.parametrize(
+        "table_name, columns, expected_names",
+        [
+            ("eonet_event", ["geometry_count"], ["geometry_count_non_negative"]),
+            ("gdacs_event", ["alert_level"], ["alert_level_domain"]),
+            ("nifc_fire", ["acres", "percent_contained"], ["acres_non_negative", "percent_contained_0_100"]),
+            ("openmeteo_flood", ["discharge_m3s"], ["discharge_non_negative"]),
+        ],
+    )
+    def test_dataset_rules_should_add_dataset_specific_rules(self, spark_session, table_name, columns, expected_names):
+        rules = dataset_rules(table_name, columns)
+        assert [r.name for r in rules] == expected_names
+
     def test_rules_for_combines_model_and_dataset(self, spark_session):
         rules = rules_for("avalanche_org", AvalancheOrg, COLUMNS)
         assert [r.name for r in rules] == [

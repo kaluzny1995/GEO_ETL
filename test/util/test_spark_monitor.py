@@ -70,3 +70,17 @@ class TestRegisterMemoryLogger:
         register_memory_logger(spark, "stage_memory.log")
 
         mock_makedirs.assert_not_called()
+
+
+def test_register_memory_logger_raises_when_gateway_missing():
+    import pytest
+
+    from utils.spark_monitor import register_memory_logger
+
+    # Arrange
+    spark = MagicMock()
+    spark.sparkContext._jvm = None
+
+    # Act & Assert
+    with pytest.raises(RuntimeError, match="JVM gateway"):
+        register_memory_logger(spark, "/tmp/logs/memory/stage_memory.log")

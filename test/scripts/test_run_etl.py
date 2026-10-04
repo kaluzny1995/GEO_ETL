@@ -402,3 +402,74 @@ def test_load_type_rejected_for_other_jobs(mock_logger, mock_create, mock_config
 
     assert exc.value.code == 2
     mock_create.assert_not_called()
+
+
+def test_stderr_capture_stop_and_read_without_start_returns_empty():
+    from run_etl import _StderrCapture
+
+    assert _StderrCapture().stop_and_read() == []
+
+
+def test_merge_logs_by_timestamp_merges_python_spark_and_memory(tmp_path):
+    from run_etl import _merge_logs_by_timestamp
+
+    # Arrange
+    main_log = tmp_path / "main.log"
+    memory_log = tmp_path / "memory.log"
+    main_log.write_text("2026-01-01 10:00:02 python line\n2026-01-01 10:00:04 python second\n")
+    memory_log.write_text("2026-01-01 10:00:03 memory line\n")
+    extra_lines = ["2026-01-01 10:00:01 spark line\n", "plain stderr tail\n"]
+
+    # Act
+    _merge_logs_by_timestamp(str(main_log), extra_lines, str(memory_log))
+
+    # Assert — content lines in timestamp order (main_log lines are re-written with a trailing blank)
+    lines = [line for line in main_log.read_text().splitlines() if line]
+    assert lines == [
+        "[spark] plain stderr tail",
+        "[spark] 2026-01-01 10:00:01 spark line",
+        "2026-01-01 10:00:02 python line",
+        "2026-01-01 10:00:03 memory line",
+        "2026-01-01 10:00:04 python second",
+    ]
+    assert not memory_log.exists()
+
+
+@patch("run_etl.register_memory_logger")
+@patch("run_etl._StderrCapture")
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_main_merges_captured_spark_logs_into_main_log(
+    mock_logger, mock_create, mock_config, mock_spark, mock_capture, mock_memory
+):
+    mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
+    mock_capture.return_value.stop_and_read.return_value = ["2026-01-01 10:00:01 captured spark line"]
+
+    # Arrange — a real log file the mocked logger reports as its active handler target
+    import os
+    import tempfile
+    from types import SimpleNamespace
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".log", delete=False) as f:
+        f.write("2026-01-01 10:00:00 job started\n")
+        main_log_path = f.name
+    logger_mock = MagicMock()
+    logger_mock.handlers = [SimpleNamespace(baseFilename=main_log_path)]
+    mock_logger.return_value = logger_mock
+
+    import sys
+
+    # Act
+    with patch.object(sys, "argv", ["run_etl.py", "CREATE", "avalanche_org_raw"]):
+        from run_etl import main
+
+        main()
+
+    # Assert
+    with open(main_log_path) as f:
+        content = f.read()
+    os.unlink(main_log_path)
+    assert "[spark] 2026-01-01 10:00:01 captured spark line" in content
+    assert "2026-01-01 10:00:00 job started" in content

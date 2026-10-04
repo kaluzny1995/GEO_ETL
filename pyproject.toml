@@ -66,3 +66,15 @@ module = [
     "py4j.*",
 ]
 ignore_missing_imports = true
+
+[tool.coverage.run]
+omit = [
+    "run_pyspark_csv_test.py",
+    "run_pyspark_supabase_test.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]

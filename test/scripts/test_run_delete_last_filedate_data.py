@@ -1,4 +1,8 @@
+import datetime as dt
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 def _mock_app_config():
@@ -231,3 +235,51 @@ def test_stops_spark_on_exception(mock_logger, mock_app, mock_db, mock_max_date,
 
     spark_instance = mock_builder.master.return_value.appName.return_value.getOrCreate.return_value
     spark_instance.stop.assert_called_once()
+
+
+def test_delete_file_date_raises_when_count_query_returns_no_row():
+    from run_delete_last_filedate_data import _delete_file_date
+
+    # Arrange
+    spark = MagicMock()
+    spark.read.jdbc.return_value.first.return_value = None
+
+    # Act & Assert
+    with pytest.raises(RuntimeError, match="COUNT returned no row"):
+        _delete_file_date(spark, "jdbc:postgresql://db:5432/postgres", {}, "geo", "avalanche_org", "2026-09-22")
+
+
+@pytest.mark.parametrize(
+    "first_row, expected",
+    [
+        (SimpleNamespace(max_file_date=dt.date(2026, 9, 22)), "2026-09-22"),
+        (None, None),
+        (SimpleNamespace(max_file_date=None), None),
+    ],
+)
+def test_get_max_file_date_should_return_expected_value(first_row, expected):
+    from run_delete_last_filedate_data import _get_max_file_date
+
+    # Arrange
+    spark = MagicMock()
+    spark.read.jdbc.return_value.first.return_value = first_row
+
+    # Act
+    result = _get_max_file_date(spark, "jdbc:postgresql://db:5432/postgres", {}, "geo", "avalanche_org")
+
+    # Assert
+    assert result == expected
+
+
+def test_get_max_file_date_should_return_none_on_error():
+    from run_delete_last_filedate_data import _get_max_file_date
+
+    # Arrange
+    spark = MagicMock()
+    spark.read.jdbc.side_effect = RuntimeError("db down")
+
+    # Act
+    result = _get_max_file_date(spark, "jdbc:postgresql://db:5432/postgres", {}, "geo", "avalanche_org")
+
+    # Assert
+    assert result is None

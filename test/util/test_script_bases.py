@@ -39,6 +39,7 @@ class TestSingleEtlScript:
         args, kwargs = mock_run.call_args
         assert args[:5] == (spark, config, db_config, "src_plain", "src_etl")
         assert args[5] == script._convert
+        assert script._convert("frame") == "frame"
         assert kwargs == {"load_type": None, "logger": None}
 
     def test_run_passes_load_type_and_logger_through(self):
@@ -83,6 +84,7 @@ class TestRaw2PlainScript:
         args = mock_run.call_args[0]
         assert args[:5] == (spark, config, db_config, "src_raw", "src_plain")
         assert args[5] == script._convert
+        assert script._convert("frame") == "frame"
         assert args[6] is None
 
     def test_raw2plain_passes_logger_through(self):

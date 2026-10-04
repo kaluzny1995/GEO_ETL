@@ -64,3 +64,8 @@ class TestSupabaseConnectionConfig:
             "driver": "org.postgresql.Driver",
             "prepareThreshold": "0",
         }
+
+    def test_from_json_without_path_uses_project_config(self):
+        cfg = SupabaseConnectionConfig.from_json()
+        assert isinstance(cfg, SupabaseConnectionConfig)
+        assert cfg.port == 6543

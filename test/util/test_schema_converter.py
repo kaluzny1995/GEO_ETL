@@ -143,3 +143,9 @@ def test_unsupported_type_raises():
 
     with pytest.raises(TypeError, match="Unsupported type 'bytes'"):
         pydantic_to_spark_schema(UnsupportedModel)
+
+
+def test_multi_argument_union_keeps_full_annotation():
+    from utils.schema_converter import _resolve_type
+
+    assert _resolve_type(int | str) == (int | str, False)

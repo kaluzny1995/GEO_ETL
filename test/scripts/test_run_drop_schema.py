@@ -101,3 +101,22 @@ def test_drop_schema_logs_warning(mock_logger, mock_app, mock_db, mock_drop, moc
     main()
 
     mock_log.warning.assert_any_call("Schema 'my_schema' contains tables. Drop tables first.")
+
+
+@patch("run_drop_schema.SparkSession.builder")
+@patch("run_drop_schema._schema_has_tables", return_value=False)
+@patch("run_drop_schema.drop_schema", side_effect=RuntimeError("boom"))
+@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_drop_schema.setup_logger")
+def test_drop_schema_failure_is_reraised(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):
+    import sys
+
+    import pytest
+
+    sys.argv = ["run_drop_schema.py", "my_schema"]
+
+    from run_drop_schema import main
+
+    with pytest.raises(RuntimeError, match="boom"):
+        main()

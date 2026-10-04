@@ -153,11 +153,10 @@ GEO_ETL/
 └── test/                             # Unit tests (pytest)
     ├── conftest.py                   # Shared test fixtures (mock_F, mock_app_config, mock_db_config, mock_spark, spark_session)
     ├── factory/
+    │   ├── test_factory_init.py      # TableFactory registration mechanics
     │   ├── test_job_factory.py
-    │   ├── test_table_factory.py
-    │   ├── test_upload_script_factory.py
-    │   ├── test_raw2plain_script_factory.py
-    │   └── test_single_etl_factory.py
+    │   ├── test_script_factories.py  # upload/raw2plain/single_etl script factories (parametrized)
+    │   └── test_table_factory.py
     ├── jobs/
     │   ├── test_create_table.py
     │   ├── test_data_quality.py
@@ -165,39 +164,17 @@ GEO_ETL/
     │   └── test_single_etl.py
     ├── model/
     │   ├── test_enums.py
-    │   ├── etl/
-    │   │   ├── test_avalanche_org_etl.py
-    │   │   ├── test_eonet_event_etl.py
-    │   │   ├── test_gdacs_event_etl.py
-    │   │   ├── test_ibtracs_cyclone_etl.py
-    │   │   ├── test_nifc_fire_etl.py
-    │   │   ├── test_openmeteo_flood_etl.py
-    │   │   ├── test_usgs_earthquake_etl.py
-    │   │   ├── test_usgs_nwis_etl.py
-    │   │   └── test_usgs_volcano_etl.py
+    │   ├── test_model_contract.py    # Shared contract for all 27 plain/raw/ETL models
     │   ├── config/
     │   │   ├── test_config.py
+    │   │   ├── test_datasets.py
     │   │   └── test_supabase_config.py
+    │   ├── etl/
+    │   │   └── test_event_etl_models.py   # 9 ETL models (parametrized)
     │   ├── plain/
-    │   │   ├── test_avalanche_org.py
-    │   │   ├── test_eonet_event.py
-    │   │   ├── test_gdacs_event.py
-    │   │   ├── test_ibtracs_cyclone.py
-    │   │   ├── test_nifc_fire.py
-    │   │   ├── test_openmeteo_flood.py
-    │   │   ├── test_usgs_earthquake.py
-    │   │   ├── test_usgs_nwis.py
-    │   │   └── test_usgs_volcano.py
+    │   │   └── test_plain_models.py       # 9 plain models (parametrized)
     │   ├── raw/
-    │   │   ├── test_avalanche_org_raw.py
-    │   │   ├── test_eonet_event_raw.py
-    │   │   ├── test_gdacs_event_raw.py
-    │   │   ├── test_ibtracs_cyclone_raw.py
-    │   │   ├── test_nifc_fire_raw.py
-    │   │   ├── test_openmeteo_flood_raw.py
-    │   │   ├── test_usgs_earthquake_raw.py
-    │   │   ├── test_usgs_nwis_raw.py
-    │   │   └── test_usgs_volcano_raw.py
+    │   │   └── test_raw_models.py         # 9 raw models (parametrized)
     │   └── other/
     │       └── test_data_quality.py
     ├── scripts/
@@ -207,26 +184,11 @@ GEO_ETL/
     │   └── test_run_delete_last_filedate_data.py
     ├── ingestion/
     │   ├── upload/
-    │   │   ├── test_avalanche_org_upload.py
-    │   │   ├── test_eonet_event_upload.py
-    │   │   ├── test_gdacs_event_upload.py
-    │   │   ├── test_ibtracs_cyclone_upload.py
-    │   │   ├── test_nifc_fire_upload.py
-    │   │   ├── test_openmeteo_flood_upload.py
-    │   │   ├── test_usgs_earthquake_upload.py
-    │   │   ├── test_usgs_nwis_upload.py
-    │   │   └── test_usgs_volcano_upload.py
+    │   │   └── test_upload_scripts.py     # 9 upload scripts (parametrized)
     │   └── raw2plain/
-    │       ├── test_avalanche_org_raw2plain.py
-    │       ├── test_eonet_event_raw2plain.py
-    │       ├── test_gdacs_event_raw2plain.py
-    │       ├── test_ibtracs_cyclone_raw2plain.py
-    │       ├── test_nifc_fire_raw2plain.py
-    │       ├── test_openmeteo_flood_raw2plain.py
-    │       ├── test_usgs_earthquake_raw2plain.py
-    │       ├── test_usgs_nwis_raw2plain.py
-    │       └── test_usgs_volcano_raw2plain.py
+    │       └── test_raw2plain_scripts.py  # 9 raw2plain scripts (parametrized)
     ├── single_etl/
+    │   ├── test_shared_etl_behavior.py    # Run() behavior shared by all 9 scripts
     │   ├── test_avalanche_org_etl.py
     │   ├── test_eonet_event_etl.py
     │   ├── test_gdacs_event_etl.py
@@ -243,5 +205,6 @@ GEO_ETL/
         ├── test_jdbc_retry.py
         ├── test_logger.py
         ├── test_schema_converter.py
+        ├── test_script_bases.py
         └── test_spark_monitor.py
 ```
