@@ -1,63 +1,43 @@
 """Transform USGS earthquake raw data to typed columns."""
 
-import logging
-
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame
 
 import utils.raw2plain_utils as _utils
-from model.config import AppConfig, SupabaseConnectionConfig
-
-RAW_TABLE = "usgs_earthquake_raw"
-PLAIN_TABLE = "usgs_earthquake"
+from ingestion.raw2plain.raw2plain_script import Raw2PlainScript
 
 
-def _get_max_file_date(spark, jdbc_url, properties, schema):
-    return _utils.get_max_file_date(spark, jdbc_url, properties, schema, PLAIN_TABLE)
+class UsgsEarthquakeRaw2PlainScript(Raw2PlainScript):
+    """Transform USGS earthquake raw data to typed columns."""
 
+    RAW_TABLE = "usgs_earthquake_raw"
+    PLAIN_TABLE = "usgs_earthquake"
 
-def _convert(df):
-    F = _utils.F
-    return df.select(
-        F.to_timestamp("time").alias("time"),
-        F.col("latitude").cast("double"),
-        F.col("longitude").cast("double"),
-        F.col("depth").cast("double"),
-        F.col("mag").cast("double"),
-        F.col("magType").alias("mag_type"),
-        F.col("nst").cast("int"),
-        F.col("gap").cast("int"),
-        F.col("dmin").cast("double"),
-        F.col("rms").cast("double"),
-        F.col("net"),
-        F.col("id").alias("event_id"),
-        F.to_timestamp("updated").alias("updated"),
-        F.col("place"),
-        F.col("type").alias("event_type"),
-        F.col("horizontalError").cast("double").alias("horizontal_error"),
-        F.col("depthError").cast("double").alias("depth_error"),
-        F.col("magError").cast("double").alias("mag_error"),
-        F.col("magNst").cast("int").alias("mag_nst"),
-        F.col("status"),
-        F.col("locationSource").alias("location_source"),
-        F.col("magSource").alias("mag_source"),
-        F.col("geocode_country"),
-        F.col("geocode_state"),
-        F.col("file_date"),
-    )
-
-
-def raw2plain(
-    spark: SparkSession, config: AppConfig, db_config: SupabaseConnectionConfig, logger: logging.Logger | None = None
-):
-    """Transform raw data to typed columns for this data source.
-
-    Delegates to :func:`utils.raw2plain_utils.raw2plain` with the
-    dataset-specific convert function.
-
-    Args:
-        spark: Active Spark session.
-        config: Application configuration.
-        db_config: Supabase connection credentials.
-        logger: Optional logger for consolidated logging.
-    """
-    return _utils.raw2plain(spark, config, db_config, RAW_TABLE, PLAIN_TABLE, _convert, logger)
+    def _convert(self, df: DataFrame) -> DataFrame:
+        F = _utils.F
+        return df.select(
+            F.to_timestamp("time").alias("time"),
+            F.col("latitude").cast("double"),
+            F.col("longitude").cast("double"),
+            F.col("depth").cast("double"),
+            F.col("mag").cast("double"),
+            F.col("magType").alias("mag_type"),
+            F.col("nst").cast("int"),
+            F.col("gap").cast("int"),
+            F.col("dmin").cast("double"),
+            F.col("rms").cast("double"),
+            F.col("net"),
+            F.col("id").alias("event_id"),
+            F.to_timestamp("updated").alias("updated"),
+            F.col("place"),
+            F.col("type").alias("event_type"),
+            F.col("horizontalError").cast("double").alias("horizontal_error"),
+            F.col("depthError").cast("double").alias("depth_error"),
+            F.col("magError").cast("double").alias("mag_error"),
+            F.col("magNst").cast("int").alias("mag_nst"),
+            F.col("status"),
+            F.col("locationSource").alias("location_source"),
+            F.col("magSource").alias("mag_source"),
+            F.col("geocode_country"),
+            F.col("geocode_state"),
+            F.col("file_date"),
+        )

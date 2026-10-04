@@ -1,9 +1,12 @@
 import datetime as dt
 from unittest.mock import MagicMock, patch
 
+from ingestion.upload.usgs_earthquake_upload import UsgsEarthquakeUploadScript
 from test.conftest import mock_app_config_upload, mock_db_config, mock_F_upload, mock_spark_upload
 
 MODULE = "utils.upload_utils"
+
+_SCRIPT = UsgsEarthquakeUploadScript()
 
 
 class TestParseFileDate:
@@ -71,21 +74,6 @@ class TestGetMaxFileDate:
         assert "file_date" in call_kwargs.kwargs["table"]
 
 
-class TestWrapperFunctions:
-    def test_parse_file_date_wraps_correctly(self):
-        from ingestion.upload.usgs_earthquake_upload import _parse_file_date
-
-        assert _parse_file_date("/data/usgs_earthquakes_2026-09-01.csv") == dt.date(2026, 9, 1)
-
-    def test_get_max_file_date_wraps_correctly(self):
-        from ingestion.upload.usgs_earthquake_upload import _get_max_file_date
-
-        spark = MagicMock()
-        spark.read.jdbc.return_value.first.return_value = MagicMock(max_file_date=dt.date(2026, 9, 5))
-        result = _get_max_file_date(spark, "jdbc:postgresql://x:5432/db", {}, "geo")
-        assert result == dt.date(2026, 9, 5)
-
-
 @patch(f"{MODULE}.F", mock_F_upload())
 @patch(f"{MODULE}.StructType", MagicMock())
 @patch(f"{MODULE}.setup_logger")
@@ -101,9 +89,7 @@ def test_historical_when_table_empty(mock_exists, mock_glob, mock_schema, mock_l
 
     spark, df = mock_spark_upload(max_file_date=None)
 
-    from ingestion.upload.usgs_earthquake_upload import upload
-
-    upload(spark, mock_app_config_upload(), mock_db_config())
+    _SCRIPT.upload(spark, mock_app_config_upload(), mock_db_config())
 
     assert spark.read.csv.call_count == 3
     df.write.jdbc.assert_called_once()
@@ -124,9 +110,7 @@ def test_incremental_filters_by_date(mock_exists, mock_glob, mock_schema, mock_l
 
     spark, _df = mock_spark_upload(max_file_date=dt.date(2026, 9, 1))
 
-    from ingestion.upload.usgs_earthquake_upload import upload
-
-    upload(spark, mock_app_config_upload(), mock_db_config())
+    _SCRIPT.upload(spark, mock_app_config_upload(), mock_db_config())
 
     assert spark.read.csv.call_count == 2
 
@@ -146,9 +130,7 @@ def test_logs_record_count(mock_exists, mock_glob, mock_schema, mock_logger):
     log = MagicMock()
     mock_logger.return_value = log
 
-    from ingestion.upload.usgs_earthquake_upload import upload
-
-    upload(spark, mock_app_config_upload(), mock_db_config())
+    _SCRIPT.upload(spark, mock_app_config_upload(), mock_db_config())
 
     log.info.assert_any_call("Upload complete: 1 files written to geo.usgs_earthquake_raw")
 
@@ -164,9 +146,7 @@ def test_writes_to_correct_table(mock_exists, mock_glob, mock_schema, mock_logge
 
     spark, df = mock_spark_upload(max_file_date=None)
 
-    from ingestion.upload.usgs_earthquake_upload import upload
-
-    uploaded = upload(spark, mock_app_config_upload(), mock_db_config())
+    uploaded = _SCRIPT.upload(spark, mock_app_config_upload(), mock_db_config())
 
     assert uploaded is True
     write_args = df.write.jdbc.call_args
@@ -185,9 +165,7 @@ def test_no_new_files_skips_upload(mock_exists, mock_glob, mock_schema, mock_log
 
     spark, _df = mock_spark_upload(max_file_date=dt.date(2026, 9, 1))
 
-    from ingestion.upload.usgs_earthquake_upload import upload
-
-    uploaded = upload(spark, mock_app_config_upload(), mock_db_config())
+    uploaded = _SCRIPT.upload(spark, mock_app_config_upload(), mock_db_config())
 
     assert uploaded is False
     spark.read.csv.assert_not_called()
@@ -206,9 +184,7 @@ def test_uses_passed_logger(mock_exists, mock_glob, mock_schema, mock_logger):
     spark, _df = mock_spark_upload(max_file_date=None)
     passed_logger = MagicMock()
 
-    from ingestion.upload.usgs_earthquake_upload import upload
-
-    upload(spark, mock_app_config_upload(), mock_db_config(), logger=passed_logger)
+    _SCRIPT.upload(spark, mock_app_config_upload(), mock_db_config(), logger=passed_logger)
 
     mock_logger.assert_not_called()
     passed_logger.info.assert_any_call("---- Upload started: usgs_earthquake_raw ----")
@@ -225,8 +201,6 @@ def test_creates_own_logger_when_none(mock_exists, mock_glob, mock_schema, mock_
 
     spark, _df = mock_spark_upload(max_file_date=None)
 
-    from ingestion.upload.usgs_earthquake_upload import upload
-
-    upload(spark, mock_app_config_upload(), mock_db_config(), logger=None)
+    _SCRIPT.upload(spark, mock_app_config_upload(), mock_db_config(), logger=None)
 
     mock_logger.assert_called_once()

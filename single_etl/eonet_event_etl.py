@@ -18,20 +18,12 @@ Run::
 detection are described in :func:`utils.etl_utils.run_etl`.
 """
 
-import logging
-
-from pyspark.sql import Column, DataFrame, SparkSession
+from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
-from model.config import AppConfig, SupabaseConnectionConfig
-from model.enums import LoadType
-from utils.etl_utils import run_etl
+from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_TABLE = "eonet_event"
-TARGET_TABLE = "eonet_event_etl"
-FILE_DATE_COL = "file_date"
 SOURCE_NAME = "EONET"
-FALLBACK_COUNTRY = "ZZ"
 CATEGORY_MAP = {
     "severeStorms": "storm",
     "wildfires": "fire",
@@ -58,7 +50,7 @@ def _country_code(description_state: Column, geocode_country: Column) -> Column:
     return (
         F.when(description_state != "", F.lit("US"))
         .when(geocode_country != "", geocode_country)
-        .otherwise(F.lit(FALLBACK_COUNTRY))
+        .otherwise(F.lit(SingleEtlScript.UNKNOWN_CODE))
     )
 
 
@@ -160,81 +152,50 @@ def _other_metrics() -> Column:
     return F.when(F.col("geometry_count").isNotNull(), F.to_json(F.struct(F.col("geometry_count"))))
 
 
-def _convert(df: DataFrame) -> DataFrame:
-    """Map ``geo.eonet_event`` columns onto the canonical ETL structure.
+class EonetEventEtlScript(SingleEtlScript):
+    """NASA EONET → ``geo.eonet_event_etl`` (canonical event structure)."""
 
-    One row per event: ``last_latitude``/``last_longitude``/``last_date`` keep the
-    latest position and time, ``latitude``/``longitude``/``event_date`` the
-    event's own. Country and state are resolved from the description first
-    (fires state their US location), then from the stamped geocode columns;
-    storms and ice on the open sea that neither answers get the ``ZZ`` fallback.
+    SOURCE_TABLE = "eonet_event"
+    TARGET_TABLE = "eonet_event_etl"
 
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
+    def _convert(self, df: DataFrame) -> DataFrame:
+        """Map ``geo.eonet_event`` columns onto the canonical ETL structure.
 
-    Returns:
-        The DataFrame in :data:`TARGET_TABLE` column order.
-    """
-    description_state = _state_from_description()
-    category = _event_category()
+        One row per event: ``last_latitude``/``last_longitude``/``last_date`` keep the
+        latest position and time, ``latitude``/``longitude``/``event_date`` the
+        event's own. Country and state are resolved from the description first
+        (fires state their US location), then from the stamped geocode columns;
+        storms and ice on the open sea that neither answers get the ``ZZ`` fallback.
 
-    return df.select(
-        F.lit(SOURCE_NAME).alias("source_name"),
-        F.col("source_id").alias("subsource_name"),
-        F.col("event_name"),
-        category.alias("event_category"),
-        _event_subcategory(category).alias("event_subcategory"),
-        _event_description().alias("event_description"),
-        F.col("latitude"),
-        F.col("longitude"),
-        _country_code(description_state, F.col("geocode_country")).alias("country_code"),
-        _state_province(description_state, F.col("geocode_state")).alias("state_province"),
-        _place_location().alias("place_location"),
-        _metric_name(category).alias("metric_name"),
-        F.col("magnitude_value").alias("metric_value"),
-        _metric_unit().alias("metric_unit"),
-        F.lit(None).cast("string").alias("danger_rating"),
-        _other_metrics().alias("other_metrics"),
-        F.col("event_date").alias("event_start"),
-        F.col("last_date").alias("event_end"),
-        F.col("last_latitude"),
-        F.col("last_longitude"),
-        F.col(FILE_DATE_COL),
-    )
+        Args:
+            df: Rows read from :attr:`SOURCE_TABLE`.
 
+        Returns:
+            The DataFrame in :attr:`TARGET_TABLE` column order.
+        """
+        description_state = _state_from_description()
+        category = _event_category()
 
-def run(
-    spark: SparkSession,
-    config: AppConfig,
-    db_config: SupabaseConnectionConfig,
-    *,
-    load_type: LoadType | None = None,
-    logger: logging.Logger | None = None,
-) -> str:
-    """Read ``geo.eonet_event`` and append its converted rows to ``geo.eonet_event_etl``.
-
-    Delegates to :func:`utils.etl_utils.run_etl` with this module's
-    :func:`_convert`; see there for the load-type contract.
-
-    Args:
-        spark: Active Spark session.
-        config: Application configuration (DB schema, JDBC driver, logging).
-        db_config: Supabase connection credentials.
-        load_type: Load type forced by the caller, or ``None`` to detect it
-            from the target table.
-        logger: Optional logger; defaults to the runner's logger.
-
-    Returns:
-        A human-readable summary, e.g. ``"HISTORICAL: wrote to geo.eonet_event_etl"``
-        or ``"INCREMENTAL: nothing to do — eonet_event_etl is up to date"``.
-    """
-    return run_etl(
-        spark,
-        config,
-        db_config,
-        SOURCE_TABLE,
-        TARGET_TABLE,
-        _convert,
-        load_type=load_type,
-        logger=logger,
-    )
+        return df.select(
+            F.lit(SOURCE_NAME).alias("source_name"),
+            F.col("source_id").alias("subsource_name"),
+            F.col("event_name"),
+            category.alias("event_category"),
+            _event_subcategory(category).alias("event_subcategory"),
+            _event_description().alias("event_description"),
+            F.col("latitude"),
+            F.col("longitude"),
+            _country_code(description_state, F.col("geocode_country")).alias("country_code"),
+            _state_province(description_state, F.col("geocode_state")).alias("state_province"),
+            _place_location().alias("place_location"),
+            _metric_name(category).alias("metric_name"),
+            F.col("magnitude_value").alias("metric_value"),
+            _metric_unit().alias("metric_unit"),
+            F.lit(None).cast("string").alias("danger_rating"),
+            _other_metrics().alias("other_metrics"),
+            F.col("event_date").alias("event_start"),
+            F.col("last_date").alias("event_end"),
+            F.col("last_latitude"),
+            F.col("last_longitude"),
+            F.col(self.FILE_DATE_COL),
+        )

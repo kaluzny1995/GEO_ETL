@@ -19,22 +19,14 @@ Run::
 detection are described in :func:`utils.etl_utils.run_etl`.
 """
 
-import logging
-
-from pyspark.sql import Column, DataFrame, SparkSession
+from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
-from model.config import AppConfig, SupabaseConnectionConfig
-from model.enums import LoadType
-from utils.etl_utils import run_etl
+from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_TABLE = "usgs_earthquake"
-TARGET_TABLE = "usgs_earthquake_etl"
-FILE_DATE_COL = "file_date"
 SOURCE_NAME = "USGS"
 EVENT_CATEGORY = "earthquake"
 METRIC_NAME = "magnitude"
-UNKNOWN_COUNTRY_CODE = "ZZ"
 UNIT_KM = "km"
 UNIT_STATIONS = "stations"
 EVENT_NAME_PREFIX = "Earthquake - "
@@ -250,14 +242,14 @@ def _country_code(suffix: Column, geocode_country: Column) -> Column:
     Returns:
         ``US`` for a US state suffix, the :data:`COUNTRY_CODE_MAP` answer
         for an international suffix, the stamped country when the
-        suffix cannot answer, ``UNKNOWN_COUNTRY_CODE`` when nothing
+        suffix cannot answer, ``SingleEtlScript.UNKNOWN_CODE`` when nothing
         resolves.
     """
     return F.coalesce(
         F.when(suffix.isin(US_SUFFIXES), F.lit("US")),
         _country_map()[suffix],
         F.when(geocode_country != "", geocode_country),
-        F.lit(UNKNOWN_COUNTRY_CODE),
+        F.lit(SingleEtlScript.UNKNOWN_CODE),
     )
 
 
@@ -349,79 +341,48 @@ def _other_metrics() -> Column:
     )
 
 
-def _convert(df: DataFrame) -> DataFrame:
-    """Map ``geo.usgs_earthquake`` columns onto the canonical ETL structure.
+class UsgsEarthquakeEtlScript(SingleEtlScript):
+    """USGS earthquakes → ``geo.usgs_earthquake_etl`` (canonical event structure)."""
 
-    One row per seismic event: the epicentre and origin time place the
-    rupture, the magnitude (with its ``magType``) measures it, and the
-    ``place`` suffix supplies the country unless the stamped geocode
-    columns have to.
+    SOURCE_TABLE = "usgs_earthquake"
+    TARGET_TABLE = "usgs_earthquake_etl"
 
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
+    def _convert(self, df: DataFrame) -> DataFrame:
+        """Map ``geo.usgs_earthquake`` columns onto the canonical ETL structure.
 
-    Returns:
-        The DataFrame in :data:`TARGET_TABLE` column order.
-    """
-    suffix = _place_suffix()
+        One row per seismic event: the epicentre and origin time place the
+        rupture, the magnitude (with its ``magType``) measures it, and the
+        ``place`` suffix supplies the country unless the stamped geocode
+        columns have to.
 
-    return df.select(
-        F.lit(SOURCE_NAME).alias("source_name"),
-        F.col("net").alias("subsource_name"),
-        _event_name(_country_name(suffix, F.col("geocode_country"))).alias("event_name"),
-        F.lit(EVENT_CATEGORY).alias("event_category"),
-        F.col("event_type").alias("event_subcategory"),
-        _event_description().alias("event_description"),
-        F.col("latitude"),
-        F.col("longitude"),
-        _country_code(suffix, F.col("geocode_country")).alias("country_code"),
-        _state_province(F.col("geocode_state")).alias("state_province"),
-        F.col("place").alias("place_location"),
-        F.lit(METRIC_NAME).alias("metric_name"),
-        F.coalesce(F.col("mag"), F.lit(0.0)).alias("metric_value"),
-        F.col("mag_type").alias("metric_unit"),
-        F.lit(None).cast("string").alias("danger_rating"),
-        _other_metrics().alias("other_metrics"),
-        F.col("time").alias("event_start"),
-        F.lit(None).cast("timestamp").alias("event_end"),
-        F.lit(None).cast("double").alias("last_latitude"),
-        F.lit(None).cast("double").alias("last_longitude"),
-        F.col(FILE_DATE_COL),
-    )
+        Args:
+            df: Rows read from :attr:`SOURCE_TABLE`.
 
+        Returns:
+            The DataFrame in :attr:`TARGET_TABLE` column order.
+        """
+        suffix = _place_suffix()
 
-def run(
-    spark: SparkSession,
-    config: AppConfig,
-    db_config: SupabaseConnectionConfig,
-    *,
-    load_type: LoadType | None = None,
-    logger: logging.Logger | None = None,
-) -> str:
-    """Read ``geo.usgs_earthquake`` and append its converted rows to ``geo.usgs_earthquake_etl``.
-
-    Delegates to :func:`utils.etl_utils.run_etl` with this module's
-    :func:`_convert`; see there for the load-type contract.
-
-    Args:
-        spark: Active Spark session.
-        config: Application configuration (DB schema, JDBC driver, logging).
-        db_config: Supabase connection credentials.
-        load_type: Load type forced by the caller, or ``None`` to detect it
-            from the target table.
-        logger: Optional logger; defaults to the runner's logger.
-
-    Returns:
-        A human-readable summary, e.g. ``"HISTORICAL: wrote to geo.usgs_earthquake_etl"``
-        or ``"INCREMENTAL: nothing to do — usgs_earthquake_etl is up to date"``.
-    """
-    return run_etl(
-        spark,
-        config,
-        db_config,
-        SOURCE_TABLE,
-        TARGET_TABLE,
-        _convert,
-        load_type=load_type,
-        logger=logger,
-    )
+        return df.select(
+            F.lit(SOURCE_NAME).alias("source_name"),
+            F.col("net").alias("subsource_name"),
+            _event_name(_country_name(suffix, F.col("geocode_country"))).alias("event_name"),
+            F.lit(EVENT_CATEGORY).alias("event_category"),
+            F.col("event_type").alias("event_subcategory"),
+            _event_description().alias("event_description"),
+            F.col("latitude"),
+            F.col("longitude"),
+            _country_code(suffix, F.col("geocode_country")).alias("country_code"),
+            _state_province(F.col("geocode_state")).alias("state_province"),
+            F.col("place").alias("place_location"),
+            F.lit(METRIC_NAME).alias("metric_name"),
+            F.coalesce(F.col("mag"), F.lit(0.0)).alias("metric_value"),
+            F.col("mag_type").alias("metric_unit"),
+            F.lit(None).cast("string").alias("danger_rating"),
+            _other_metrics().alias("other_metrics"),
+            F.col("time").alias("event_start"),
+            F.lit(None).cast("timestamp").alias("event_end"),
+            F.lit(None).cast("double").alias("last_latitude"),
+            F.lit(None).cast("double").alias("last_longitude"),
+            F.col(self.FILE_DATE_COL),
+        )

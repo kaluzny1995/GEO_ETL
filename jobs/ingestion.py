@@ -38,15 +38,15 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
     db_config = SupabaseConnectionConfig.from_json()
 
     # Step 1: Upload raw CSVs -> raw table
-    upload_fn = UploadScriptFactory.get(table_name)
+    upload_script = UploadScriptFactory.get(table_name)
     logger.info(f"Running upload for {table_name}...")
-    uploaded = upload_fn(spark, app_config, db_config, logger=logger)
+    uploaded = upload_script.upload(spark, app_config, db_config, logger=logger)
     logger.info(f"Upload for {table_name} complete")
 
     # Step 2: Transform raw -> plain table
-    raw2plain_fn = Raw2PlainScriptFactory.get(table_name)
+    raw2plain_script = Raw2PlainScriptFactory.get(table_name)
     logger.info(f"Running raw2plain for {table_name}...")
-    transformed = raw2plain_fn(spark, app_config, db_config, logger=logger)
+    transformed = raw2plain_script.raw2plain(spark, app_config, db_config, logger=logger)
     logger.info(f"Raw2Plain for {table_name} complete")
 
     if not uploaded and not transformed:

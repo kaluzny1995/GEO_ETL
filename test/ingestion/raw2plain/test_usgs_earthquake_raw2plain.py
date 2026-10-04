@@ -1,6 +1,7 @@
 import datetime as dt
 from unittest.mock import MagicMock, patch
 
+from ingestion.raw2plain.usgs_earthquake_raw2plain import UsgsEarthquakeRaw2PlainScript
 from test.conftest import (
     mock_app_config_raw2plain,
     mock_db_config,
@@ -10,15 +11,15 @@ from test.conftest import (
 
 MODULE = "utils.raw2plain_utils"
 
+_SCRIPT = UsgsEarthquakeRaw2PlainScript()
+
 
 @patch(f"{MODULE}.setup_logger")
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
 def test_historical_when_plain_empty(mock_logger):
     spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import raw2plain
-
-    raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+    _SCRIPT.raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     raw_df.filter.assert_not_called()
     plain_df.write.jdbc.assert_called_once()
@@ -29,9 +30,7 @@ def test_historical_when_plain_empty(mock_logger):
 def test_incremental_filters_by_file_date(mock_logger):
     spark, raw_df, _plain_df = mock_spark_raw2plain(max_file_date=dt.date(2026, 9, 1))
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import raw2plain
-
-    raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+    _SCRIPT.raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     raw_df.filter.assert_called_once()
 
@@ -42,9 +41,7 @@ def test_no_records_skips_transform(mock_logger):
     spark, raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
     raw_df.head.return_value = []
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import raw2plain
-
-    result = raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+    result = _SCRIPT.raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     assert result is False
     plain_df.write.jdbc.assert_not_called()
@@ -56,9 +53,7 @@ def test_no_records_skips_transform(mock_logger):
 def test_writes_to_correct_table(mock_logger):
     spark, _raw_df, plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import raw2plain
-
-    result = raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+    result = _SCRIPT.raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     assert result is True
     write_args = plain_df.write.jdbc.call_args
@@ -72,9 +67,7 @@ def test_logs_record_count(mock_logger):
     spark, raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
     raw_df.count.return_value = 42
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import raw2plain
-
-    raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+    _SCRIPT.raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     mock_logger.return_value.info.assert_any_call("Raw2Plain complete: written to geo.usgs_earthquake")
 
@@ -84,9 +77,7 @@ def test_logs_record_count(mock_logger):
 def test_reads_from_raw_table(mock_logger):
     spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import raw2plain
-
-    raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
+    _SCRIPT.raw2plain(spark, mock_app_config_raw2plain(), mock_db_config())
 
     jdbc_calls = [c for c in spark.read.jdbc.call_args_list if "MAX" not in str(c)]
     assert len(jdbc_calls) >= 1
@@ -96,12 +87,11 @@ def test_reads_from_raw_table(mock_logger):
 
 @patch(f"{MODULE}.F", mock_F_raw2plain(extra_f_methods=["to_timestamp"]))
 def test_convert_selects_25_columns():
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import _convert
 
     input_df = MagicMock()
     input_df.select.return_value = MagicMock()
 
-    _convert(input_df)
+    _SCRIPT._convert(input_df)
 
     input_df.select.assert_called_once()
     select_args = input_df.select.call_args[0]
@@ -114,9 +104,7 @@ def test_uses_passed_logger(mock_logger):
     spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
     passed_logger = MagicMock()
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import raw2plain
-
-    raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=passed_logger)
+    _SCRIPT.raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=passed_logger)
 
     mock_logger.assert_not_called()
     passed_logger.info.assert_any_call("---- Raw2Final started: usgs_earthquake_raw → usgs_earthquake ----")
@@ -127,9 +115,7 @@ def test_uses_passed_logger(mock_logger):
 def test_creates_own_logger_when_none(mock_logger):
     spark, _raw_df, _plain_df = mock_spark_raw2plain(max_file_date=None)
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import raw2plain
-
-    raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=None)
+    _SCRIPT.raw2plain(spark, mock_app_config_raw2plain(), mock_db_config(), logger=None)
 
     mock_logger.assert_called_once()
 

@@ -37,16 +37,17 @@ def _clean_registry():
 @patch("jobs.single_etl.AppConfig.from_json", return_value=_mock_app_config())
 def test_single_etl_runs_registered_script(mock_app, mock_db):
     spark = MagicMock()
-    script = MagicMock(return_value="HISTORICAL: wrote to geo.example_target")
+    script = MagicMock()
+    script.run.return_value = "HISTORICAL: wrote to geo.example_target"
     SingleEtlFactory.register("my_etl", script)
 
     from jobs.single_etl import run
 
     result = run(spark, "my_etl")
 
-    script.assert_called_once()
-    assert script.call_args[0][0] is spark
-    assert script.call_args[1]["load_type"] is None
+    script.run.assert_called_once()
+    assert script.run.call_args[0][0] is spark
+    assert script.run.call_args[1]["load_type"] is None
     assert "my_etl" in result
     assert "HISTORICAL: wrote to geo.example_target" in result
 
@@ -55,14 +56,15 @@ def test_single_etl_runs_registered_script(mock_app, mock_db):
 @patch("jobs.single_etl.AppConfig.from_json", return_value=_mock_app_config())
 def test_single_etl_passes_load_type(mock_app, mock_db):
     spark = MagicMock()
-    script = MagicMock(return_value="INCREMENTAL: wrote to geo.example_target")
+    script = MagicMock()
+    script.run.return_value = "INCREMENTAL: wrote to geo.example_target"
     SingleEtlFactory.register("my_etl", script)
 
     from jobs.single_etl import run
 
     run(spark, "my_etl", load_type=LoadType.HISTORICAL)
 
-    assert script.call_args[1]["load_type"] is LoadType.HISTORICAL
+    assert script.run.call_args[1]["load_type"] is LoadType.HISTORICAL
 
 
 @patch("jobs.single_etl.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
@@ -70,14 +72,14 @@ def test_single_etl_passes_load_type(mock_app, mock_db):
 def test_single_etl_passes_logger(mock_app, mock_db):
     spark = MagicMock()
     logger = MagicMock()
-    script = MagicMock(return_value="done")
+    script = MagicMock()
     SingleEtlFactory.register("my_etl", script)
 
     from jobs.single_etl import run
 
     run(spark, "my_etl", logger=logger)
 
-    assert script.call_args[1]["logger"] is logger
+    assert script.run.call_args[1]["logger"] is logger
 
 
 @patch("jobs.single_etl.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())

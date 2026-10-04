@@ -2,7 +2,7 @@
 
 # Project Structure
 
-The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold per-table thin wrappers, `single_etl/` holds per-dataset PySpark scripts (thin wrappers around `utils/etl_utils.py`) run by the `SINGLE_ETL` job, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
+The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold script classes with their interfaces (`upload_script.py`, `raw2plain_script.py`), `single_etl/` holds per-dataset PySpark scripts (interface in `single_etl/single_etl_script.py`) run by the `SINGLE_ETL` job, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
 
 ```
 GEO_ETL/
@@ -18,8 +18,9 @@ GEO_ETL/
 │
 ├── ingestion/                        # Ingestion scripts (CSV upload + raw-to-plain transforms)
 │   ├── __init__.py
-│   ├── upload/                       # Data upload scripts (thin wrappers around utils/upload_utils.py)
+│   ├── upload/                       # Upload scripts (UploadScript interface + script classes)
 │   │   ├── __init__.py
+│   │   ├── upload_script.py           # UploadScript interface (TABLE_NAME, MODEL, DATASET_FOLDER + upload())
 │   │   ├── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
 │   │   ├── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
 │   │   ├── gdacs_event_upload.py         # Upload GDACS CSVs -> Supabase via JDBC
@@ -29,8 +30,9 @@ GEO_ETL/
 │   │   ├── usgs_earthquake_upload.py     # Upload USGS_Earthquake CSVs -> Supabase via JDBC
 │   │   ├── usgs_nwis_upload.py           # Upload USGS_NWIS CSVs -> Supabase via JDBC
 │   │   └── usgs_volcano_upload.py        # Upload USGS_Volcano CSVs -> Supabase via JDBC
-│   └── raw2plain/                    # Raw-to-final transforms (thin wrappers around utils/raw2plain_utils.py)
+│   └── raw2plain/                    # Raw-to-plain scripts (Raw2PlainScript interface + script classes)
 │       ├── __init__.py
+│       ├── raw2plain_script.py        # Raw2PlainScript interface (RAW_TABLE, PLAIN_TABLE + _convert())
 │       ├── avalanche_org_raw2plain.py    # Transform Avalanche_ORG raw -> typed data
 │       ├── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
 │       ├── gdacs_event_raw2plain.py      # Transform GDACS raw -> typed data
@@ -45,9 +47,9 @@ GEO_ETL/
 │   ├── __init__.py                   # Exports all factories (lazy imports)
 │   ├── job_factory.py                # JobFactory: job type -> module registry
 │   ├── table_factory.py              # TableFactory: table_name -> Pydantic model
-│   ├── upload_script_factory.py      # UploadScriptFactory: table_name -> upload function
-│   ├── raw2plain_script_factory.py   # Raw2PlainScriptFactory: table_name -> raw2plain function
-│   └── single_etl_factory.py         # SingleEtlFactory: script name -> run function
+│   ├── upload_script_factory.py      # UploadScriptFactory: table_name -> upload script instance
+│   ├── raw2plain_script_factory.py   # Raw2PlainScriptFactory: table_name -> raw2plain script instance
+│   └── single_etl_factory.py         # SingleEtlFactory: script name -> script instance
 │
 ├── jobs/                             # Job modules (the "what to do" layer)
 │   ├── __init__.py                   # Registers jobs in JobFactory, scripts in the script factories
@@ -56,8 +58,9 @@ GEO_ETL/
 │   ├── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
 │   └── single_etl.py                 # SINGLE_ETL job (runs one script from single_etl/)
 │
-├── single_etl/                       # Standalone PySpark ETL scripts (thin wrappers around utils/etl_utils.py, SINGLE_ETL job)
+├── single_etl/                       # Standalone PySpark ETL scripts (SingleEtlScript interface, SINGLE_ETL job)
 │   ├── __init__.py
+│   ├── single_etl_script.py           # SingleEtlScript interface (SOURCE_TABLE, TARGET_TABLE + _convert())
 │   ├── avalanche_org_etl.py           # geo.avalanche_org -> geo.avalanche_org_etl (canonical event structure)
 │   ├── eonet_event_etl.py             # geo.eonet_event -> geo.eonet_event_etl (canonical event structure)
 │   ├── gdacs_event_etl.py             # geo.gdacs_event -> geo.gdacs_event_etl (canonical event structure)
@@ -110,7 +113,7 @@ GEO_ETL/
 ├── utils/                            # Utility modules
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
 │   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
-│   ├── etl_utils.py                  # Shared single-ETL logic (DRY: resolve_load_type, run_etl template)
+│   ├── etl_utils.py                  # Shared single-ETL runner (resolve_load_type, run_etl template)
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() for file-based logging
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)

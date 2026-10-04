@@ -22,18 +22,11 @@ Run::
 detection are described in :func:`utils.etl_utils.run_etl`.
 """
 
-import logging
-
-from pyspark.sql import Column, DataFrame, SparkSession
+from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
-from model.config import AppConfig, SupabaseConnectionConfig
-from model.enums import LoadType
-from utils.etl_utils import run_etl
+from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_TABLE = "nifc_fire"
-TARGET_TABLE = "nifc_fire_etl"
-FILE_DATE_COL = "file_date"
 SOURCE_NAME = "NIFC"
 SUBSOURCE_NAME = "WFIGS"
 COUNTRY_CODE = "US"
@@ -100,81 +93,50 @@ def _other_metrics() -> Column:
     return F.to_json(F.struct(percent.alias("percent_contained"), F.lit(PERCENT_UNIT).alias("percent_contained_unit")))
 
 
-def _convert(df: DataFrame) -> DataFrame:
-    """Map ``geo.nifc_fire`` columns onto the canonical ETL structure.
+class NifcFireEtlScript(SingleEtlScript):
+    """NIFC → ``geo.nifc_fire_etl`` (canonical event structure)."""
 
-    One row per perimeter snapshot: the fire's identity (name, type,
-    jurisdiction, acres, containment) describes the perimeter while the
-    centroid and ``created_on`` place it in space and time.
-    The source's ``state`` wins; the pre-state vintage resolves from the
-    stamped ``geocode_state``. ``unit_name`` ships with the row, so no
-    unit lookup runs here.
+    SOURCE_TABLE = "nifc_fire"
+    TARGET_TABLE = "nifc_fire_etl"
 
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
+    def _convert(self, df: DataFrame) -> DataFrame:
+        """Map ``geo.nifc_fire`` columns onto the canonical ETL structure.
 
-    Returns:
-        The DataFrame in :data:`TARGET_TABLE` column order.
-    """
-    place_location = _place_location()
+        One row per perimeter snapshot: the fire's identity (name, type,
+        jurisdiction, acres, containment) describes the perimeter while the
+        centroid and ``created_on`` place it in space and time.
+        The source's ``state`` wins; the pre-state vintage resolves from the
+        stamped ``geocode_state``. ``unit_name`` ships with the row, so no
+        unit lookup runs here.
 
-    return df.select(
-        F.lit(SOURCE_NAME).alias("source_name"),
-        F.lit(SUBSOURCE_NAME).alias("subsource_name"),
-        _event_name().alias("event_name"),
-        F.lit(EVENT_CATEGORY).alias("event_category"),
-        _event_subcategory().alias("event_subcategory"),
-        F.lit(None).cast("string").alias("event_description"),
-        F.col("latitude"),
-        F.col("longitude"),
-        F.lit(COUNTRY_CODE).alias("country_code"),
-        _state_province(F.col("geocode_state")).alias("state_province"),
-        place_location.alias("place_location"),
-        F.lit(METRIC_NAME).alias("metric_name"),
-        F.coalesce(F.col("acres"), F.lit(0.0)).alias("metric_value"),
-        F.lit(METRIC_UNIT).alias("metric_unit"),
-        F.lit(None).cast("string").alias("danger_rating"),
-        _other_metrics().alias("other_metrics"),
-        F.col("created_on").alias("event_start"),
-        F.lit(None).cast("timestamp").alias("event_end"),
-        F.lit(None).cast("double").alias("last_latitude"),
-        F.lit(None).cast("double").alias("last_longitude"),
-        F.col(FILE_DATE_COL),
-    )
+        Args:
+            df: Rows read from :attr:`SOURCE_TABLE`.
 
+        Returns:
+            The DataFrame in :attr:`TARGET_TABLE` column order.
+        """
+        place_location = _place_location()
 
-def run(
-    spark: SparkSession,
-    config: AppConfig,
-    db_config: SupabaseConnectionConfig,
-    *,
-    load_type: LoadType | None = None,
-    logger: logging.Logger | None = None,
-) -> str:
-    """Read ``geo.nifc_fire`` and append its converted rows to ``geo.nifc_fire_etl``.
-
-    Delegates to :func:`utils.etl_utils.run_etl` with this module's
-    :func:`_convert`; see there for the load-type contract.
-
-    Args:
-        spark: Active Spark session.
-        config: Application configuration (DB schema, JDBC driver, logging).
-        db_config: Supabase connection credentials.
-        load_type: Load type forced by the caller, or ``None`` to detect it
-            from the target table.
-        logger: Optional logger; defaults to the runner's logger.
-
-    Returns:
-        A human-readable summary, e.g. ``"HISTORICAL: wrote to geo.nifc_fire_etl"``
-        or ``"INCREMENTAL: nothing to do — nifc_fire_etl is up to date"``.
-    """
-    return run_etl(
-        spark,
-        config,
-        db_config,
-        SOURCE_TABLE,
-        TARGET_TABLE,
-        _convert,
-        load_type=load_type,
-        logger=logger,
-    )
+        return df.select(
+            F.lit(SOURCE_NAME).alias("source_name"),
+            F.lit(SUBSOURCE_NAME).alias("subsource_name"),
+            _event_name().alias("event_name"),
+            F.lit(EVENT_CATEGORY).alias("event_category"),
+            _event_subcategory().alias("event_subcategory"),
+            F.lit(None).cast("string").alias("event_description"),
+            F.col("latitude"),
+            F.col("longitude"),
+            F.lit(COUNTRY_CODE).alias("country_code"),
+            _state_province(F.col("geocode_state")).alias("state_province"),
+            place_location.alias("place_location"),
+            F.lit(METRIC_NAME).alias("metric_name"),
+            F.coalesce(F.col("acres"), F.lit(0.0)).alias("metric_value"),
+            F.lit(METRIC_UNIT).alias("metric_unit"),
+            F.lit(None).cast("string").alias("danger_rating"),
+            _other_metrics().alias("other_metrics"),
+            F.col("created_on").alias("event_start"),
+            F.lit(None).cast("timestamp").alias("event_end"),
+            F.lit(None).cast("double").alias("last_latitude"),
+            F.lit(None).cast("double").alias("last_longitude"),
+            F.col(self.FILE_DATE_COL),
+        )

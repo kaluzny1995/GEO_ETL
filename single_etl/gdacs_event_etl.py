@@ -22,20 +22,12 @@ Run::
 detection are described in :func:`utils.etl_utils.run_etl`.
 """
 
-import logging
-
-from pyspark.sql import Column, DataFrame, SparkSession
+from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
-from model.config import AppConfig, SupabaseConnectionConfig
-from model.enums import LoadType
-from utils.etl_utils import run_etl
+from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_TABLE = "gdacs_event"
-TARGET_TABLE = "gdacs_event_etl"
-FILE_DATE_COL = "file_date"
 SOURCE_NAME = "GDACS"
-FALLBACK_COUNTRY = "ZZ"
 CATEGORY_MAP = {
     "EQ": "earthquake",
     "TC": "storm",
@@ -194,7 +186,7 @@ def _country_code(geocode_country: Column) -> Column:
     return (
         F.when(source_alpha2.isNotNull(), source_alpha2)
         .when(geocode_country != "", geocode_country)
-        .otherwise(F.lit(FALLBACK_COUNTRY))
+        .otherwise(F.lit(SingleEtlScript.UNKNOWN_CODE))
     )
 
 
@@ -245,80 +237,49 @@ def _place_location() -> Column:
     return F.when(trimmed != "", trimmed).otherwise(F.lit(None).cast("string"))
 
 
-def _convert(df: DataFrame) -> DataFrame:
-    """Map ``geo.gdacs_event`` columns onto the canonical ETL structure.
+class GdacsEventEtlScript(SingleEtlScript):
+    """GDACS → ``geo.gdacs_event_etl`` (canonical event structure)."""
 
-    One row per event snapshot: the alpha-3 ``country_code`` of the source
-    wins, blank and unknown codes resolve from the stamped
-    ``geocode_country``, and the subdivision is the stamped ``geocode_state``.
-    Floods and eruptions define no severity (``severity = 0``), so their
-    metric value and unit stay ``NULL``.
+    SOURCE_TABLE = "gdacs_event"
+    TARGET_TABLE = "gdacs_event_etl"
 
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
+    def _convert(self, df: DataFrame) -> DataFrame:
+        """Map ``geo.gdacs_event`` columns onto the canonical ETL structure.
 
-    Returns:
-        The DataFrame in :data:`TARGET_TABLE` column order.
-    """
-    category = _event_category()
+        One row per event snapshot: the alpha-3 ``country_code`` of the source
+        wins, blank and unknown codes resolve from the stamped
+        ``geocode_country``, and the subdivision is the stamped ``geocode_state``.
+        Floods and eruptions define no severity (``severity = 0``), so their
+        metric value and unit stay ``NULL``.
 
-    return df.select(
-        F.lit(SOURCE_NAME).alias("source_name"),
-        F.col("source").alias("subsource_name"),
-        F.col("event_name"),
-        category.alias("event_category"),
-        _event_subcategory(category).alias("event_subcategory"),
-        F.lit(None).cast("string").alias("event_description"),
-        F.col("latitude"),
-        F.col("longitude"),
-        _country_code(F.col("geocode_country")).alias("country_code"),
-        _state_province(F.col("geocode_state")).alias("state_province"),
-        _place_location().alias("place_location"),
-        _metric_name(category).alias("metric_name"),
-        _metric_value().alias("metric_value"),
-        _metric_unit().alias("metric_unit"),
-        F.col("alert_level").alias("danger_rating"),
-        F.lit(None).cast("string").alias("other_metrics"),
-        F.col("from_date").alias("event_start"),
-        F.col("to_date").alias("event_end"),
-        F.lit(None).cast("double").alias("last_latitude"),
-        F.lit(None).cast("double").alias("last_longitude"),
-        F.col(FILE_DATE_COL),
-    )
+        Args:
+            df: Rows read from :attr:`SOURCE_TABLE`.
 
+        Returns:
+            The DataFrame in :attr:`TARGET_TABLE` column order.
+        """
+        category = _event_category()
 
-def run(
-    spark: SparkSession,
-    config: AppConfig,
-    db_config: SupabaseConnectionConfig,
-    *,
-    load_type: LoadType | None = None,
-    logger: logging.Logger | None = None,
-) -> str:
-    """Read ``geo.gdacs_event`` and append its converted rows to ``geo.gdacs_event_etl``.
-
-    Delegates to :func:`utils.etl_utils.run_etl` with this module's
-    :func:`_convert`; see there for the load-type contract.
-
-    Args:
-        spark: Active Spark session.
-        config: Application configuration (DB schema, JDBC driver, logging).
-        db_config: Supabase connection credentials.
-        load_type: Load type forced by the caller, or ``None`` to detect it
-            from the target table.
-        logger: Optional logger; defaults to the runner's logger.
-
-    Returns:
-        A human-readable summary, e.g. ``"HISTORICAL: wrote to geo.gdacs_event_etl"``
-        or ``"INCREMENTAL: nothing to do — gdacs_event_etl is up to date"``.
-    """
-    return run_etl(
-        spark,
-        config,
-        db_config,
-        SOURCE_TABLE,
-        TARGET_TABLE,
-        _convert,
-        load_type=load_type,
-        logger=logger,
-    )
+        return df.select(
+            F.lit(SOURCE_NAME).alias("source_name"),
+            F.col("source").alias("subsource_name"),
+            F.col("event_name"),
+            category.alias("event_category"),
+            _event_subcategory(category).alias("event_subcategory"),
+            F.lit(None).cast("string").alias("event_description"),
+            F.col("latitude"),
+            F.col("longitude"),
+            _country_code(F.col("geocode_country")).alias("country_code"),
+            _state_province(F.col("geocode_state")).alias("state_province"),
+            _place_location().alias("place_location"),
+            _metric_name(category).alias("metric_name"),
+            _metric_value().alias("metric_value"),
+            _metric_unit().alias("metric_unit"),
+            F.col("alert_level").alias("danger_rating"),
+            F.lit(None).cast("string").alias("other_metrics"),
+            F.col("from_date").alias("event_start"),
+            F.col("to_date").alias("event_end"),
+            F.lit(None).cast("double").alias("last_latitude"),
+            F.lit(None).cast("double").alias("last_longitude"),
+            F.col(self.FILE_DATE_COL),
+        )

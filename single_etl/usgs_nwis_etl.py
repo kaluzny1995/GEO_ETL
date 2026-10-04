@@ -18,18 +18,11 @@ Run::
 detection are described in :func:`utils.etl_utils.run_etl`.
 """
 
-import logging
-
-from pyspark.sql import Column, DataFrame, SparkSession
+from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
-from model.config import AppConfig, SupabaseConnectionConfig
-from model.enums import LoadType
-from utils.etl_utils import run_etl
+from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_TABLE = "usgs_nwis"
-TARGET_TABLE = "usgs_nwis_etl"
-FILE_DATE_COL = "file_date"
 SOURCE_NAME = "USGS"
 EVENT_CATEGORY = "flood"
 METRIC_NAME = "discharge"
@@ -144,79 +137,48 @@ def _state_province(geocode_state: Column) -> Column:
     return F.when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
 
 
-def _convert(df: DataFrame) -> DataFrame:
-    """Map ``geo.usgs_nwis`` columns onto the canonical ETL structure.
+class UsgsNwisEtlScript(SingleEtlScript):
+    """USGS NWIS streamflow → ``geo.usgs_nwis_etl`` (canonical event structure)."""
 
-    One row per gauge per measurement day per snapshot: the gauge's
-    identity (site, name, point) describes the event while ``date``
-    places the daily mean in time. The country is always ``US``; the
-    subdivision is the stamped ``geocode_state`` of the gauge point.
+    SOURCE_TABLE = "usgs_nwis"
+    TARGET_TABLE = "usgs_nwis_etl"
 
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
+    def _convert(self, df: DataFrame) -> DataFrame:
+        """Map ``geo.usgs_nwis`` columns onto the canonical ETL structure.
 
-    Returns:
-        The DataFrame in :data:`TARGET_TABLE` column order.
-    """
-    river, place = _name_parts()
+        One row per gauge per measurement day per snapshot: the gauge's
+        identity (site, name, point) describes the event while ``date``
+        places the daily mean in time. The country is always ``US``; the
+        subdivision is the stamped ``geocode_state`` of the gauge point.
 
-    return df.select(
-        F.lit(SOURCE_NAME).alias("source_name"),
-        F.col("site_id").alias("subsource_name"),
-        _event_name(river).alias("event_name"),
-        F.lit(EVENT_CATEGORY).alias("event_category"),
-        F.lit(None).cast("string").alias("event_subcategory"),
-        _event_description().alias("event_description"),
-        F.col("latitude"),
-        F.col("longitude"),
-        F.lit(COUNTRY_CODE).alias("country_code"),
-        _state_province(F.col("geocode_state")).alias("state_province"),
-        _place_location(river, place).alias("place_location"),
-        F.lit(METRIC_NAME).alias("metric_name"),
-        F.coalesce(F.col("value"), F.lit(0.0)).alias("metric_value"),
-        F.col("unit").alias("metric_unit"),
-        F.lit(None).cast("string").alias("danger_rating"),
-        F.lit(None).cast("string").alias("other_metrics"),
-        F.col("date").cast("timestamp").alias("event_start"),
-        F.lit(None).cast("timestamp").alias("event_end"),
-        F.lit(None).cast("double").alias("last_latitude"),
-        F.lit(None).cast("double").alias("last_longitude"),
-        F.col(FILE_DATE_COL),
-    )
+        Args:
+            df: Rows read from :attr:`SOURCE_TABLE`.
 
+        Returns:
+            The DataFrame in :attr:`TARGET_TABLE` column order.
+        """
+        river, place = _name_parts()
 
-def run(
-    spark: SparkSession,
-    config: AppConfig,
-    db_config: SupabaseConnectionConfig,
-    *,
-    load_type: LoadType | None = None,
-    logger: logging.Logger | None = None,
-) -> str:
-    """Read ``geo.usgs_nwis`` and append its converted rows to ``geo.usgs_nwis_etl``.
-
-    Delegates to :func:`utils.etl_utils.run_etl` with this module's
-    :func:`_convert`; see there for the load-type contract.
-
-    Args:
-        spark: Active Spark session.
-        config: Application configuration (DB schema, JDBC driver, logging).
-        db_config: Supabase connection credentials.
-        load_type: Load type forced by the caller, or ``None`` to detect it
-            from the target table.
-        logger: Optional logger; defaults to the runner's logger.
-
-    Returns:
-        A human-readable summary, e.g. ``"HISTORICAL: wrote to geo.usgs_nwis_etl"``
-        or ``"INCREMENTAL: nothing to do — usgs_nwis_etl is up to date"``.
-    """
-    return run_etl(
-        spark,
-        config,
-        db_config,
-        SOURCE_TABLE,
-        TARGET_TABLE,
-        _convert,
-        load_type=load_type,
-        logger=logger,
-    )
+        return df.select(
+            F.lit(SOURCE_NAME).alias("source_name"),
+            F.col("site_id").alias("subsource_name"),
+            _event_name(river).alias("event_name"),
+            F.lit(EVENT_CATEGORY).alias("event_category"),
+            F.lit(None).cast("string").alias("event_subcategory"),
+            _event_description().alias("event_description"),
+            F.col("latitude"),
+            F.col("longitude"),
+            F.lit(COUNTRY_CODE).alias("country_code"),
+            _state_province(F.col("geocode_state")).alias("state_province"),
+            _place_location(river, place).alias("place_location"),
+            F.lit(METRIC_NAME).alias("metric_name"),
+            F.coalesce(F.col("value"), F.lit(0.0)).alias("metric_value"),
+            F.col("unit").alias("metric_unit"),
+            F.lit(None).cast("string").alias("danger_rating"),
+            F.lit(None).cast("string").alias("other_metrics"),
+            F.col("date").cast("timestamp").alias("event_start"),
+            F.lit(None).cast("timestamp").alias("event_end"),
+            F.lit(None).cast("double").alias("last_latitude"),
+            F.lit(None).cast("double").alias("last_longitude"),
+            F.col(self.FILE_DATE_COL),
+        )

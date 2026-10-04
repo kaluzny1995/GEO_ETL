@@ -1,39 +1,40 @@
-"""Upload script registry mapping table names to their upload functions."""
+"""Upload script registry mapping table names to their script instances."""
 
-from collections.abc import Callable
 from typing import ClassVar
+
+from ingestion.upload.upload_script import UploadScript
 
 
 class UploadScriptFactory:
-    """Registry mapping raw table names to their upload callables.
+    """Registry mapping raw table names to their :class:`UploadScript` instances.
 
-    Upload functions are registered at import time via ``jobs/__init__.py``.
+    Upload scripts are registered at import time via ``jobs/__init__.py``.
     """
 
-    _registry: ClassVar[dict[str, Callable[..., bool]]] = {}
+    _registry: ClassVar[dict[str, UploadScript]] = {}
 
     @classmethod
-    def register(cls, table_name: str, upload_fn: Callable[..., bool]) -> None:
-        """Register a table name with its upload function.
+    def register(cls, table_name: str, script: UploadScript) -> None:
+        """Register a table name with its upload script.
 
         Args:
             table_name: Raw table name (e.g. ``"avalanche_org_raw"``).
-            upload_fn: Callable with the upload function signature.
+            script: Script instance exposing ``upload(spark, config, db_config, ...)``.
         """
-        cls._registry[table_name] = upload_fn
+        cls._registry[table_name] = script
 
     @classmethod
-    def get(cls, table_name: str) -> Callable[..., bool]:
-        """Retrieve the upload function for a table name.
+    def get(cls, table_name: str) -> UploadScript:
+        """Retrieve the upload script for a table name.
 
         Args:
             table_name: Raw table name.
 
         Returns:
-            The registered upload callable.
+            The registered script instance.
 
         Raises:
-            ValueError: If no function is registered for *table_name*.
+            ValueError: If no script is registered for *table_name*.
         """
         if table_name not in cls._registry:
             raise ValueError(f"No upload script for '{table_name}'. Available: {list(cls._registry.keys())}")

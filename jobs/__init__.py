@@ -9,95 +9,95 @@ def _register():
     JobFactory.register(JobType.DATA_QUALITY, data_quality)
     JobFactory.register(JobType.SINGLE_ETL, single_etl)
 
-    from single_etl.avalanche_org_etl import run as avalanche_org_etl_run
+    from single_etl.avalanche_org_etl import AvalancheOrgEtlScript
 
-    SingleEtlFactory.register("avalanche_org_etl", avalanche_org_etl_run)
+    SingleEtlFactory.register("avalanche_org_etl", AvalancheOrgEtlScript())
 
-    from single_etl.eonet_event_etl import run as eonet_event_etl_run
+    from single_etl.eonet_event_etl import EonetEventEtlScript
 
-    SingleEtlFactory.register("eonet_event_etl", eonet_event_etl_run)
+    SingleEtlFactory.register("eonet_event_etl", EonetEventEtlScript())
 
-    from single_etl.gdacs_event_etl import run as gdacs_event_etl_run
+    from single_etl.gdacs_event_etl import GdacsEventEtlScript
 
-    SingleEtlFactory.register("gdacs_event_etl", gdacs_event_etl_run)
+    SingleEtlFactory.register("gdacs_event_etl", GdacsEventEtlScript())
 
-    from single_etl.ibtracs_cyclone_etl import run as ibtracs_cyclone_etl_run
+    from single_etl.ibtracs_cyclone_etl import IbtracsCycloneEtlScript
 
-    SingleEtlFactory.register("ibtracs_cyclone_etl", ibtracs_cyclone_etl_run)
+    SingleEtlFactory.register("ibtracs_cyclone_etl", IbtracsCycloneEtlScript())
 
-    from single_etl.nifc_fire_etl import run as nifc_fire_etl_run
+    from single_etl.nifc_fire_etl import NifcFireEtlScript
 
-    SingleEtlFactory.register("nifc_fire_etl", nifc_fire_etl_run)
+    SingleEtlFactory.register("nifc_fire_etl", NifcFireEtlScript())
 
-    from single_etl.openmeteo_flood_etl import run as openmeteo_flood_etl_run
+    from single_etl.openmeteo_flood_etl import OpenMeteoFloodEtlScript
 
-    SingleEtlFactory.register("openmeteo_flood_etl", openmeteo_flood_etl_run)
+    SingleEtlFactory.register("openmeteo_flood_etl", OpenMeteoFloodEtlScript())
 
-    from single_etl.usgs_earthquake_etl import run as usgs_earthquake_etl_run
+    from single_etl.usgs_earthquake_etl import UsgsEarthquakeEtlScript
 
-    SingleEtlFactory.register("usgs_earthquake_etl", usgs_earthquake_etl_run)
+    SingleEtlFactory.register("usgs_earthquake_etl", UsgsEarthquakeEtlScript())
 
-    from single_etl.usgs_nwis_etl import run as usgs_nwis_etl_run
+    from single_etl.usgs_nwis_etl import UsgsNwisEtlScript
 
-    SingleEtlFactory.register("usgs_nwis_etl", usgs_nwis_etl_run)
+    SingleEtlFactory.register("usgs_nwis_etl", UsgsNwisEtlScript())
 
-    from single_etl.usgs_volcano_etl import run as usgs_volcano_etl_run
+    from single_etl.usgs_volcano_etl import UsgsVolcanoEtlScript
 
-    SingleEtlFactory.register("usgs_volcano_etl", usgs_volcano_etl_run)
+    SingleEtlFactory.register("usgs_volcano_etl", UsgsVolcanoEtlScript())
 
-    from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain as avalanche_org_raw2plain
-    from ingestion.upload.avalanche_org_upload import upload as avalanche_org_upload
+    from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
+    from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 
-    UploadScriptFactory.register("avalanche_org_raw", avalanche_org_upload)
-    Raw2PlainScriptFactory.register("avalanche_org_raw", avalanche_org_raw2plain)
+    UploadScriptFactory.register("avalanche_org_raw", AvalancheOrgUploadScript())
+    Raw2PlainScriptFactory.register("avalanche_org_raw", AvalancheOrgRaw2PlainScript())
 
-    from ingestion.raw2plain.eonet_event_raw2plain import raw2plain as eonet_event_raw2plain
-    from ingestion.upload.eonet_event_upload import upload as eonet_event_upload
+    from ingestion.raw2plain.eonet_event_raw2plain import EonetEventRaw2PlainScript
+    from ingestion.upload.eonet_event_upload import EonetEventUploadScript
 
-    UploadScriptFactory.register("eonet_event_raw", eonet_event_upload)
-    Raw2PlainScriptFactory.register("eonet_event_raw", eonet_event_raw2plain)
+    UploadScriptFactory.register("eonet_event_raw", EonetEventUploadScript())
+    Raw2PlainScriptFactory.register("eonet_event_raw", EonetEventRaw2PlainScript())
 
-    from ingestion.raw2plain.gdacs_event_raw2plain import raw2plain as gdacs_event_raw2plain
-    from ingestion.upload.gdacs_event_upload import upload as gdacs_event_upload
+    from ingestion.raw2plain.gdacs_event_raw2plain import GdacsEventRaw2PlainScript
+    from ingestion.upload.gdacs_event_upload import GdacsEventUploadScript
 
-    UploadScriptFactory.register("gdacs_event_raw", gdacs_event_upload)
-    Raw2PlainScriptFactory.register("gdacs_event_raw", gdacs_event_raw2plain)
+    UploadScriptFactory.register("gdacs_event_raw", GdacsEventUploadScript())
+    Raw2PlainScriptFactory.register("gdacs_event_raw", GdacsEventRaw2PlainScript())
 
-    from ingestion.raw2plain.ibtracs_cyclone_raw2plain import raw2plain as ibtracs_cyclone_raw2plain
-    from ingestion.upload.ibtracs_cyclone_upload import upload as ibtracs_cyclone_upload
+    from ingestion.raw2plain.ibtracs_cyclone_raw2plain import IbtracsCycloneRaw2PlainScript
+    from ingestion.upload.ibtracs_cyclone_upload import IbtracsCycloneUploadScript
 
-    UploadScriptFactory.register("ibtracs_cyclone_raw", ibtracs_cyclone_upload)
-    Raw2PlainScriptFactory.register("ibtracs_cyclone_raw", ibtracs_cyclone_raw2plain)
+    UploadScriptFactory.register("ibtracs_cyclone_raw", IbtracsCycloneUploadScript())
+    Raw2PlainScriptFactory.register("ibtracs_cyclone_raw", IbtracsCycloneRaw2PlainScript())
 
-    from ingestion.raw2plain.nifc_fire_raw2plain import raw2plain as nifc_fire_raw2plain
-    from ingestion.upload.nifc_fire_upload import upload as nifc_fire_upload
+    from ingestion.raw2plain.nifc_fire_raw2plain import NifcFireRaw2PlainScript
+    from ingestion.upload.nifc_fire_upload import NifcFireUploadScript
 
-    UploadScriptFactory.register("nifc_fire_raw", nifc_fire_upload)
-    Raw2PlainScriptFactory.register("nifc_fire_raw", nifc_fire_raw2plain)
+    UploadScriptFactory.register("nifc_fire_raw", NifcFireUploadScript())
+    Raw2PlainScriptFactory.register("nifc_fire_raw", NifcFireRaw2PlainScript())
 
-    from ingestion.raw2plain.openmeteo_flood_raw2plain import raw2plain as openmeteo_flood_raw2plain
-    from ingestion.upload.openmeteo_flood_upload import upload as openmeteo_flood_upload
+    from ingestion.raw2plain.openmeteo_flood_raw2plain import OpenMeteoFloodRaw2PlainScript
+    from ingestion.upload.openmeteo_flood_upload import OpenMeteoFloodUploadScript
 
-    UploadScriptFactory.register("openmeteo_flood_raw", openmeteo_flood_upload)
-    Raw2PlainScriptFactory.register("openmeteo_flood_raw", openmeteo_flood_raw2plain)
+    UploadScriptFactory.register("openmeteo_flood_raw", OpenMeteoFloodUploadScript())
+    Raw2PlainScriptFactory.register("openmeteo_flood_raw", OpenMeteoFloodRaw2PlainScript())
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import raw2plain as usgs_earthquake_raw2plain
-    from ingestion.upload.usgs_earthquake_upload import upload as usgs_earthquake_upload
+    from ingestion.raw2plain.usgs_earthquake_raw2plain import UsgsEarthquakeRaw2PlainScript
+    from ingestion.upload.usgs_earthquake_upload import UsgsEarthquakeUploadScript
 
-    UploadScriptFactory.register("usgs_earthquake_raw", usgs_earthquake_upload)
-    Raw2PlainScriptFactory.register("usgs_earthquake_raw", usgs_earthquake_raw2plain)
+    UploadScriptFactory.register("usgs_earthquake_raw", UsgsEarthquakeUploadScript())
+    Raw2PlainScriptFactory.register("usgs_earthquake_raw", UsgsEarthquakeRaw2PlainScript())
 
-    from ingestion.raw2plain.usgs_nwis_raw2plain import raw2plain as usgs_nwis_raw2plain
-    from ingestion.upload.usgs_nwis_upload import upload as usgs_nwis_upload
+    from ingestion.raw2plain.usgs_nwis_raw2plain import UsgsNwisRaw2PlainScript
+    from ingestion.upload.usgs_nwis_upload import UsgsNwisUploadScript
 
-    UploadScriptFactory.register("usgs_nwis_raw", usgs_nwis_upload)
-    Raw2PlainScriptFactory.register("usgs_nwis_raw", usgs_nwis_raw2plain)
+    UploadScriptFactory.register("usgs_nwis_raw", UsgsNwisUploadScript())
+    Raw2PlainScriptFactory.register("usgs_nwis_raw", UsgsNwisRaw2PlainScript())
 
-    from ingestion.raw2plain.usgs_volcano_raw2plain import raw2plain as usgs_volcano_raw2plain
-    from ingestion.upload.usgs_volcano_upload import upload as usgs_volcano_upload
+    from ingestion.raw2plain.usgs_volcano_raw2plain import UsgsVolcanoRaw2PlainScript
+    from ingestion.upload.usgs_volcano_upload import UsgsVolcanoUploadScript
 
-    UploadScriptFactory.register("usgs_volcano_raw", usgs_volcano_upload)
-    Raw2PlainScriptFactory.register("usgs_volcano_raw", usgs_volcano_raw2plain)
+    UploadScriptFactory.register("usgs_volcano_raw", UsgsVolcanoUploadScript())
+    Raw2PlainScriptFactory.register("usgs_volcano_raw", UsgsVolcanoRaw2PlainScript())
 
 
 _register()

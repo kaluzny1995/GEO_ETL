@@ -1,8 +1,9 @@
 """Shared raw-to-plain transformation logic for all data sources.
 
-Provides a template ``raw2plain()`` function that reads from a raw JDBC
-table, applies a dataset-specific ``convert_fn``, and writes typed results
-to the corresponding plain table.
+Provides the template ``raw2plain()`` runner that reads from a raw JDBC
+table, applies the script's converter, and writes typed results to the
+corresponding plain table. The script interface lives in
+:class:`~ingestion.raw2plain.raw2plain_script.Raw2PlainScript`.
 """
 
 import datetime as dt

@@ -7,8 +7,10 @@ from pyspark.sql.types import StructField, StructType
 
 from model.etl.nifc_fire_etl import NifcFireEtl
 from model.plain.nifc_fire import NifcFire
-from single_etl import nifc_fire_etl
+from single_etl.nifc_fire_etl import NifcFireEtlScript
 from utils.schema_converter import pydantic_to_spark_schema
+
+_SCRIPT = NifcFireEtlScript()
 
 
 def _mock_config():
@@ -63,40 +65,40 @@ def _source_df(spark, *rows):
 
 
 def _convert(spark, *rows):
-    return nifc_fire_etl._convert(_source_df(spark, *rows)).collect()
+    return _SCRIPT._convert(_source_df(spark, *rows)).collect()
 
 
 class TestRun:
-    @patch("single_etl.nifc_fire_etl._convert")
+    @patch("single_etl.nifc_fire_etl.NifcFireEtlScript._convert")
     @patch("utils.etl_utils.get_max_file_date", return_value=None)
     def test_auto_detects_historical(self, mock_max, mock_convert, spark_session):
         spark = _spark_with_rows()
 
-        message = nifc_fire_etl.run(spark, _mock_config(), _mock_db_config())
+        message = _SCRIPT.run(spark, _mock_config(), _mock_db_config())
 
         assert message.startswith("HISTORICAL")
         spark.read.jdbc.return_value.filter.assert_not_called()
         mock_convert.return_value.write.jdbc.assert_called_once()
 
-    @patch("single_etl.nifc_fire_etl._convert")
+    @patch("single_etl.nifc_fire_etl.NifcFireEtlScript._convert")
     @patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28))
     def test_incremental_without_new_rows_writes_nothing(self, mock_max, mock_convert, spark_session):
         spark = _spark_with_rows()
         spark.read.jdbc.return_value.filter.return_value.head.return_value = []
 
-        message = nifc_fire_etl.run(spark, _mock_config(), _mock_db_config())
+        message = _SCRIPT.run(spark, _mock_config(), _mock_db_config())
 
         assert message.startswith("INCREMENTAL")
         assert "nothing to do" in message
         mock_convert.assert_not_called()
         mock_convert.return_value.write.jdbc.assert_not_called()
 
-    @patch("single_etl.nifc_fire_etl._convert")
+    @patch("single_etl.nifc_fire_etl.NifcFireEtlScript._convert")
     @patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28))
     def test_reads_source_table(self, mock_max, mock_convert, spark_session):
         spark = _spark_with_rows()
 
-        nifc_fire_etl.run(spark, _mock_config(), _mock_db_config())
+        _SCRIPT.run(spark, _mock_config(), _mock_db_config())
 
         assert spark.read.jdbc.call_args.kwargs["table"] == "geo.nifc_fire"
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
@@ -104,7 +106,7 @@ class TestRun:
 
 class TestConvert:
     def test_column_order_matches_the_model(self, spark_session):
-        df = nifc_fire_etl._convert(_source_df(spark_session, _source_row()))
+        df = _SCRIPT._convert(_source_df(spark_session, _source_row()))
         assert df.columns == list(NifcFireEtl.model_fields)
 
     def test_fire_mapping(self, spark_session):

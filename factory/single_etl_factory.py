@@ -1,41 +1,39 @@
-"""Single ETL script registry mapping script names to their run functions."""
+"""Single ETL script registry mapping script names to their script instances."""
 
-from collections.abc import Callable
 from typing import ClassVar
 
-SingleEtlFn = Callable[..., str]
-"""Signature shared by every script in ``single_etl/``."""
+from single_etl.single_etl_script import SingleEtlScript
 
 
 class SingleEtlFactory:
-    """Registry mapping single ETL script names to their ``run()`` callables.
+    """Registry mapping single ETL script names to their :class:`SingleEtlScript` instances.
 
     Scripts live in ``single_etl/`` and are registered at import time via
     ``jobs/__init__.py``, keyed by the script's file name without the ``.py``
     extension (e.g. ``single_etl/avalanche_org_etl.py`` → ``"avalanche_org_etl"``).
     """
 
-    _registry: ClassVar[dict[str, SingleEtlFn]] = {}
+    _registry: ClassVar[dict[str, SingleEtlScript]] = {}
 
     @classmethod
-    def register(cls, script_name: str, etl_fn: SingleEtlFn) -> None:
+    def register(cls, script_name: str, script: SingleEtlScript) -> None:
         """Register a single ETL script.
 
         Args:
             script_name: Script name used on the CLI (file stem, e.g. ``"avalanche_org_etl"``).
-            etl_fn: Callable with the single ETL script signature.
+            script: Script instance exposing ``run(spark, config, db_config, ...)``.
         """
-        cls._registry[script_name] = etl_fn
+        cls._registry[script_name] = script
 
     @classmethod
-    def get(cls, script_name: str) -> SingleEtlFn:
-        """Retrieve the run function for a script name.
+    def get(cls, script_name: str) -> SingleEtlScript:
+        """Retrieve the script instance for a script name.
 
         Args:
             script_name: Script name used on the CLI.
 
         Returns:
-            The registered script callable.
+            The registered script instance.
 
         Raises:
             ValueError: If no script is registered for *script_name*.

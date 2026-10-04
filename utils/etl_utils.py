@@ -3,8 +3,8 @@
 Provides a template ``run_etl()`` function that reads a source JDBC table,
 resolves the load type from the target's latest ``file_date``, applies a
 dataset-specific ``convert_fn``, and appends the result to the ETL table.
-Each script in ``single_etl/`` is a thin wrapper that supplies its table
-names and its own ``_convert``.
+Each script in ``single_etl/`` is a :class:`~single_etl.single_etl_script.SingleEtlScript`
+subclass that supplies its table names and its own ``_convert``.
 """
 
 import datetime as dt

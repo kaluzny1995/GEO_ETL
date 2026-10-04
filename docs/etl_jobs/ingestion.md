@@ -7,8 +7,8 @@
 ```mermaid
 flowchart TD
     CLI["CLI<br/>python run_etl.py INGESTION avalanche_org"] -->|JobFactory, _raw suffix| JOB["jobs/ingestion.py"]
-    JOB --> FU["UploadScriptFactory.get<br/>upload(spark, config, db_config, logger)"]
-    JOB --> FT["Raw2PlainScriptFactory.get<br/>raw2plain(spark, config, db_config, logger)"]
+    JOB --> FU["UploadScriptFactory.get<br/>Class.upload(spark, config, db_config, logger)"]
+    JOB --> FT["Raw2PlainScriptFactory.get<br/>Class.raw2plain(spark, config, db_config, logger)"]
 
     subgraph UP["Step 1 — Upload (ingestion/upload/ + utils/upload_utils.py)"]
         FU --> FILES["glob data/Avalanche_ORG/*.csv"]
@@ -25,7 +25,7 @@ flowchart TD
         D2{"MAX(file_date) in<br/>geo.avalanche_org?"}
         D2 -->|"final empty"| H2["HISTORICAL: all raw rows"]
         D2 -->|"final has data"| I2["INCREMENTAL: file_date newer than max"]
-        H2 --> CV["convert_fn: cast TEXT to<br/>int / bool / timestamp / date"]
+        H2 --> CV["_convert(): cast TEXT to<br/>int / bool / timestamp / date"]
         I2 --> CV
         CV --> W2["write JDBC append"]
         D2 -->|"no new rows"| SKIP2["log warning → return False"]
@@ -45,33 +45,33 @@ flowchart TD
 How the data flows:
 
 1. `run_etl.py` appends the `_raw` suffix to the table name (unless you already passed one), resolves `JobType.INGESTION` → `jobs/ingestion.py`, and creates a single logger — both steps write to the same `logs/ingestion/ingestion_<table>_<timestamp>.log`.
-2. **Upload** — `UploadScriptFactory` picks the upload script for the table; CSVs from `data.directory` are read one by one, stamped with `file_date` from the filename, unioned and appended to the raw table.
-3. **Raw2Plain** — `Raw2PlainScriptFactory` picks the transform; only raw rows newer than the latest `file_date` in the plain table are read, passed through the dataset-specific `convert_fn`, and appended to the plain table.
+2. **Upload** — `UploadScriptFactory` picks the script instance for the table; CSVs from `data.directory` are read one by one, stamped with `file_date` from the filename, unioned and appended to the raw table.
+3. **Raw2Plain** — `Raw2PlainScriptFactory` picks the script instance; only raw rows newer than the latest `file_date` in the plain table are read, passed through the script's `_convert()` method, and appended to the plain table.
 4. Both steps decide [Load type detection](load-types.md) from the state of their target table — no manual flag. A step that finds no new data logs a warning and returns `False`; **when both steps return `False` the job raises `RuntimeError`** (`No new data to ingest for <table>`), so `run_etl.py` exits with code 1 and a chained GEO_E2E run stops. If either step wrote anything the job still finishes successfully — e.g. raw rows left by an earlier crash are transformed even though no new file arrived.
 
 Details of each step: [Upload pipeline](#upload-pipeline) · [Raw2Plain pipeline](#raw2plain-pipeline).
 
 ## Upload pipeline
 
-Upload CSV files from GEO_Download to a Supabase table (`ingestion/upload/` scripts are thin wrappers around `utils/upload_utils.py`):
+Upload CSV files from GEO_Download to a Supabase table (`ingestion/upload/` scripts are classes implementing `ingestion/upload/upload_script.py`):
 
 ```python
 from pyspark.sql import SparkSession
 from model.config import AppConfig, SupabaseConnectionConfig
-from ingestion.upload.avalanche_org_upload import upload
+from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 
 config = AppConfig.from_json()
 db_config = SupabaseConnectionConfig.from_json()
 spark = SparkSession.builder.master("spark://localhost:7078").appName("upload").getOrCreate()
 
-upload(spark, config, db_config, "avalanche_org_raw", AvalancheOrgRaw, "Avalanche_ORG")
+AvalancheOrgUploadScript().upload(spark, config, db_config)
 spark.stop()
 ```
 
 When called from the INGESTION job, a logger is passed so all logs go to the same file:
 
 ```python
-upload(spark, config, db_config, logger=my_logger)
+script.upload(spark, config, db_config, logger=my_logger)
 ```
 
 Expected output:
@@ -87,25 +87,25 @@ Spark session stopped
 
 ## Raw2Plain pipeline
 
-Convert data from `avalanche_org_raw` (all TEXT) to `avalanche_org` (typed: int, bool, datetime, date) (`ingestion/raw2plain/` scripts are thin wrappers around `utils/raw2plain_utils.py`):
+Convert data from `avalanche_org_raw` (all TEXT) to `avalanche_org` (typed: int, bool, datetime, date) (`ingestion/raw2plain/` scripts are classes implementing `ingestion/raw2plain/raw2plain_script.py`):
 
 ```python
 from pyspark.sql import SparkSession
 from model.config import AppConfig, SupabaseConnectionConfig
-from ingestion.raw2plain.avalanche_org_raw2plain import raw2plain
+from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
 
 config = AppConfig.from_json()
 db_config = SupabaseConnectionConfig.from_json()
 spark = SparkSession.builder.master("spark://localhost:7078").appName("raw2plain").getOrCreate()
 
-raw2plain(spark, config, db_config, "avalanche_org_raw", "avalanche_org", convert_fn)
+AvalancheOrgRaw2PlainScript().raw2plain(spark, config, db_config)
 spark.stop()
 ```
 
 When called from the INGESTION job, a logger is passed so all logs go to the same file:
 
 ```python
-raw2plain(spark, config, db_config, logger=my_logger)
+script.raw2plain(spark, config, db_config, logger=my_logger)
 ```
 
 **Type conversions applied (Avalanche_ORG):**

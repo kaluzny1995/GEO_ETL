@@ -1,7 +1,8 @@
 """Shared upload logic for CSV-to-Supabase ingestion.
 
 Provides helpers for parsing file dates, querying the latest loaded date,
-and a template ``upload()`` function used by all per-dataset upload scripts.
+and the template ``upload()`` runner used by all upload scripts. The script
+interface lives in :class:`~ingestion.upload.upload_script.UploadScript`.
 """
 
 import datetime as dt

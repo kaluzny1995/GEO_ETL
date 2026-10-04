@@ -26,20 +26,12 @@ Run::
 detection are described in :func:`utils.etl_utils.run_etl`.
 """
 
-import logging
-
-from pyspark.sql import Column, DataFrame, SparkSession, Window
+from pyspark.sql import Column, DataFrame, Window
 from pyspark.sql import functions as F
 
-from model.config import AppConfig, SupabaseConnectionConfig
-from model.enums import LoadType
-from utils.etl_utils import run_etl
+from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_TABLE = "ibtracs_cyclone"
-TARGET_TABLE = "ibtracs_cyclone_etl"
-FILE_DATE_COL = "file_date"
 SOURCE_NAME = "IBTRACS"
-FALLBACK_COUNTRY = "ZZ"
 BASIN_NAMES = {
     "NA": "North Atlantic",
     "EP": "Eastern North Pacific",
@@ -123,9 +115,9 @@ def _country_code(geocode_country: Column) -> Column:
 
     Returns:
         The point's ISO 3166-1 alpha-2 country code (the source carries no
-        country) or :data:`FALLBACK_COUNTRY` for open water.
+        country) or :attr:`SingleEtlScript.UNKNOWN_CODE` for open water.
     """
-    return F.when(geocode_country != "", geocode_country).otherwise(F.lit(FALLBACK_COUNTRY))
+    return F.when(geocode_country != "", geocode_country).otherwise(F.lit(SingleEtlScript.UNKNOWN_CODE))
 
 
 def _state_province(geocode_state: Column) -> Column:
@@ -230,82 +222,51 @@ def _other_metrics() -> Column:
     return F.when(metrics != "{}", metrics)
 
 
-def _convert(df: DataFrame) -> DataFrame:
-    """Map ``geo.ibtracs_cyclone`` columns onto the canonical ETL structure.
+class IbtracsCycloneEtlScript(SingleEtlScript):
+    """IBTrACS → ``geo.ibtracs_cyclone_etl`` (canonical event structure)."""
 
-    One row per best-track position: the storm's identity (basin, name,
-    intensity) repeats over its points while the coordinate, the wind and
-    the dates describe the position itself. Country and subdivision are the
-    stamped geocode columns; points the stamp could not answer resolve to
-    ``ZZ`` / ``NULL``.
+    SOURCE_TABLE = "ibtracs_cyclone"
+    TARGET_TABLE = "ibtracs_cyclone_etl"
 
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
+    def _convert(self, df: DataFrame) -> DataFrame:
+        """Map ``geo.ibtracs_cyclone`` columns onto the canonical ETL structure.
 
-    Returns:
-        The DataFrame in :data:`TARGET_TABLE` column order.
-    """
-    basin = F.trim(F.col("basin"))
-    name = F.trim(F.col("name"))
-    latest = Window.partitionBy("sid").orderBy(F.col("iso_time").desc())
+        One row per best-track position: the storm's identity (basin, name,
+        intensity) repeats over its points while the coordinate, the wind and
+        the dates describe the position itself. Country and subdivision are the
+        stamped geocode columns; points the stamp could not answer resolve to
+        ``ZZ`` / ``NULL``.
 
-    return df.select(
-        F.lit(SOURCE_NAME).alias("source_name"),
-        F.when(basin != "", basin).otherwise(F.lit(None).cast("string")).alias("subsource_name"),
-        F.when(name != "", name).otherwise(F.lit(None).cast("string")).alias("event_name"),
-        F.lit("storm").alias("event_category"),
-        _event_subcategory().alias("event_subcategory"),
-        F.lit(None).cast("string").alias("event_description"),
-        F.col("lat").alias("latitude"),
-        F.col("lon").alias("longitude"),
-        _country_code(F.col("geocode_country")).alias("country_code"),
-        _state_province(F.col("geocode_state")).alias("state_province"),
-        _place_location().alias("place_location"),
-        F.lit("wind speed").alias("metric_name"),
-        _metric_value().alias("metric_value"),
-        F.lit("kts").alias("metric_unit"),
-        _danger_rating().alias("danger_rating"),
-        _other_metrics().alias("other_metrics"),
-        F.col("iso_time").alias("event_start"),
-        F.col("iso_time").alias("event_end"),
-        F.first("lat").over(latest).alias("last_latitude"),
-        F.first("lon").over(latest).alias("last_longitude"),
-        F.col(FILE_DATE_COL),
-    )
+        Args:
+            df: Rows read from :attr:`SOURCE_TABLE`.
 
+        Returns:
+            The DataFrame in :attr:`TARGET_TABLE` column order.
+        """
+        basin = F.trim(F.col("basin"))
+        name = F.trim(F.col("name"))
+        latest = Window.partitionBy("sid").orderBy(F.col("iso_time").desc())
 
-def run(
-    spark: SparkSession,
-    config: AppConfig,
-    db_config: SupabaseConnectionConfig,
-    *,
-    load_type: LoadType | None = None,
-    logger: logging.Logger | None = None,
-) -> str:
-    """Read ``geo.ibtracs_cyclone`` and append its converted rows to ``geo.ibtracs_cyclone_etl``.
-
-    Delegates to :func:`utils.etl_utils.run_etl` with this module's
-    :func:`_convert`; see there for the load-type contract.
-
-    Args:
-        spark: Active Spark session.
-        config: Application configuration (DB schema, JDBC driver, logging).
-        db_config: Supabase connection credentials.
-        load_type: Load type forced by the caller, or ``None`` to detect it
-            from the target table.
-        logger: Optional logger; defaults to the runner's logger.
-
-    Returns:
-        A human-readable summary, e.g. ``"HISTORICAL: wrote to geo.ibtracs_cyclone_etl"``
-        or ``"INCREMENTAL: nothing to do — ibtracs_cyclone_etl is up to date"``.
-    """
-    return run_etl(
-        spark,
-        config,
-        db_config,
-        SOURCE_TABLE,
-        TARGET_TABLE,
-        _convert,
-        load_type=load_type,
-        logger=logger,
-    )
+        return df.select(
+            F.lit(SOURCE_NAME).alias("source_name"),
+            F.when(basin != "", basin).otherwise(F.lit(None).cast("string")).alias("subsource_name"),
+            F.when(name != "", name).otherwise(F.lit(None).cast("string")).alias("event_name"),
+            F.lit("storm").alias("event_category"),
+            _event_subcategory().alias("event_subcategory"),
+            F.lit(None).cast("string").alias("event_description"),
+            F.col("lat").alias("latitude"),
+            F.col("lon").alias("longitude"),
+            _country_code(F.col("geocode_country")).alias("country_code"),
+            _state_province(F.col("geocode_state")).alias("state_province"),
+            _place_location().alias("place_location"),
+            F.lit("wind speed").alias("metric_name"),
+            _metric_value().alias("metric_value"),
+            F.lit("kts").alias("metric_unit"),
+            _danger_rating().alias("danger_rating"),
+            _other_metrics().alias("other_metrics"),
+            F.col("iso_time").alias("event_start"),
+            F.col("iso_time").alias("event_end"),
+            F.first("lat").over(latest).alias("last_latitude"),
+            F.first("lon").over(latest).alias("last_longitude"),
+            F.col(self.FILE_DATE_COL),
+        )

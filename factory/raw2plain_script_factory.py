@@ -1,39 +1,40 @@
-"""Raw-to-plain script registry mapping table names to their transform functions."""
+"""Raw-to-plain script registry mapping table names to their script instances."""
 
-from collections.abc import Callable
 from typing import ClassVar
+
+from ingestion.raw2plain.raw2plain_script import Raw2PlainScript
 
 
 class Raw2PlainScriptFactory:
-    """Registry mapping plain table names to their raw2plain callables.
+    """Registry mapping plain table names to their :class:`Raw2PlainScript` instances.
 
-    Raw2plain functions are registered at import time via ``jobs/__init__.py``.
+    Raw2plain scripts are registered at import time via ``jobs/__init__.py``.
     """
 
-    _registry: ClassVar[dict[str, Callable[..., bool]]] = {}
+    _registry: ClassVar[dict[str, Raw2PlainScript]] = {}
 
     @classmethod
-    def register(cls, table_name: str, raw2plain_fn: Callable[..., bool]) -> None:
-        """Register a table name with its raw2plain function.
+    def register(cls, table_name: str, script: Raw2PlainScript) -> None:
+        """Register a table name with its raw2plain script.
 
         Args:
             table_name: Plain table name (e.g. ``"avalanche_org"``).
-            raw2plain_fn: Callable with the raw2plain function signature.
+            script: Script instance exposing ``raw2plain(spark, config, db_config, ...)``.
         """
-        cls._registry[table_name] = raw2plain_fn
+        cls._registry[table_name] = script
 
     @classmethod
-    def get(cls, table_name: str) -> Callable[..., bool]:
-        """Retrieve the raw2plain function for a table name.
+    def get(cls, table_name: str) -> Raw2PlainScript:
+        """Retrieve the raw2plain script for a table name.
 
         Args:
             table_name: Plain table name.
 
         Returns:
-            The registered raw2plain callable.
+            The registered script instance.
 
         Raises:
-            ValueError: If no function is registered for *table_name*.
+            ValueError: If no script is registered for *table_name*.
         """
         if table_name not in cls._registry:
             raise ValueError(f"No raw2plain script for '{table_name}'. Available: {list(cls._registry.keys())}")

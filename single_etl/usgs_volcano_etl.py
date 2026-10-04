@@ -21,25 +21,17 @@ Run::
 detection are described in :func:`utils.etl_utils.run_etl`.
 """
 
-import logging
-
-from pyspark.sql import Column, DataFrame, SparkSession
+from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
-from model.config import AppConfig, SupabaseConnectionConfig
-from model.enums import LoadType
-from utils.etl_utils import run_etl
+from single_etl.single_etl_script import SingleEtlScript
 
-SOURCE_TABLE = "usgs_volcano"
-TARGET_TABLE = "usgs_volcano_etl"
-FILE_DATE_COL = "file_date"
 SOURCE_NAME = "USGS"
 EVENT_CATEGORY = "volcano"
 METRIC_NAME = "alert_level"
 COUNTRY_CODE = "US"
 EVENT_NAME_PREFIX = "Volcano - "
 EVENT_NAME_FALLBACK = "Volcano"
-UNKNOWN_CODE = "ZZ"
 ALERT_SCALE = {
     "NORMAL": 0.0,
     "ADVISORY": 1.0,
@@ -107,9 +99,9 @@ def _state_province(state: Column) -> Column:
     Returns:
         The stamped answer (``AK``, ``HI``, ``MP``); an empty answer (the
         Ahyi Seamount sits in open water) or a ``NULL`` (no coordinate)
-        resolves to :data:`UNKNOWN_CODE`.
+        resolves to :attr:`SingleEtlScript.UNKNOWN_CODE`.
     """
-    return F.coalesce(F.when(state != "", state), F.lit(UNKNOWN_CODE))
+    return F.coalesce(F.when(state != "", state), F.lit(SingleEtlScript.UNKNOWN_CODE))
 
 
 def _description(synopsis: Column) -> Column:
@@ -126,78 +118,47 @@ def _description(synopsis: Column) -> Column:
     return F.when(trimmed != "", trimmed)
 
 
-def _convert(df: DataFrame) -> DataFrame:
-    """Map ``geo.usgs_volcano`` columns onto the canonical ETL structure.
+class UsgsVolcanoEtlScript(SingleEtlScript):
+    """USGS volcanic activity notices → ``geo.usgs_volcano_etl`` (canonical event structure)."""
 
-    One row per volcano per notice per snapshot: the feed supplies the
-    volcano, observatory, alert level and notice time, the downloader-stamped
-    detail columns supply the coordinates, region, status line and full
-    notice type — the country is always ``US`` and the subdivision is the
-    stamped ``geocode_state`` of the notice point.
+    SOURCE_TABLE = "usgs_volcano"
+    TARGET_TABLE = "usgs_volcano_etl"
 
-    Args:
-        df: Rows read from :data:`SOURCE_TABLE`.
+    def _convert(self, df: DataFrame) -> DataFrame:
+        """Map ``geo.usgs_volcano`` columns onto the canonical ETL structure.
 
-    Returns:
-        The DataFrame in :data:`TARGET_TABLE` column order.
-    """
-    return df.select(
-        F.lit(SOURCE_NAME).alias("source_name"),
-        F.col("observatory_name").alias("subsource_name"),
-        _event_name().alias("event_name"),
-        F.lit(EVENT_CATEGORY).alias("event_category"),
-        _event_subcategory().alias("event_subcategory"),
-        _description(F.col("synopsis")).alias("event_description"),
-        F.col("latitude"),
-        F.col("longitude"),
-        F.lit(COUNTRY_CODE).alias("country_code"),
-        _state_province(F.col("geocode_state")).alias("state_province"),
-        _place_location(F.col("region")).alias("place_location"),
-        F.lit(METRIC_NAME).alias("metric_name"),
-        _metric_value().alias("metric_value"),
-        F.lit(None).cast("string").alias("metric_unit"),
-        F.col("alert_level").alias("danger_rating"),
-        F.lit(None).cast("string").alias("other_metrics"),
-        F.col("notice_date").alias("event_start"),
-        F.lit(None).cast("timestamp").alias("event_end"),
-        F.lit(None).cast("double").alias("last_latitude"),
-        F.lit(None).cast("double").alias("last_longitude"),
-        F.col(FILE_DATE_COL),
-    )
+        One row per volcano per notice per snapshot: the feed supplies the
+        volcano, observatory, alert level and notice time, the downloader-stamped
+        detail columns supply the coordinates, region, status line and full
+        notice type — the country is always ``US`` and the subdivision is the
+        stamped ``geocode_state`` of the notice point.
 
+        Args:
+            df: Rows read from :attr:`SOURCE_TABLE`.
 
-def run(
-    spark: SparkSession,
-    config: AppConfig,
-    db_config: SupabaseConnectionConfig,
-    *,
-    load_type: LoadType | None = None,
-    logger: logging.Logger | None = None,
-) -> str:
-    """Read ``geo.usgs_volcano`` and append its converted rows to ``geo.usgs_volcano_etl``.
-
-    Delegates to :func:`utils.etl_utils.run_etl` with this module's
-    :func:`_convert`; see there for the load-type contract.
-
-    Args:
-        spark: Active Spark session.
-        config: Application configuration (DB schema, JDBC driver, logging).
-        db_config: Supabase connection credentials.
-        load_type: Load type forced by the caller, or ``None`` to detect it
-            from the target table.
-        logger: Optional logger; defaults to the runner's logger.
-
-    Returns:
-        A human-readable summary, e.g. ``"HISTORICAL: wrote to geo.usgs_volcano_etl"``
-        or ``"INCREMENTAL: nothing to do — usgs_volcano_etl is up to date"``.
-    """
-    return run_etl(
-        spark,
-        config,
-        db_config,
-        SOURCE_TABLE,
-        TARGET_TABLE,
-        _convert,
-        load_type=load_type,
-        logger=logger,
-    )
+        Returns:
+            The DataFrame in :attr:`TARGET_TABLE` column order.
+        """
+        return df.select(
+            F.lit(SOURCE_NAME).alias("source_name"),
+            F.col("observatory_name").alias("subsource_name"),
+            _event_name().alias("event_name"),
+            F.lit(EVENT_CATEGORY).alias("event_category"),
+            _event_subcategory().alias("event_subcategory"),
+            _description(F.col("synopsis")).alias("event_description"),
+            F.col("latitude"),
+            F.col("longitude"),
+            F.lit(COUNTRY_CODE).alias("country_code"),
+            _state_province(F.col("geocode_state")).alias("state_province"),
+            _place_location(F.col("region")).alias("place_location"),
+            F.lit(METRIC_NAME).alias("metric_name"),
+            _metric_value().alias("metric_value"),
+            F.lit(None).cast("string").alias("metric_unit"),
+            F.col("alert_level").alias("danger_rating"),
+            F.lit(None).cast("string").alias("other_metrics"),
+            F.col("notice_date").alias("event_start"),
+            F.lit(None).cast("timestamp").alias("event_end"),
+            F.lit(None).cast("double").alias("last_latitude"),
+            F.lit(None).cast("double").alias("last_longitude"),
+            F.col(self.FILE_DATE_COL),
+        )

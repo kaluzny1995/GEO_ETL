@@ -18,11 +18,11 @@ def run(
 ) -> str:
     """Execute a single ETL script registered in :class:`~factory.SingleEtlFactory`.
 
-    Each script supports both load types: it runs a **HISTORICAL** load (whole
-    source) or an **INCREMENTAL** load (only rows newer than the target's
-    latest ``file_date``), detecting the type from its target table when
-    *load_type* is ``None`` — the detection and the pipeline live in the
-    shared runner ``utils/etl_utils.py``.
+    Each registered :class:`~single_etl.single_etl_script.SingleEtlScript` instance runs a
+    **HISTORICAL** load (whole source) or an **INCREMENTAL** load (only rows
+    newer than the target's latest ``file_date``), detecting the type from its
+    target table when *load_type* is ``None`` — the detection and the pipeline
+    live in the shared runner ``utils/etl_utils.py``.
 
     Args:
         spark: Active Spark session.
@@ -44,9 +44,9 @@ def run(
     app_config = AppConfig.from_json()
     db_config = SupabaseConnectionConfig.from_json()
 
-    etl_fn = SingleEtlFactory.get(script_name)
+    script = SingleEtlFactory.get(script_name)
     logger.info(f"Running single ETL script: {script_name}...")
-    summary = etl_fn(spark, app_config, db_config, load_type=load_type, logger=logger)
+    summary = script.run(spark, app_config, db_config, load_type=load_type, logger=logger)
     logger.info(f"Single ETL script {script_name} complete")
 
     return f"Single ETL {script_name} complete — {summary}"
