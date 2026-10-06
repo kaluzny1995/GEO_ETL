@@ -39,7 +39,12 @@ class UsgsVolcanoEtl(EventEtl):
       unit); ``danger_rating`` — the source ``alert_level`` text verbatim.
     * ``event_start`` — ``notice_date`` (when the notice was issued, full
       precision); ``event_end`` — ``NULL`` (a notice is an instant).
-    * ``other_metrics`` / ``last_latitude`` / ``last_longitude`` — ``NULL``
-      (no extra metrics; the volcano is fixed).
+    * ``other_metrics`` — ``{"color_code": …, "vnum": …, "vnum_unit":
+      "Smithsonian GVP", "notice_identifier": …}``: the Aviation Color Code
+      (an independent scale — it can change while ``alert_level`` does not),
+      the Smithsonian GVP volcano number with its ``<name>_unit`` companion
+      and the unique notice id; a value the feed does not report is omitted
+      together with its unit. ``last_latitude`` / ``last_longitude`` — ``NULL``
+      (the volcano is fixed).
     * ``file_date`` — the snapshot day the notice was downloaded for.
     """

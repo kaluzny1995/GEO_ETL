@@ -78,7 +78,7 @@ GEO_ETL makes no reverse-geocoding API calls: the lookup and the fetching live i
 
 `nifc_fire_etl` needs no unit lookup: the full jurisdiction name ships with every source row (`unit_name`, resolved by GEO_Download through its `data/nifc_unit_names.csv` lookup when the daily CSVs are written). The source's own `state` wins; perimeters whose `state` is blank use the `geocode_state` column stamped at download time, see [ETL jobs — nifc_fire_etl](etl_jobs/single-etl.md#nifc_fire_etl).
 
-`openmeteo_flood_etl` maps the source's country names to ISO codes in-script (an unknown name falls back to the `geocode_country` column stamped at download time) and reads the subdivision from `geocode_state`, see [ETL jobs — openmeteo_flood_etl](etl_jobs/single-etl.md#openmeteo_flood_etl).
+`openmeteo_flood_etl` maps the source's country names to ISO codes in-script (an unknown name falls back to the `geocode_country` column stamped at download time) and reads the subdivision from `geocode_state`, and joins the threshold reference `data/openmeteo_discharge_thresholds.csv` (built by GEO_Download) that feeds `danger_rating` and `other_metrics`, see [ETL jobs — openmeteo_flood_etl](etl_jobs/single-etl.md#openmeteo_flood_etl).
 
 `usgs_earthquake_etl` parses the country from the `place` suffix first; rows the suffix cannot answer use the `geocode_country`/`geocode_state` columns stamped at download time, see [ETL jobs — usgs_earthquake_etl](etl_jobs/single-etl.md#usgs_earthquake_etl).
 

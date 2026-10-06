@@ -50,7 +50,7 @@ CONVERT_COLUMN_CASES = [
     (GdacsEventRaw2PlainScript, 20),
     (IbtracsCycloneRaw2PlainScript, 48),
     (NifcFireRaw2PlainScript, 19),
-    (OpenMeteoFloodRaw2PlainScript, 9),
+    (OpenMeteoFloodRaw2PlainScript, 13),
     (UsgsEarthquakeRaw2PlainScript, 25),
     (UsgsNwisRaw2PlainScript, 11),
     (UsgsVolcanoRaw2PlainScript, 18),

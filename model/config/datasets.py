@@ -104,6 +104,8 @@ class OpenMeteoFloodEtlConfig(SingleEtlDatasetConfig):
     metric_name: str
     metric_unit: str
     country_code_map: dict[str, str]
+    thresholds_file: str
+    threshold_percentile: float
 
 
 class UsgsEarthquakeEtlConfig(SingleEtlDatasetConfig):

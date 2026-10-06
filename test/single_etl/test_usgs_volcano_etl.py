@@ -1,4 +1,5 @@
 import datetime as dt
+import json
 
 import pytest
 from pyspark.sql import Row
@@ -69,7 +70,12 @@ class TestConvert:
         assert row.metric_value == 2.0
         assert row.metric_unit is None
         assert row.danger_rating == "WATCH"
-        assert row.other_metrics is None
+        assert json.loads(row.other_metrics) == {
+            "color_code": "ORANGE",
+            "vnum": 311120,
+            "vnum_unit": "Smithsonian GVP",
+            "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
+        }
         assert row.event_start == dt.datetime(2026, 9, 29, 18, 26, 19)
         assert row.event_end is None
         assert row.last_latitude is None and row.last_longitude is None
@@ -94,6 +100,43 @@ class TestConvert:
         assert row.metric_name == "alert_level"
         assert row.metric_value == expected_value
         assert row.danger_rating == alert_level
+
+    def test_color_code_is_kept_independently_of_the_alert_level(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(alert_level="WATCH", color_code="RED"))
+
+        assert row.danger_rating == "WATCH"
+        assert row.metric_value == 2.0
+        assert json.loads(row.other_metrics)["color_code"] == "RED"
+
+    @pytest.mark.parametrize(
+        ("overrides", "expected_metrics"),
+        [
+            (
+                {"color_code": None},
+                {
+                    "vnum": 311120,
+                    "vnum_unit": "Smithsonian GVP",
+                    "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
+                },
+            ),
+            (
+                {"color_code": ""},
+                {
+                    "vnum": 311120,
+                    "vnum_unit": "Smithsonian GVP",
+                    "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
+                },
+            ),
+            ({"vnum": None}, {"color_code": "ORANGE", "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00"}),
+            ({"notice_identifier": None}, {"color_code": "ORANGE", "vnum": 311120, "vnum_unit": "Smithsonian GVP"}),
+            ({"notice_identifier": "   "}, {"color_code": "ORANGE", "vnum": 311120, "vnum_unit": "Smithsonian GVP"}),
+            ({"color_code": None, "vnum": None, "notice_identifier": None}, {}),
+        ],
+    )
+    def test_other_metrics_omit_what_the_feed_does_not_report(self, spark_session, overrides, expected_metrics):
+        (row,) = _convert(spark_session, _source_row(**overrides))
+
+        assert json.loads(row.other_metrics) == expected_metrics
 
     @pytest.mark.parametrize(
         ("geocode_state", "expected_state"),

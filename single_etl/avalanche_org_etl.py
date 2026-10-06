@@ -35,6 +35,8 @@ from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", AvalancheOrgEtlConfig)
 
+_DANGER_LEVEL_UNIT = "NAPADS level"
+
 
 def _danger_rating() -> Column:
     """The zone's danger rating, or ``NULL`` while the zone is unrated.
@@ -45,6 +47,28 @@ def _danger_rating() -> Column:
     rating = F.trim(F.col("danger_rating"))
     unrated = (F.col("danger_level") <= 0) | (F.lower(rating).isin("", "no rating", "no_rating"))
     return F.when(~unrated, rating)
+
+
+def _other_metrics() -> Column:
+    """The zone's danger level, warning and season state as a JSON object string.
+
+    Returns:
+        ``{"danger_level": …, "danger_level_unit": "NAPADS level", "warning":
+        "warning", "off_season": true}`` — ``danger_level`` keeps the source's
+        raw scale index (``-1`` = no rating) paired with its ``<name>_unit``
+        companion, ``warning`` holds the avalanche-warning product and is
+        omitted while no warning covers the zone (empty or ``NULL``), and
+        ``off_season`` tells whether the zone is out of its forecast season.
+    """
+    warning = F.trim(F.col("warning"))
+    return F.to_json(
+        F.struct(
+            F.col("danger_level").alias("danger_level"),
+            F.lit(_DANGER_LEVEL_UNIT).alias("danger_level_unit"),
+            F.when(warning != "", warning).alias("warning"),
+            F.col("off_season").alias("off_season"),
+        )
+    )
 
 
 class AvalancheOrgEtlScript(SingleEtlScript):
@@ -61,6 +85,9 @@ class AvalancheOrgEtlScript(SingleEtlScript):
         no usable geometry). A danger level is a rating, not a measurement, so
         ``metric_value`` and ``metric_unit`` stay ``NULL`` and unrated zones
         (``danger_level = -1``) additionally get a ``NULL`` ``danger_rating``.
+        The rating's scale index, the avalanche-warning product and the season
+        state travel in :func:`_other_metrics`, so a danger transition or a
+        warning issuance can be detected from the target table alone.
 
         Each source file holds the analysis day plus the next day's forecast (the
         shared ``[D, D+1]`` download range), and ``date`` is not part of the
@@ -92,7 +119,7 @@ class AvalancheOrgEtlScript(SingleEtlScript):
             F.lit(None).cast("double").alias("metric_value"),
             F.lit(None).cast("string").alias("metric_unit"),
             _danger_rating().alias("danger_rating"),
-            F.lit(None).cast("string").alias("other_metrics"),
+            _other_metrics().alias("other_metrics"),
             F.col("forecast_start").alias("event_start"),
             F.col("forecast_end").alias("event_end"),
             F.lit(None).cast("double").alias("last_latitude"),

@@ -307,6 +307,8 @@
         "event_category": "flood",
         "metric_name": "discharge",
         "metric_unit": "m³/s",
+        "thresholds_file": "openmeteo_discharge_thresholds.csv",
+        "threshold_percentile": 0.95,
         "country_code_map": {
           "Afghanistan": "AF",
           "Argentina": "AR",

@@ -1,4 +1,6 @@
+import csv
 import datetime as dt
+import json
 
 import pytest
 from pyspark.sql import Row
@@ -6,10 +8,41 @@ from pyspark.sql.types import StructField, StructType
 
 from model.etl.openmeteo_flood_etl import OpenMeteoFloodEtl
 from model.plain.openmeteo_flood import OpenMeteoFlood
+from single_etl import openmeteo_flood_etl as module
 from single_etl.openmeteo_flood_etl import OpenMeteoFloodEtlScript
 from utils.schema_converter import pydantic_to_spark_schema
 
-_SCRIPT = OpenMeteoFloodEtlScript()
+_NO_THRESHOLDS = "/nonexistent/openmeteo_discharge_thresholds.csv"
+
+_SCRIPT = OpenMeteoFloodEtlScript(thresholds_path=_NO_THRESHOLDS)
+
+_THRESHOLD_FIELDS = [
+    "river_name",
+    "country",
+    "latitude",
+    "longitude",
+    "baseline_days",
+    "baseline_start",
+    "baseline_end",
+    "discharge_p50_m3s",
+    "discharge_p90_m3s",
+    "discharge_p95_m3s",
+    "discharge_p99_m3s",
+]
+
+_THRESHOLD_ROW = {
+    "river_name": "Amazon",
+    "country": "Brazil",
+    "latitude": -3.14,
+    "longitude": -59.98,
+    "baseline_days": 10870,
+    "baseline_start": "1997-01-01",
+    "baseline_end": "2026-10-05",
+    "discharge_p50_m3s": 133044.0,
+    "discharge_p90_m3s": 203235.0,
+    "discharge_p95_m3s": 215774.0,
+    "discharge_p99_m3s": 226985.0,
+}
 
 
 def _source_row(**overrides):
@@ -20,6 +53,10 @@ def _source_row(**overrides):
         "longitude": -59.98,
         "date": dt.date(2026, 9, 1),
         "discharge_m3s": 77982.05,
+        "discharge_mean_m3s": None,
+        "discharge_median_m3s": None,
+        "discharge_p25_m3s": None,
+        "discharge_p75_m3s": None,
         "geocode_country": None,
         "geocode_state": None,
         "file_date": "2026-09-01",
@@ -35,8 +72,19 @@ def _source_df(spark, *rows):
     return spark.createDataFrame(list(rows), schema=schema)
 
 
-def _convert(spark, *rows):
-    return _SCRIPT._convert(_source_df(spark, *rows)).collect()
+def _thresholds_csv(tmp_path, **overrides):
+    """Write a one-river threshold reference and return its path."""
+    row = {**_THRESHOLD_ROW, **overrides}
+    path = tmp_path / "openmeteo_discharge_thresholds.csv"
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=_THRESHOLD_FIELDS)
+        writer.writeheader()
+        writer.writerow(row)
+    return str(path)
+
+
+def _convert(spark, *rows, script=None):
+    return (script or _SCRIPT)._convert(_source_df(spark, *rows)).collect()
 
 
 class TestConvert:
@@ -146,3 +194,122 @@ class TestConvert:
         assert row.metric_name == "discharge"
         assert row.metric_value == expected_value
         assert row.metric_unit == "m³/s"
+
+
+class TestThresholdReference:
+    def test_below_the_threshold_rates_null_and_still_reports_the_ratio(self, spark_session, tmp_path):
+        script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))
+
+        (row,) = _convert(spark_session, _source_row(), script=script)
+        metrics = json.loads(row.other_metrics)
+
+        assert row.danger_rating is None
+        assert metrics["threshold_percentile"] == 0.95
+        assert metrics["threshold_m3s"] == 215774.0
+        assert metrics["threshold_unit"] == "m³/s"
+        assert metrics["threshold_exceeded"] is False
+        assert metrics["exceedance_ratio"] == pytest.approx(77982.05 / 215774.0)
+        assert metrics["discharge_p50_m3s"] == 133044.0
+        assert metrics["discharge_p90_m3s"] == 203235.0
+        assert metrics["discharge_p99_m3s"] == 226985.0
+        assert metrics["baseline_days"] == 10870
+        assert metrics["baseline_start"] == "1997-01-01"
+        assert metrics["baseline_end"] == "2026-10-05"
+        assert "ensemble_mean_m3s" not in metrics
+
+    @pytest.mark.parametrize(
+        ("discharge_m3s", "expected_rating", "expected_exceeded"),
+        [
+            (215774.0, None, False),  # exactly the configured threshold — not exceeded
+            (215775.0, "Q95", True),
+            (226985.0, "Q95", True),  # exactly Q99 — not exceeded there, so the ladder stops at Q95
+            (226986.0, "Q99", True),
+            (215773.0, None, False),
+        ],
+    )
+    def test_the_rating_is_the_highest_level_the_day_exceeded(
+        self, spark_session, tmp_path, discharge_m3s, expected_rating, expected_exceeded
+    ):
+        script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))
+
+        (row,) = _convert(spark_session, _source_row(discharge_m3s=discharge_m3s), script=script)
+        metrics = json.loads(row.other_metrics)
+
+        assert row.danger_rating == expected_rating
+        assert metrics["threshold_exceeded"] is expected_exceeded
+
+    def test_a_river_the_reference_does_not_cover_keeps_both_columns_null(self, spark_session, tmp_path):
+        script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))
+
+        (row,) = _convert(spark_session, _source_row(country="Atlantis"), script=script)
+
+        assert row.danger_rating is None
+        assert row.other_metrics is None
+
+    def test_a_different_country_with_the_same_river_name_is_a_different_river(self, spark_session, tmp_path):
+        script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))
+
+        (row,) = _convert(spark_session, _source_row(country="Peru"), script=script)
+
+        assert row.other_metrics is None
+
+    def test_the_default_path_is_the_file_name_from_the_config(self):
+        script = OpenMeteoFloodEtlScript()
+
+        assert script.thresholds_path.endswith("openmeteo_discharge_thresholds.csv")
+        assert script.thresholds_path != _NO_THRESHOLDS
+
+    def test_a_threshold_level_the_reference_does_not_carry_is_rejected(self, monkeypatch):
+        monkeypatch.setattr(module, "_cfg", module._cfg.model_copy(update={"threshold_percentile": 0.999}))
+
+        with pytest.raises(ValueError, match="has no column in the threshold reference"):
+            module._other_metrics()
+
+
+class TestEnsembleMetrics:
+    def test_forecast_statistics_land_in_other_metrics(self, spark_session):
+        (row,) = _convert(
+            spark_session,
+            _source_row(
+                discharge_mean_m3s=55094.71,
+                discharge_median_m3s=55079.8,
+                discharge_p25_m3s=55079.8,
+                discharge_p75_m3s=55206.76,
+            ),
+        )
+        metrics = json.loads(row.other_metrics)
+
+        assert metrics == {
+            "ensemble_mean_m3s": 55094.71,
+            "ensemble_median_m3s": 55079.8,
+            "ensemble_p25_m3s": 55079.8,
+            "ensemble_p75_m3s": 55206.76,
+        }
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"discharge_mean_m3s": None, "discharge_p25_m3s": 55079.8},
+            {
+                "discharge_mean_m3s": 55094.71,
+                "discharge_median_m3s": None,
+                "discharge_p25_m3s": None,
+                "discharge_p75_m3s": None,
+            },
+        ],
+    )
+    def test_partial_ensemble_answers_omit_the_missing_keys(self, spark_session, overrides):
+        (row,) = _convert(spark_session, _source_row(**overrides))
+        metrics = json.loads(row.other_metrics)
+
+        expected = {
+            f"ensemble_{key.removeprefix('discharge_')}" for key, value in overrides.items() if value is not None
+        }
+        assert set(metrics) == expected
+
+    def test_a_day_without_threshold_or_ensemble_has_no_other_metrics(self, spark_session, tmp_path):
+        script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path, river_name="Nile", country="Egypt"))
+
+        (row,) = _convert(spark_session, _source_row(), script=script)
+
+        assert row.other_metrics is None

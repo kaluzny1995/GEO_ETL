@@ -60,7 +60,7 @@ Downloaded CSV files from [GEO_Download](../../GEO_Download) are the input. Curr
 | GDACS | `geo.gdacs_event_raw` | `geo.gdacs_event` | 9,118 | HISTORICAL |
 | IBTrACS | `geo.ibtracs_cyclone_raw` | `geo.ibtracs_cyclone` | 897 | HISTORICAL |
 | NIFC | `geo.nifc_fire_raw` | `geo.nifc_fire` | 233 | HISTORICAL |
-| OpenMeteo_Flood | `geo.openmeteo_flood_raw` | `geo.openmeteo_flood` | 6,438 | HISTORICAL |
+| OpenMeteo_Flood | `geo.openmeteo_flood_raw` | `geo.openmeteo_flood` | 7,326 | HISTORICAL |
 | USGS_Earthquake | `geo.usgs_earthquake_raw` | `geo.usgs_earthquake` | 8,725 | HISTORICAL |
 | USGS_Volcano | `geo.usgs_volcano_raw` | `geo.usgs_volcano` | 47 | HISTORICAL |
 | USGS_NWIS | `geo.usgs_nwis_raw` | `geo.usgs_nwis` | 45 | HISTORICAL |

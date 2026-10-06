@@ -46,7 +46,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |
 | `test/single_etl/test_ibtracs_cyclone_etl.py` | IBTrACS SINGLE_ETL script (status/nature/place/metric/danger mapping, stamped geocode pass-through with ZZ fallback, latest position) |
 | `test/single_etl/test_nifc_fire_etl.py` | NIFC SINGLE_ETL script (fire type/unit/percent mapping, unit-name pass-through, stamped geocode fallback for blank source state, NULL event_end) |
-| `test/single_etl/test_openmeteo_flood_etl.py` | OpenMeteo SINGLE_ETL script (country/state/place mapping, stamped geocode pass-through with country-name precedence, discharge metric) |
+| `test/single_etl/test_openmeteo_flood_etl.py` | OpenMeteo SINGLE_ETL script (country/state/place mapping, stamped geocode pass-through with country-name precedence, discharge metric, threshold-reference join with missing/invalid file handling, danger ladder, ensemble forecast metrics) |
 | `test/single_etl/test_usgs_earthquake_etl.py` | USGS SINGLE_ETL script (place-suffix country parse with stamped geocode fallbacks, net-based state, event name/description, depth/station metrics) |
 | `test/single_etl/test_usgs_nwis_etl.py` | USGS NWIS SINGLE_ETL script (site-name event/place parse, qualifier expansion, stamped geocode state, discharge metric) |
 | `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (alert-scale metric, subcategory/place/state fallbacks with stamped geocode state) |

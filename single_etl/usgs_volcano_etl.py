@@ -29,6 +29,8 @@ from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", UsgsVolcanoEtlConfig)
 
+_VNUM_UNIT = "Smithsonian GVP"
+
 
 def _event_name() -> Column:
     """``"Volcano - <volcano_name>"``; ``"Volcano"`` when the name is blank."""
@@ -108,6 +110,32 @@ def _description(synopsis: Column) -> Column:
     return F.when(trimmed != "", trimmed)
 
 
+def _other_metrics() -> Column:
+    """The notice's aviation color code, volcano number and notice id as JSON.
+
+    Returns:
+        ``{"color_code": "ORANGE", "vnum": 311120, "vnum_unit": "Smithsonian
+        GVP", "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00"}``
+        — each key the feed reports is kept, and one it does not report is
+        omitted together with its ``<name>_unit`` companion
+        (``ignoreNullFields`` drops the ``NULL``). ``color_code`` is the
+        Aviation Color Code, a scale of its own: it can move while
+        ``alert_level`` does not, so it must be read from here instead of
+        being inferred from ``danger_rating``.
+    """
+    color = F.trim(F.col("color_code"))
+    identifier = F.trim(F.col("notice_identifier"))
+    vnum = F.col("vnum")
+    return F.to_json(
+        F.struct(
+            F.when(color != "", color).alias("color_code"),
+            vnum.alias("vnum"),
+            F.when(vnum.isNotNull(), F.lit(_VNUM_UNIT)).alias("vnum_unit"),
+            F.when(identifier != "", identifier).alias("notice_identifier"),
+        )
+    )
+
+
 class UsgsVolcanoEtlScript(SingleEtlScript):
     """USGS volcanic activity notices → ``geo.usgs_volcano_etl`` (canonical event structure)."""
 
@@ -121,7 +149,11 @@ class UsgsVolcanoEtlScript(SingleEtlScript):
         volcano, observatory, alert level and notice time, the downloader-stamped
         detail columns supply the coordinates, region, status line and full
         notice type — the country is always ``US`` and the subdivision is the
-        stamped ``geocode_state`` of the notice point.
+        stamped ``geocode_state`` of the notice point. The aviation color code,
+        the Smithsonian volcano number and the notice identifier travel in
+        :func:`_other_metrics`, so an aviation escalation can be detected from
+        the target table even while ``alert_level`` (and therefore
+        ``danger_rating``) stays put.
 
         Args:
             df: Rows read from :attr:`SOURCE_TABLE`.
@@ -145,7 +177,7 @@ class UsgsVolcanoEtlScript(SingleEtlScript):
             _metric_value().alias("metric_value"),
             F.lit(None).cast("string").alias("metric_unit"),
             F.col("alert_level").alias("danger_rating"),
-            F.lit(None).cast("string").alias("other_metrics"),
+            _other_metrics().alias("other_metrics"),
             F.col("notice_date").alias("event_start"),
             F.lit(None).cast("timestamp").alias("event_end"),
             F.lit(None).cast("double").alias("last_latitude"),

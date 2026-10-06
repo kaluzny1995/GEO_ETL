@@ -1,4 +1,5 @@
 import datetime as dt
+import json
 
 from pyspark.sql import Row
 
@@ -58,7 +59,11 @@ class TestConvert:
         assert row.metric_value is None
         assert row.metric_unit is None
         assert row.danger_rating == "high"
-        assert row.other_metrics is None
+        assert json.loads(row.other_metrics) == {
+            "danger_level": 4,
+            "danger_level_unit": "NAPADS level",
+            "off_season": False,
+        }
         assert row.event_start == dt.datetime(2026, 1, 10, 6, 0, 0)
         assert row.event_end == dt.datetime(2026, 1, 11, 6, 0, 0)
         assert row.last_latitude is None and row.last_longitude is None
@@ -79,6 +84,29 @@ class TestConvert:
         (row,) = _convert(spark_session, _source_row(danger_level=-1, danger_rating=""))
 
         assert row.danger_rating is None
+
+    def test_other_metrics_keep_the_warning_and_the_season_state(self, spark_session):
+        (row,) = _convert(
+            spark_session,
+            _source_row(danger_level=5, danger_rating="extreme", off_season=True, warning="warning"),
+        )
+
+        assert json.loads(row.other_metrics) == {
+            "danger_level": 5,
+            "danger_level_unit": "NAPADS level",
+            "warning": "warning",
+            "off_season": True,
+        }
+
+    def test_other_metrics_keep_the_no_rating_sentinel(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(danger_level=-1, danger_rating="no rating", off_season=True))
+
+        assert row.danger_rating is None
+        assert json.loads(row.other_metrics) == {
+            "danger_level": -1,
+            "danger_level_unit": "NAPADS level",
+            "off_season": True,
+        }
 
     def test_row_without_source_coordinates_gets_null_coordinates(self, spark_session):
         schema = spark_session.createDataFrame([_source_row()]).schema
