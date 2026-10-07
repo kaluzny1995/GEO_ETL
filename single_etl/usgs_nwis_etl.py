@@ -8,6 +8,14 @@ first ``NEAR``/``AT`` marker on the driver-free path; the gauge point's
 ``state_province`` is the ``geocode_state`` column stamped into the CSVs at
 download time (empty → ``NULL``). No reverse-geocoding API is called here.
 
+Next to the plain table the script joins the flood-category reference CSV
+``data/usgs_flood_categories.csv`` (kept present by GEO_Download's
+downloader, one row per gauge with the NWS ``action``/``minor``/``moderate``/
+``major`` stage thresholds) on ``site_id``, so a row can say more than "the
+discharge was X": ``danger_rating`` carries the NWS category the day's peak
+stage reached (``action`` … ``major``, a peak below every threshold stays
+``NULL``) and ``other_metrics`` the peak itself against those thresholds.
+
 Run::
 
     python run_etl.py SINGLE_ETL usgs_nwis_etl
@@ -18,13 +26,39 @@ Run::
 detection are described in :func:`utils.etl_utils.run_etl`.
 """
 
-from pyspark.sql import Column, DataFrame
-from pyspark.sql import functions as F
+import os
 
+from pyspark.sql import Column, DataFrame, SparkSession
+from pyspark.sql import functions as F
+from pyspark.sql.types import DoubleType, StringType, StructField, StructType
+
+from model.config import AppConfig
 from model.config.datasets import UsgsNwisEtlConfig, load_dataset
 from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", UsgsNwisEtlConfig)
+
+FLOOD_LEVELS: tuple[str, ...] = ("action", "minor", "moderate", "major")
+"""NWS flood categories from the least to the most severe — the reference's threshold columns."""
+
+NO_FLOODING = "no_flooding"
+"""NWS category of a peak below every threshold; it stays unrated in ``danger_rating``."""
+
+STAGE_UNIT = "ft"
+"""Unit of the gauge height and of the NWS stage thresholds — the reference stores feet."""
+
+_FLOOD_CATEGORY_SCHEMA = StructType(
+    [
+        StructField("site_id", StringType()),
+        StructField("identifier", StringType()),
+        StructField("site_name", StringType()),
+        StructField("state", StringType()),
+        StructField("latitude", DoubleType()),
+        StructField("longitude", DoubleType()),
+        *(StructField(f"{level}_stage_ft", DoubleType()) for level in FLOOD_LEVELS),
+    ]
+)
+"""Columns of the flood-category reference, in the order GEO_Download writes them."""
 
 
 def _qualifier_map() -> Column:
@@ -119,11 +153,117 @@ def _state_province(geocode_state: Column) -> Column:
     return F.when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
 
 
+def _danger_rating() -> Column:
+    """The NWS flood category the day's peak stage reached, else ``NULL``.
+
+    Returns:
+        ``"major"`` for a peak at or above the gauge's major stage, then
+        ``"moderate"``, ``"minor"``, ``"action"`` — the category the
+        downloader labelled the row with, compared against the gauge's own
+        thresholds. A peak below every threshold (``no_flooding``), a gauge
+        the NWS reference does not cover and a day without a stage all rate
+        ``NULL``, the convention the other sources use for "nothing to
+        warn about".
+    """
+    category = F.trim(F.col("flood_category"))
+    return F.when((category != "") & (category != NO_FLOODING), category).otherwise(F.lit(None).cast("string"))
+
+
+def _value_and_unit(column: str, name: str) -> tuple[Column, Column]:
+    """``(value, unit)`` struct fields — the unit lives in its own ``<name>_unit`` key.
+
+    Args:
+        column: Source column holding the measurement.
+        name: JSON key of the value; its unit is keyed ``<name>_unit``.
+
+    Returns:
+        The measurement aliased as *name* and :data:`STAGE_UNIT` aliased
+        as ``<name>_unit``; the unit is ``NULL`` — and so dropped from
+        the JSON — exactly when the measurement itself is missing.
+    """
+    value = F.col(column)
+    return value.alias(name), F.when(value.isNotNull(), F.lit(STAGE_UNIT)).alias(f"{name}_unit")
+
+
+def _other_metrics() -> Column:
+    """The day's peak gauge height against the gauge's NWS thresholds as JSON.
+
+    Returns:
+        e.g. ``{"gauge_height": 7.8, "gauge_height_unit": "ft",
+        "nws_gauge_id": "BRKM2", "action_stage": 5.0,
+        "action_stage_unit": "ft", "minor_stage": 10.0,
+        "minor_stage_unit": "ft", "moderate_stage": 12.0,
+        "moderate_stage_unit": "ft", "major_stage": 14.0,
+        "major_stage_unit": "ft"}``.
+
+        ``gauge_height`` is the row's own peak stage (the highest
+        instantaneous reading of that day); the ``*_stage`` thresholds
+        and ``nws_gauge_id`` come from the flood-category reference
+        (omitted entirely for a gauge it does not cover, and each
+        threshold on its own when the NWS defines only some of them).
+        Every measurement carries :data:`STAGE_UNIT` (``ft``) in its own
+        ``<name>_unit`` companion key rather than in the key name, and
+        that unit key never outlives its value. A row with nothing to
+        say — no stage and no reference — gets ``NULL`` rather than ``{}``.
+    """
+    payload = F.struct(
+        *_value_and_unit("gauge_height", "gauge_height"),
+        F.col("nws_gauge_id"),
+        *(field for level in FLOOD_LEVELS for field in _value_and_unit(f"{level}_stage_ft", f"{level}_stage")),
+    )
+    present = F.col("gauge_height").isNotNull()
+    for level in FLOOD_LEVELS:
+        present = present | F.col(f"{level}_stage_ft").isNotNull()
+    return F.when(present, F.to_json(payload)).otherwise(F.lit(None).cast("string"))
+
+
 class UsgsNwisEtlScript(SingleEtlScript):
     """USGS NWIS streamflow → ``geo.usgs_nwis_etl`` (canonical event structure)."""
 
     SOURCE_TABLE = _cfg.source_table
     TARGET_TABLE = _cfg.target_table
+
+    def __init__(self, flood_categories_path: str | None = None) -> None:
+        """Load the script with an explicit flood-category reference path.
+
+        Args:
+            flood_categories_path: CSV kept present by GEO_Download's
+                ``USGS_NWIS`` downloader. ``None`` resolves
+                `_cfg.flood_categories_file` below the data directory of
+                ``config.json`` at first use.
+        """
+        self._flood_categories_path = flood_categories_path
+
+    @property
+    def flood_categories_path(self) -> str:
+        """Absolute path of the flood-category reference CSV."""
+        if self._flood_categories_path is None:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            data_dir = os.path.normpath(os.path.join(project_root, AppConfig.from_json().data.directory))
+            self._flood_categories_path = os.path.join(data_dir, _cfg.flood_categories_file)
+        return self._flood_categories_path
+
+    def _flood_categories(self, spark: SparkSession) -> DataFrame:
+        """Read the NWS flood-category reference of the gauges.
+
+        Args:
+            spark: Active Spark session.
+
+        Returns:
+            One row per gauge carrying only the join key, the NWS gauge
+            identifier and the four stage thresholds; an empty frame when
+            the file is missing, so an absent reference leaves the rows
+            untouched instead of failing the run.
+        """
+        if os.path.exists(self.flood_categories_path):
+            frame = spark.read.csv(self.flood_categories_path, header=True, schema=_FLOOD_CATEGORY_SCHEMA)
+        else:
+            frame = spark.createDataFrame([], _FLOOD_CATEGORY_SCHEMA)
+        return frame.select(
+            "site_id",
+            F.col("identifier").alias("nws_gauge_id"),
+            *(F.col(f"{level}_stage_ft") for level in FLOOD_LEVELS),
+        )
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.usgs_nwis`` columns onto the canonical ETL structure.
@@ -132,6 +272,9 @@ class UsgsNwisEtlScript(SingleEtlScript):
         identity (site, name, point) describes the event while ``date``
         places the daily mean in time. The country is always ``US``; the
         subdivision is the stamped ``geocode_state`` of the gauge point.
+        The flood-category reference is joined on ``site_id`` (broadcast —
+        it is one row per gauge) and feeds ``danger_rating`` /
+        ``other_metrics``.
 
         Args:
             df: Rows read from :attr:`SOURCE_TABLE`.
@@ -140,8 +283,10 @@ class UsgsNwisEtlScript(SingleEtlScript):
             The DataFrame in :attr:`TARGET_TABLE` column order.
         """
         river, place = _name_parts()
+        categories = self._flood_categories(df.sparkSession)
+        merged = df.join(F.broadcast(categories), ["site_id"], "left")
 
-        return df.select(
+        return merged.select(
             F.lit(_cfg.source_name).alias("source_name"),
             F.col("site_id").alias("subsource_name"),
             _event_name(river).alias("event_name"),
@@ -156,8 +301,8 @@ class UsgsNwisEtlScript(SingleEtlScript):
             F.lit(_cfg.metric_name).alias("metric_name"),
             F.coalesce(F.col("value"), F.lit(0.0)).alias("metric_value"),
             F.col("unit").alias("metric_unit"),
-            F.lit(None).cast("string").alias("danger_rating"),
-            F.lit(None).cast("string").alias("other_metrics"),
+            _danger_rating().alias("danger_rating"),
+            _other_metrics().alias("other_metrics"),
             F.col("date").cast("timestamp").alias("event_start"),
             F.lit(None).cast("timestamp").alias("event_end"),
             F.lit(None).cast("double").alias("last_latitude"),

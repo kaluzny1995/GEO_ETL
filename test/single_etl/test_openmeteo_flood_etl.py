@@ -205,17 +205,19 @@ class TestThresholdReference:
 
         assert row.danger_rating is None
         assert metrics["threshold_percentile"] == 0.95
-        assert metrics["threshold_m3s"] == 215774.0
+        assert metrics["threshold"] == 215774.0
         assert metrics["threshold_unit"] == "m³/s"
         assert metrics["threshold_exceeded"] is False
         assert metrics["exceedance_ratio"] == pytest.approx(77982.05 / 215774.0)
-        assert metrics["discharge_p50_m3s"] == 133044.0
-        assert metrics["discharge_p90_m3s"] == 203235.0
-        assert metrics["discharge_p99_m3s"] == 226985.0
+        assert metrics["discharge_p50"] == 133044.0
+        assert metrics["discharge_p90"] == 203235.0
+        assert metrics["discharge_p99"] == 226985.0
+        assert {metrics[f"discharge_p{level}_unit"] for level in (50, 90, 99)} == {"m³/s"}
         assert metrics["baseline_days"] == 10870
         assert metrics["baseline_start"] == "1997-01-01"
         assert metrics["baseline_end"] == "2026-10-05"
-        assert "ensemble_mean_m3s" not in metrics
+        assert "ensemble_mean" not in metrics
+        assert not any(key.endswith("_m3s") for key in metrics)
 
     @pytest.mark.parametrize(
         ("discharge_m3s", "expected_rating", "expected_exceeded"),
@@ -265,6 +267,17 @@ class TestThresholdReference:
         with pytest.raises(ValueError, match="has no column in the threshold reference"):
             module._other_metrics()
 
+    def test_a_missing_percentile_omits_its_value_and_its_unit(self, spark_session, tmp_path):
+        script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path, discharge_p50_m3s=""))
+
+        (row,) = _convert(spark_session, _source_row(), script=script)
+        metrics = json.loads(row.other_metrics)
+
+        assert "discharge_p50" not in metrics
+        assert "discharge_p50_unit" not in metrics
+        assert metrics["discharge_p90"] == 203235.0
+        assert metrics["discharge_p90_unit"] == "m³/s"
+
 
 class TestEnsembleMetrics:
     def test_forecast_statistics_land_in_other_metrics(self, spark_session):
@@ -280,10 +293,14 @@ class TestEnsembleMetrics:
         metrics = json.loads(row.other_metrics)
 
         assert metrics == {
-            "ensemble_mean_m3s": 55094.71,
-            "ensemble_median_m3s": 55079.8,
-            "ensemble_p25_m3s": 55079.8,
-            "ensemble_p75_m3s": 55206.76,
+            "ensemble_mean": 55094.71,
+            "ensemble_mean_unit": "m³/s",
+            "ensemble_median": 55079.8,
+            "ensemble_median_unit": "m³/s",
+            "ensemble_p25": 55079.8,
+            "ensemble_p25_unit": "m³/s",
+            "ensemble_p75": 55206.76,
+            "ensemble_p75_unit": "m³/s",
         }
 
     @pytest.mark.parametrize(
@@ -302,8 +319,11 @@ class TestEnsembleMetrics:
         (row,) = _convert(spark_session, _source_row(**overrides))
         metrics = json.loads(row.other_metrics)
 
+        statistics = [key for key, value in overrides.items() if value is not None]
         expected = {
-            f"ensemble_{key.removeprefix('discharge_')}" for key, value in overrides.items() if value is not None
+            f"ensemble_{stat.removeprefix('discharge_').removesuffix('_m3s')}{suffix}"
+            for stat in statistics
+            for suffix in ("", "_unit")
         }
         assert set(metrics) == expected
 

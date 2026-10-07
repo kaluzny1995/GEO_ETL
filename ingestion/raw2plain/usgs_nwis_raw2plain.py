@@ -25,6 +25,8 @@ class UsgsNwisRaw2PlainScript(Raw2PlainScript):
             F.col("value").cast("double"),
             F.col("unit"),
             F.col("qualifiers"),
+            F.col("gauge_height").cast("double"),
+            F.col("flood_category"),
             F.col("latitude").cast("double"),
             F.col("longitude").cast("double"),
             F.col("geocode_state"),

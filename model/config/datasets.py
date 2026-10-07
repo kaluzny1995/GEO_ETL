@@ -133,6 +133,7 @@ class UsgsNwisEtlConfig(SingleEtlDatasetConfig):
     event_name_fallback: str
     name_split_pattern: str
     qualifier_names: dict[str, str]
+    flood_categories_file: str
 
 
 class UsgsVolcanoEtlConfig(SingleEtlDatasetConfig):

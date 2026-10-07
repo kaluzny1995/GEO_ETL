@@ -38,16 +38,18 @@ class OpenMeteoFloodEtl(EventEtl):
       below it: the flood rating of the day against the river's own
       baseline, and a strict one — a flat baseline never rates a day.
     * ``other_metrics`` — the threshold reference the script joins on
-      ``river_name`` + ``country`` (``discharge_p50_m3s`` …
-      ``discharge_p99_m3s``, ``threshold_percentile`` /
-      ``threshold_m3s`` / ``threshold_unit`` / ``exceedance_ratio`` /
+      ``river_name`` + ``country`` (``discharge_p50`` … ``discharge_p99``
+      with their ``<name>_unit`` companion keys, ``threshold_percentile``
+      / ``threshold`` / ``threshold_unit`` / ``exceedance_ratio`` /
       ``threshold_exceeded`` and the ``baseline_days`` /
       ``baseline_start`` / ``baseline_end`` provenance) plus the GloFAS
-      ensemble statistics of the day (``ensemble_mean_m3s``,
-      ``ensemble_median_m3s``, ``ensemble_p25_m3s``,
-      ``ensemble_p75_m3s`` — forecast days only); every key the row cannot
-      answer is omitted, and a row with nothing to report gets ``NULL``.
-      Without the reference file both stay ``NULL``.
+      ensemble statistics of the day (``ensemble_mean``,
+      ``ensemble_median``, ``ensemble_p25``, ``ensemble_p75`` — forecast
+      days only); every measurement carries its unit in its own
+      ``<name>_unit`` key (``m³/s``) rather than in the key name, every
+      key the row cannot answer is omitted together with its unit, and a
+      row with nothing to report gets ``NULL``. Without the reference
+      file both stay ``NULL``.
     * ``last_latitude`` / ``last_longitude`` — ``NULL`` (a fixed reference
       point).
     * ``file_date`` — the snapshot day the value was downloaded for.

@@ -15,6 +15,8 @@ class UsgsNwis(BaseModel):
     value: float | None = None
     unit: str | None = None
     qualifiers: str | None = None
+    gauge_height: float | None = None
+    flood_category: str | None = None
     latitude: float | None = None
     longitude: float | None = None
     geocode_state: str | None = None

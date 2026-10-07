@@ -11,6 +11,8 @@ class UsgsNwisRaw(BaseModel):
     value: str | None = None
     unit: str | None = None
     qualifiers: str | None = None
+    gauge_height: str | None = None
+    flood_category: str | None = None
     latitude: str | None = None
     longitude: str | None = None
     geocode_state: str | None = None

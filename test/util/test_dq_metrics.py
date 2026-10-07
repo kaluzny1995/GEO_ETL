@@ -148,6 +148,7 @@ class TestRules:
             ("gdacs_event", ["alert_level"], ["alert_level_domain"]),
             ("nifc_fire", ["acres", "percent_contained"], ["acres_non_negative", "percent_contained_0_100"]),
             ("openmeteo_flood", ["discharge_m3s"], ["discharge_non_negative"]),
+            ("usgs_nwis", ["gauge_height", "flood_category"], ["gauge_height_non_negative", "flood_category_domain"]),
         ],
     )
     def test_dataset_rules_should_add_dataset_specific_rules(self, spark_session, table_name, columns, expected_names):

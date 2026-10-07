@@ -80,6 +80,9 @@ GEO_TABLES = frozenset(
     }
 )
 
+FLOOD_CATEGORIES: tuple[str, ...] = ("no_flooding", "action", "minor", "moderate", "major")
+"""NWS flood categories a gauge day can carry (``usgs_nwis.flood_category``)."""
+
 
 @dataclass(frozen=True)
 class Rule:
@@ -203,6 +206,9 @@ def dataset_rules(table_name: str, columns: list[str]) -> list[Rule]:
         add("percent_contained_0_100", F.col("percent_contained").between(0, 100), "percent_contained")
     elif table_name == "openmeteo_flood":
         add("discharge_non_negative", F.col("discharge_m3s") >= 0, "discharge_m3s")
+    elif table_name == "usgs_nwis":
+        add("gauge_height_non_negative", F.col("gauge_height") >= 0, "gauge_height")
+        add("flood_category_domain", F.col("flood_category").isin(*FLOOD_CATEGORIES), "flood_category")
 
     return rules
 

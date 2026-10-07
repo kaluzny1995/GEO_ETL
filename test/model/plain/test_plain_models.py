@@ -132,6 +132,8 @@ DDL_TYPE_CASES = [
         "usgs_nwis",
         [
             "value DOUBLE PRECISION NULL",
+            "gauge_height DOUBLE PRECISION NULL",
+            "flood_category TEXT NULL",
             "latitude DOUBLE PRECISION NULL",
             "date DATE NULL",
             "file_date TEXT NOT NULL",

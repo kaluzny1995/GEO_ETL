@@ -82,7 +82,7 @@ GEO_ETL makes no reverse-geocoding API calls: the lookup and the fetching live i
 
 `usgs_earthquake_etl` parses the country from the `place` suffix first; rows the suffix cannot answer use the `geocode_country`/`geocode_state` columns stamped at download time, see [ETL jobs — usgs_earthquake_etl](etl_jobs/single-etl.md#usgs_earthquake_etl).
 
-`usgs_nwis_etl` parses the river and place names out of `site_name`; the subdivision comes from the `geocode_state` column stamped at download time, see [ETL jobs — usgs_nwis_etl](etl_jobs/single-etl.md#usgs_nwis_etl).
+`usgs_nwis_etl` parses the river and place names out of `site_name`; the subdivision comes from the `geocode_state` column stamped at download time, and joins the flood-category reference `data/usgs_flood_categories.csv` (kept present by GEO_Download's `USGS_NWIS` downloader) that feeds `danger_rating` and `other_metrics`, see [ETL jobs — usgs_nwis_etl](etl_jobs/single-etl.md#usgs_nwis_etl).
 
 `usgs_volcano_etl` passes the notice details the GEO_Download downloader stamped into the CSVs (coordinates, region, status line, full notice type) straight through; `state_province` comes from the `geocode_state` column stamped at download time (`ZZ` when empty, e.g. the Ahyi Seamount ocean point), see [ETL jobs — usgs_volcano_etl](etl_jobs/single-etl.md#usgs_volcano_etl).
 

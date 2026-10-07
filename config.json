@@ -558,6 +558,7 @@
         "event_category": "flood",
         "metric_name": "discharge",
         "country_code": "US",
+        "flood_categories_file": "usgs_flood_categories.csv",
         "event_name_prefix": "Streamflow - ",
         "event_name_fallback": "Streamflow",
         "name_split_pattern": "(?i)\\s+(?:NEAR|AT)\\s+",

@@ -52,7 +52,7 @@ CONVERT_COLUMN_CASES = [
     (NifcFireRaw2PlainScript, 19),
     (OpenMeteoFloodRaw2PlainScript, 13),
     (UsgsEarthquakeRaw2PlainScript, 25),
-    (UsgsNwisRaw2PlainScript, 11),
+    (UsgsNwisRaw2PlainScript, 13),
     (UsgsVolcanoRaw2PlainScript, 18),
 ]
 

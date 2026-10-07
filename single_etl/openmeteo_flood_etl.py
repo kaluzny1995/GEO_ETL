@@ -149,44 +149,72 @@ def _discharge_present() -> Column:
     return present
 
 
+def _value_and_unit(column: str, name: str) -> tuple[Column, Column]:
+    """``(value, unit)`` struct fields — the unit lives in its own ``<name>_unit`` key.
+
+    Args:
+        column: Source column holding the measurement.
+        name: JSON key of the value; its unit is keyed ``<name>_unit``.
+
+    Returns:
+        The measurement aliased as *name* and its unit (``metric_unit``)
+        aliased as ``<name>_unit``; the unit is ``NULL`` — and so dropped
+        from the JSON — exactly when the measurement itself is missing.
+    """
+    value = F.col(column)
+    return value.alias(name), F.when(value.isNotNull(), F.lit(_cfg.metric_unit)).alias(f"{name}_unit")
+
+
 def _other_metrics() -> Column:
     """The threshold reference and the ensemble spread of the day as JSON.
 
     Returns:
-        e.g. ``{"discharge_p50_m3s": 133044.0, …, "discharge_p99_m3s":
-        226985.0, "threshold_percentile": 0.95, "threshold_m3s": 215774.0,
+        e.g. ``{"discharge_p50": 133044.0, "discharge_p50_unit":
+        "m³/s", …, "discharge_p99": 226985.0, "discharge_p99_unit":
+        "m³/s", "threshold_percentile": 0.95, "threshold": 215774.0,
         "threshold_unit": "m³/s", "exceedance_ratio": 0.26,
         "threshold_exceeded": false, "baseline_days": 10870,
         "baseline_start": "1997-01-01", "baseline_end": "2026-10-05",
-        "ensemble_mean_m3s": 55094.71, …}``.
+        "ensemble_mean": 55094.71, "ensemble_mean_unit": "m³/s", …}``.
 
-        The four ``discharge_p*_m3s`` percentiles and the ``baseline_*``
-        provenance come from the reference (all omitted for a river it does
-        not cover); ``threshold_*`` repeats the configured reference level as
-        the one flood flag to test, and ``exceedance_ratio`` is the day's
-        discharge divided by it (``threshold_exceeded`` is the same test as a
-        flag: strictly above 1 — a flat baseline that sits exactly on the
-        threshold is never exceeded). The ``ensemble_*`` keys are the GloFAS
-        ensemble statistics of the day, present on forecast days only. Every
-        key a row cannot answer is omitted together with the others that share
-        its source, and a row with nothing to say gets ``NULL`` rather than
-        ``{}``.
+        The four ``discharge_p{50,90,95,99}`` percentiles and the
+        ``baseline_*`` provenance come from the reference (all omitted for
+        a river it does not cover); ``threshold`` repeats the configured
+        reference level as the one flood flag to test, and
+        ``exceedance_ratio`` is the day's discharge divided by it
+        (``threshold_exceeded`` is the same test as a flag: strictly above
+        1 — a flat baseline that sits exactly on the threshold is never
+        exceeded). The ``ensemble_*`` keys are the GloFAS ensemble
+        statistics of the day, present on forecast days only. Every
+        measurement carries ``metric_unit`` (``m³/s``) in its own
+        ``<name>_unit`` companion key rather than in the key name, and
+        every key a row cannot answer is omitted together with the others
+        that share its source — the unit key never outlives its value — so
+        a row with nothing to say gets ``NULL`` rather than ``{}``.
     """
     threshold_level = _threshold_level()
     threshold_column = _threshold_column(threshold_level)
     has_threshold = F.col(threshold_column).isNotNull()
     discharge = F.col("discharge_m3s")
     payload = F.struct(
-        *(F.col(f"discharge_p{level}_m3s") for level in PERCENTILE_LEVELS),
+        *(
+            field
+            for level in PERCENTILE_LEVELS
+            for field in _value_and_unit(f"discharge_p{level}_m3s", f"discharge_p{level}")
+        ),
         F.when(has_threshold, F.lit(_cfg.threshold_percentile)).alias("threshold_percentile"),
-        F.when(has_threshold, F.col(threshold_column)).alias("threshold_m3s"),
+        F.when(has_threshold, F.col(threshold_column)).alias("threshold"),
         F.when(has_threshold, F.lit(_cfg.metric_unit)).alias("threshold_unit"),
         F.when(has_threshold, discharge / F.col(threshold_column)).alias("exceedance_ratio"),
         F.when(has_threshold, discharge > F.col(threshold_column)).alias("threshold_exceeded"),
         F.col("baseline_days"),
         F.col("baseline_start"),
         F.col("baseline_end"),
-        *(F.col(f"discharge_{level}_m3s").alias(f"ensemble_{level}_m3s") for level in _ENSEMBLE_LEVELS),
+        *(
+            field
+            for level in _ENSEMBLE_LEVELS
+            for field in _value_and_unit(f"discharge_{level}_m3s", f"ensemble_{level}")
+        ),
     )
     return F.when(_discharge_present(), F.to_json(payload)).otherwise(F.lit(None).cast("string"))
 
