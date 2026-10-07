@@ -53,7 +53,7 @@ CONVERT_COLUMN_CASES = [
     (OpenMeteoFloodRaw2PlainScript, 13),
     (UsgsEarthquakeRaw2PlainScript, 25),
     (UsgsNwisRaw2PlainScript, 13),
-    (UsgsVolcanoRaw2PlainScript, 18),
+    (UsgsVolcanoRaw2PlainScript, 21),
 ]
 
 F_MOCK = f"{MODULE}.F"

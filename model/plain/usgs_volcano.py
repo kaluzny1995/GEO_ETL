@@ -25,4 +25,7 @@ class UsgsVolcano(BaseModel):
     region: str | None = None
     synopsis: str | None = None
     geocode_state: str | None = None
+    vei: int | None = None
+    casualties: int | None = None
+    damage: float | None = None
     file_date: str

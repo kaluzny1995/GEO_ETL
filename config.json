@@ -581,16 +581,11 @@
         "target_table": "usgs_volcano_etl",
         "source_name": "USGS",
         "event_category": "volcano",
-        "metric_name": "alert_level",
+        "metric_name": "vei",
+        "metric_unit": "VEI",
         "country_code": "US",
         "event_name_prefix": "Volcano - ",
-        "event_name_fallback": "Volcano",
-        "alert_scale": {
-          "NORMAL": 0.0,
-          "ADVISORY": 1.0,
-          "WATCH": 2.0,
-          "WARNING": 3.0
-        }
+        "event_name_fallback": "Volcano"
       }
     }
   }

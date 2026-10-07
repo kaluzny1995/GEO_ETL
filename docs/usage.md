@@ -84,7 +84,7 @@ GEO_ETL makes no reverse-geocoding API calls: the lookup and the fetching live i
 
 `usgs_nwis_etl` parses the river and place names out of `site_name`; the subdivision comes from the `geocode_state` column stamped at download time, and joins the flood-category reference `data/usgs_flood_categories.csv` (kept present by GEO_Download's `USGS_NWIS` downloader) that feeds `danger_rating` and `other_metrics`, see [ETL jobs — usgs_nwis_etl](etl_jobs/single-etl.md#usgs_nwis_etl).
 
-`usgs_volcano_etl` passes the notice details the GEO_Download downloader stamped into the CSVs (coordinates, region, status line, full notice type) straight through; `state_province` comes from the `geocode_state` column stamped at download time (`ZZ` when empty, e.g. the Ahyi Seamount ocean point), see [ETL jobs — usgs_volcano_etl](etl_jobs/single-etl.md#usgs_volcano_etl).
+`usgs_volcano_etl` passes the notice details the GEO_Download downloader stamped into the CSVs (coordinates, region, status line, full notice type) straight through; the metric is the stamped NCEI/WDS eruption record (`vei` with unit `VEI`, casualties and damage in `other_metrics`), and `state_province` comes from the `geocode_state` column stamped at download time (`ZZ` when empty, e.g. the Ahyi Seamount ocean point), see [ETL jobs — usgs_volcano_etl](etl_jobs/single-etl.md#usgs_volcano_etl).
 
 **All registered tables:**
 

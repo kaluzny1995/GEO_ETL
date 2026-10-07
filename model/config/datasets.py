@@ -141,10 +141,10 @@ class UsgsVolcanoEtlConfig(SingleEtlDatasetConfig):
 
     event_category: str
     metric_name: str
+    metric_unit: str
     country_code: str
     event_name_prefix: str
     event_name_fallback: str
-    alert_scale: dict[str, float]
 
 
 @cache

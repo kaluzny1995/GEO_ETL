@@ -62,7 +62,7 @@ Downloaded CSV files from [GEO_Download](../../GEO_Download) are the input. Curr
 | NIFC | `geo.nifc_fire_raw` | `geo.nifc_fire` | 233 | HISTORICAL |
 | OpenMeteo_Flood | `geo.openmeteo_flood_raw` | `geo.openmeteo_flood` | 7,326 | HISTORICAL |
 | USGS_Earthquake | `geo.usgs_earthquake_raw` | `geo.usgs_earthquake` | 8,725 | HISTORICAL |
-| USGS_Volcano | `geo.usgs_volcano_raw` | `geo.usgs_volcano` | 47 | HISTORICAL |
+| USGS_Volcano | `geo.usgs_volcano_raw` | `geo.usgs_volcano` | 56 | HISTORICAL |
 | USGS_NWIS | `geo.usgs_nwis_raw` | `geo.usgs_nwis` | 54 | HISTORICAL |
 
 Load type is decided per run — see [ETL jobs — Load type detection](etl_jobs/load-types.md).

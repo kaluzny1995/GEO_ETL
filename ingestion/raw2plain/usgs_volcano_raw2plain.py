@@ -35,5 +35,8 @@ class UsgsVolcanoRaw2PlainScript(Raw2PlainScript):
             F.col("region"),
             F.col("synopsis"),
             F.col("geocode_state"),
+            F.col("vei").cast("int"),
+            F.col("casualties").cast("int"),
+            F.col("damage").cast("double"),
             F.col("file_date"),
         )

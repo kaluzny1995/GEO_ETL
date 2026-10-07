@@ -32,10 +32,18 @@ def _source_row(**overrides):
         "region": "Aleutians",
         "synopsis": "AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues.",
         "geocode_state": None,
+        "vei": None,
+        "casualties": None,
+        "damage": None,
         "file_date": "2026-09-29",
     }
     row.update(overrides)
     return Row(**row)
+
+
+def _ncei_row(**overrides):
+    """The source row of a volcano NCEI carries (Kīlauea's aggregated record)."""
+    return _source_row(volcano_name="Kilauea", vnum=332010, vei=4, casualties=5411, damage=385.5, **overrides)
 
 
 def _source_df(spark, *rows):
@@ -66,12 +74,13 @@ class TestConvert:
         assert row.country_code == "US"
         assert row.state_province == "ZZ"
         assert row.place_location == "Great Sitkin, Aleutians"
-        assert row.metric_name == "alert_level"
-        assert row.metric_value == 2.0
+        assert row.metric_name == "vei"
+        assert row.metric_value is None
         assert row.metric_unit is None
-        assert row.danger_rating == "WATCH"
+        assert row.danger_rating is None
         assert json.loads(row.other_metrics) == {
             "color_code": "ORANGE",
+            "alert_level": "WATCH",
             "vnum": 311120,
             "vnum_unit": "Smithsonian GVP",
             "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
@@ -82,31 +91,46 @@ class TestConvert:
         assert row.file_date == "2026-09-29"
 
     @pytest.mark.parametrize(
-        ("alert_level", "expected_value"),
+        ("vei", "expected_value", "expected_rating"),
         [
-            ("NORMAL", 0.0),
-            ("ADVISORY", 1.0),
-            ("WATCH", 2.0),
-            ("WARNING", 3.0),
-            ("watch", 2.0),
-            ("UNASSIGNED", None),
-            ("", None),
-            (None, None),
+            (0, 0.0, "VEI 0"),
+            (1, 1.0, "VEI 1"),
+            (2, 2.0, "VEI 2"),
+            (4, 4.0, "VEI 4"),
+            (8, 8.0, "VEI 8"),
+            (None, None, None),
         ],
     )
-    def test_metric_value_is_the_alert_scale(self, spark_session, alert_level, expected_value):
-        (row,) = _convert(spark_session, _source_row(alert_level=alert_level))
+    def test_metric_value_is_the_vei(self, spark_session, vei, expected_value, expected_rating):
+        (row,) = _convert(spark_session, _source_row(vei=vei))
 
-        assert row.metric_name == "alert_level"
+        assert row.metric_name == "vei"
         assert row.metric_value == expected_value
-        assert row.danger_rating == alert_level
+        assert row.danger_rating == expected_rating
 
-    def test_color_code_is_kept_independently_of_the_alert_level(self, spark_session):
-        (row,) = _convert(spark_session, _source_row(alert_level="WATCH", color_code="RED"))
+    @pytest.mark.parametrize(("vei", "expected_unit"), [(4, "VEI"), (None, None)])
+    def test_metric_unit_follows_the_vei(self, spark_session, vei, expected_unit):
+        (row,) = _convert(spark_session, _source_row(vei=vei))
 
-        assert row.danger_rating == "WATCH"
-        assert row.metric_value == 2.0
-        assert json.loads(row.other_metrics)["color_code"] == "RED"
+        assert row.metric_unit == expected_unit
+
+    def test_alert_and_color_codes_travel_in_other_metrics(self, spark_session):
+        (row,) = _convert(spark_session, _ncei_row(alert_level="WATCH", color_code="RED"))
+
+        assert row.danger_rating == "VEI 4"
+        assert row.metric_value == 4.0
+        other = json.loads(row.other_metrics)
+        assert other["color_code"] == "RED"
+        assert other["alert_level"] == "WATCH"
+
+    def test_casualties_and_damage_keep_their_units(self, spark_session):
+        (row,) = _convert(spark_session, _ncei_row())
+
+        other = json.loads(row.other_metrics)
+        assert other["casualties"] == 5411
+        assert other["casualties_unit"] == "people"
+        assert other["damage"] == 385.5
+        assert other["damage_unit"] == "million USD"
 
     @pytest.mark.parametrize(
         ("overrides", "expected_metrics"),
@@ -114,6 +138,7 @@ class TestConvert:
             (
                 {"color_code": None},
                 {
+                    "alert_level": "WATCH",
                     "vnum": 311120,
                     "vnum_unit": "Smithsonian GVP",
                     "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
@@ -122,15 +147,53 @@ class TestConvert:
             (
                 {"color_code": ""},
                 {
+                    "alert_level": "WATCH",
                     "vnum": 311120,
                     "vnum_unit": "Smithsonian GVP",
                     "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
                 },
             ),
-            ({"vnum": None}, {"color_code": "ORANGE", "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00"}),
-            ({"notice_identifier": None}, {"color_code": "ORANGE", "vnum": 311120, "vnum_unit": "Smithsonian GVP"}),
-            ({"notice_identifier": "   "}, {"color_code": "ORANGE", "vnum": 311120, "vnum_unit": "Smithsonian GVP"}),
-            ({"color_code": None, "vnum": None, "notice_identifier": None}, {}),
+            (
+                {"alert_level": None},
+                {
+                    "color_code": "ORANGE",
+                    "vnum": 311120,
+                    "vnum_unit": "Smithsonian GVP",
+                    "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
+                },
+            ),
+            (
+                {"vnum": None},
+                {
+                    "color_code": "ORANGE",
+                    "alert_level": "WATCH",
+                    "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
+                },
+            ),
+            (
+                {"notice_identifier": None},
+                {"color_code": "ORANGE", "alert_level": "WATCH", "vnum": 311120, "vnum_unit": "Smithsonian GVP"},
+            ),
+            (
+                {"notice_identifier": "   "},
+                {"color_code": "ORANGE", "alert_level": "WATCH", "vnum": 311120, "vnum_unit": "Smithsonian GVP"},
+            ),
+            (
+                {"color_code": None, "alert_level": None, "vnum": None, "notice_identifier": None},
+                {},
+            ),
+            (
+                {"casualties": 12, "damage": None},
+                {
+                    "color_code": "ORANGE",
+                    "alert_level": "WATCH",
+                    "vnum": 311120,
+                    "vnum_unit": "Smithsonian GVP",
+                    "notice_identifier": "DOI-USGS-AVO-2026-09-29T18:26:19+00:00",
+                    "casualties": 12,
+                    "casualties_unit": "people",
+                },
+            ),
         ],
     )
     def test_other_metrics_omit_what_the_feed_does_not_report(self, spark_session, overrides, expected_metrics):
@@ -217,5 +280,5 @@ class TestConvert:
         assert row.state_province == "ZZ"
         assert row.event_description is None
         assert row.place_location == "Great Sitkin"
-        assert row.metric_value == 2.0
-        assert row.danger_rating == "WATCH"
+        assert row.metric_value is None
+        assert row.danger_rating is None

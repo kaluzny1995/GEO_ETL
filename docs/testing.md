@@ -49,7 +49,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/single_etl/test_openmeteo_flood_etl.py` | OpenMeteo SINGLE_ETL script (country/state/place mapping, stamped geocode pass-through with country-name precedence, discharge metric, threshold-reference join with missing/invalid file handling, danger ladder, ensemble forecast metrics) |
 | `test/single_etl/test_usgs_earthquake_etl.py` | USGS SINGLE_ETL script (place-suffix country parse with stamped geocode fallbacks, net-based state, event name/description, depth/station metrics) |
 | `test/single_etl/test_usgs_nwis_etl.py` | USGS NWIS SINGLE_ETL script (site-name event/place parse, qualifier expansion, stamped geocode state, discharge metric, flood-category danger ladder, flood-category reference join with missing/absent file handling, other_metrics peak + NWS thresholds) |
-| `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (alert-scale metric, subcategory/place/state fallbacks with stamped geocode state) |
+| `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (VEI metric with unit and `VEI <n>` danger rating, other-metrics omissions incl. alert level and NCEI casualties/damage, subcategory/place/state fallbacks with stamped geocode state) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_dq_metrics.py` | Rules, rate/variance metric computation, unpivoting — run on a real local Spark session |
 | `test/util/test_etl_utils.py` | Shared SINGLE_ETL runner `utils/etl_utils.py`: load-type resolution (auto → historical/incremental, forced type wins) |

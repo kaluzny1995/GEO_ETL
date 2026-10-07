@@ -32,19 +32,25 @@ class UsgsVolcanoEtl(EventEtl):
     * ``place_location`` — ``"<volcano_name>, <region>"``
       (``Great Sitkin, Aleutians``); without a region only the name
       remains, a blank name is ``NULL``.
-    * ``metric_name`` — always ``alert_level``; ``metric_value`` — the USGS
-      alert scale as a number (``NORMAL`` 0, ``ADVISORY`` 1, ``WATCH`` 2,
-      ``WARNING`` 3); an unknown code stays ``NULL`` (an unknown level is
-      not ``NORMAL``); ``metric_unit`` — ``NULL`` (a scale index has no
-      unit); ``danger_rating`` — the source ``alert_level`` text verbatim.
+    * ``metric_name`` — always ``vei``; ``metric_value`` — the volcano's
+      largest significant-eruption VEI as a number (Kīlauea → ``4``), read
+      from the plain table's NCEI/WDS eruption record; ``NULL`` for a
+      volcano NCEI does not list (e.g. Great Sitkin); ``metric_unit`` —
+      ``VEI`` alongside a value, ``NULL`` without one; ``danger_rating`` —
+      the same VEI as a readable class (``VEI 4``), ``NULL`` when NCEI has
+      no record.
     * ``event_start`` — ``notice_date`` (when the notice was issued, full
       precision); ``event_end`` — ``NULL`` (a notice is an instant).
-    * ``other_metrics`` — ``{"color_code": …, "vnum": …, "vnum_unit":
-      "Smithsonian GVP", "notice_identifier": …}``: the Aviation Color Code
-      (an independent scale — it can change while ``alert_level`` does not),
-      the Smithsonian GVP volcano number with its ``<name>_unit`` companion
-      and the unique notice id; a value the feed does not report is omitted
-      together with its unit. ``last_latitude`` / ``last_longitude`` — ``NULL``
-      (the volcano is fixed).
+    * ``other_metrics`` — ``{"color_code": …, "alert_level": …, "vnum":
+      …, "vnum_unit": "Smithsonian GVP", "notice_identifier": …,
+      "casualties": 5411, "casualties_unit": "people", "damage": 385.5,
+      "damage_unit": "million USD"}``: the Aviation Color Code and the
+      USGS alert level (both live here now that ``danger_rating`` carries
+      the VEI), the Smithsonian GVP volcano number with its
+      ``<name>_unit`` companion, the unique notice id and the NCEI/WDS
+      eruption totals — total deaths and total damage in millions of USD —
+      each with its ``<name>_unit`` companion; a value the source does not
+      report is omitted together with its unit. ``last_latitude`` /
+      ``last_longitude`` — ``NULL`` (the volcano is fixed).
     * ``file_date`` — the snapshot day the notice was downloaded for.
     """

@@ -21,4 +21,7 @@ class UsgsVolcanoRaw(BaseModel):
     region: str | None = None
     synopsis: str | None = None
     geocode_state: str | None = None
+    vei: str | None = None
+    casualties: str | None = None
+    damage: str | None = None
     file_date: str
