@@ -98,7 +98,8 @@
         "source_name": "AVALANCHE_ORG",
         "country_code": "US",
         "event_category": "avalanche",
-        "metric_name": "magnitude"
+        "metric_name": "magnitude",
+        "danger_level_unit": "NAPADS level"
       },
       "eonet_event_etl": {
         "source_table": "eonet_event",
@@ -224,6 +225,9 @@
         "source_table": "ibtracs_cyclone",
         "target_table": "ibtracs_cyclone_etl",
         "source_name": "IBTRACS",
+        "event_category": "storm",
+        "metric_name": "wind speed",
+        "metric_unit": "kts",
         "basin_names": {
           "NA": "North Atlantic",
           "EP": "Eastern North Pacific",
@@ -309,6 +313,18 @@
         "metric_unit": "m³/s",
         "thresholds_file": "openmeteo_discharge_thresholds.csv",
         "threshold_percentile": 0.95,
+        "percentile_levels": [
+          50,
+          90,
+          95,
+          99
+        ],
+        "ensemble_levels": [
+          "mean",
+          "median",
+          "p25",
+          "p75"
+        ],
         "country_code_map": {
           "Afghanistan": "AF",
           "Argentina": "AR",
@@ -559,6 +575,14 @@
         "metric_name": "discharge",
         "country_code": "US",
         "flood_categories_file": "usgs_flood_categories.csv",
+        "flood_levels": [
+          "action",
+          "minor",
+          "moderate",
+          "major"
+        ],
+        "no_flooding_category": "no_flooding",
+        "stage_unit": "ft",
         "event_name_prefix": "Streamflow - ",
         "event_name_fallback": "Streamflow",
         "name_split_pattern": "(?i)\\s+(?:NEAR|AT)\\s+",
@@ -585,7 +609,10 @@
         "metric_unit": "VEI",
         "country_code": "US",
         "event_name_prefix": "Volcano - ",
-        "event_name_fallback": "Volcano"
+        "event_name_fallback": "Volcano",
+        "vnum_unit": "Smithsonian GVP",
+        "casualties_unit": "people",
+        "damage_unit": "million USD"
       }
     }
   }

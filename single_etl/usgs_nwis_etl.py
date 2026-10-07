@@ -38,15 +38,6 @@ from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", UsgsNwisEtlConfig)
 
-FLOOD_LEVELS: tuple[str, ...] = ("action", "minor", "moderate", "major")
-"""NWS flood categories from the least to the most severe — the reference's threshold columns."""
-
-NO_FLOODING = "no_flooding"
-"""NWS category of a peak below every threshold; it stays unrated in ``danger_rating``."""
-
-STAGE_UNIT = "ft"
-"""Unit of the gauge height and of the NWS stage thresholds — the reference stores feet."""
-
 _FLOOD_CATEGORY_SCHEMA = StructType(
     [
         StructField("site_id", StringType()),
@@ -55,7 +46,7 @@ _FLOOD_CATEGORY_SCHEMA = StructType(
         StructField("state", StringType()),
         StructField("latitude", DoubleType()),
         StructField("longitude", DoubleType()),
-        *(StructField(f"{level}_stage_ft", DoubleType()) for level in FLOOD_LEVELS),
+        *(StructField(f"{level}_stage_ft", DoubleType()) for level in _cfg.flood_levels),
     ]
 )
 """Columns of the flood-category reference, in the order GEO_Download writes them."""
@@ -166,7 +157,9 @@ def _danger_rating() -> Column:
         warn about".
     """
     category = F.trim(F.col("flood_category"))
-    return F.when((category != "") & (category != NO_FLOODING), category).otherwise(F.lit(None).cast("string"))
+    return F.when((category != "") & (category != _cfg.no_flooding_category), category).otherwise(
+        F.lit(None).cast("string")
+    )
 
 
 def _value_and_unit(column: str, name: str) -> tuple[Column, Column]:
@@ -177,12 +170,13 @@ def _value_and_unit(column: str, name: str) -> tuple[Column, Column]:
         name: JSON key of the value; its unit is keyed ``<name>_unit``.
 
     Returns:
-        The measurement aliased as *name* and :data:`STAGE_UNIT` aliased
-        as ``<name>_unit``; the unit is ``NULL`` — and so dropped from
-        the JSON — exactly when the measurement itself is missing.
+        The measurement aliased as *name* and the configured stage unit
+        (``_cfg.stage_unit``) aliased as ``<name>_unit``; the unit is
+        ``NULL`` — and so dropped from the JSON — exactly when the
+        measurement itself is missing.
     """
     value = F.col(column)
-    return value.alias(name), F.when(value.isNotNull(), F.lit(STAGE_UNIT)).alias(f"{name}_unit")
+    return value.alias(name), F.when(value.isNotNull(), F.lit(_cfg.stage_unit)).alias(f"{name}_unit")
 
 
 def _other_metrics() -> Column:
@@ -201,7 +195,8 @@ def _other_metrics() -> Column:
         and ``nws_gauge_id`` come from the flood-category reference
         (omitted entirely for a gauge it does not cover, and each
         threshold on its own when the NWS defines only some of them).
-        Every measurement carries :data:`STAGE_UNIT` (``ft``) in its own
+        Every measurement carries the configured stage unit (``ft``,
+        ``_cfg.stage_unit``) in its own
         ``<name>_unit`` companion key rather than in the key name, and
         that unit key never outlives its value. A row with nothing to
         say — no stage and no reference — gets ``NULL`` rather than ``{}``.
@@ -209,10 +204,10 @@ def _other_metrics() -> Column:
     payload = F.struct(
         *_value_and_unit("gauge_height", "gauge_height"),
         F.col("nws_gauge_id"),
-        *(field for level in FLOOD_LEVELS for field in _value_and_unit(f"{level}_stage_ft", f"{level}_stage")),
+        *(field for level in _cfg.flood_levels for field in _value_and_unit(f"{level}_stage_ft", f"{level}_stage")),
     )
     present = F.col("gauge_height").isNotNull()
-    for level in FLOOD_LEVELS:
+    for level in _cfg.flood_levels:
         present = present | F.col(f"{level}_stage_ft").isNotNull()
     return F.when(present, F.to_json(payload)).otherwise(F.lit(None).cast("string"))
 
@@ -262,7 +257,7 @@ class UsgsNwisEtlScript(SingleEtlScript):
         return frame.select(
             "site_id",
             F.col("identifier").alias("nws_gauge_id"),
-            *(F.col(f"{level}_stage_ft") for level in FLOOD_LEVELS),
+            *(F.col(f"{level}_stage_ft") for level in _cfg.flood_levels),
         )
 
     def _convert(self, df: DataFrame) -> DataFrame:

@@ -32,10 +32,6 @@ from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", UsgsVolcanoEtlConfig)
 
-_VNUM_UNIT = "Smithsonian GVP"
-_CASUALTIES_UNIT = "people"
-_DAMAGE_UNIT = "million USD"
-
 
 def _event_name() -> Column:
     """``"Volcano - <volcano_name>"``; ``"Volcano"`` when the name is blank."""
@@ -94,7 +90,7 @@ def _danger_rating() -> Column:
         list — an unknown VEI must not read as ``VEI 0``.
     """
     vei = F.col("vei")
-    return F.when(vei.isNotNull(), F.concat_ws(" ", F.lit("VEI"), vei.cast("string")))
+    return F.when(vei.isNotNull(), F.concat_ws(" ", F.lit(_cfg.metric_unit), vei.cast("string")))
 
 
 def _state_province(state: Column) -> Column:
@@ -153,12 +149,12 @@ def _other_metrics() -> Column:
             F.when(color != "", color).alias("color_code"),
             F.when(alert != "", alert).alias("alert_level"),
             vnum.alias("vnum"),
-            F.when(vnum.isNotNull(), F.lit(_VNUM_UNIT)).alias("vnum_unit"),
+            F.when(vnum.isNotNull(), F.lit(_cfg.vnum_unit)).alias("vnum_unit"),
             F.when(identifier != "", identifier).alias("notice_identifier"),
             casualties.alias("casualties"),
-            F.when(casualties.isNotNull(), F.lit(_CASUALTIES_UNIT)).alias("casualties_unit"),
+            F.when(casualties.isNotNull(), F.lit(_cfg.casualties_unit)).alias("casualties_unit"),
             damage.alias("damage"),
-            F.when(damage.isNotNull(), F.lit(_DAMAGE_UNIT)).alias("damage_unit"),
+            F.when(damage.isNotNull(), F.lit(_cfg.damage_unit)).alias("damage_unit"),
         )
     )
 

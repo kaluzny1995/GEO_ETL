@@ -66,7 +66,8 @@ The `datasets` section of the same file holds every script's wiring and transfor
         "source_name": "AVALANCHE_ORG",
         "country_code": "US",
         "event_category": "avalanche",
-        "metric_name": "magnitude"
+        "metric_name": "magnitude",
+        "danger_level_unit": "NAPADS level"
       }
     }
   }

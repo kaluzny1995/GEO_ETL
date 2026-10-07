@@ -41,12 +41,6 @@ from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", OpenMeteoFloodEtlConfig)
 
-PERCENTILE_LEVELS: tuple[int, ...] = (50, 90, 95, 99)
-"""Reference levels the threshold CSV carries — ``discharge_p50_m3s`` … ``discharge_p99_m3s``."""
-
-_ENSEMBLE_LEVELS: tuple[str, ...] = ("mean", "median", "p25", "p75")
-"""GloFAS ensemble statistics the downloader stamps onto forecast days."""
-
 _THRESHOLD_SCHEMA = StructType(
     [
         StructField("river_name", StringType()),
@@ -56,7 +50,7 @@ _THRESHOLD_SCHEMA = StructType(
         StructField("baseline_days", IntegerType()),
         StructField("baseline_start", StringType()),
         StructField("baseline_end", StringType()),
-        *(StructField(f"discharge_p{level}_m3s", DoubleType()) for level in PERCENTILE_LEVELS),
+        *(StructField(f"discharge_p{level}_m3s", DoubleType()) for level in _cfg.percentile_levels),
     ]
 )
 """Columns of the threshold reference, in the order ``run_openmeteo_thresholds.py`` writes them."""
@@ -75,10 +69,10 @@ def _threshold_column(level: int) -> str:
         ValueError: When ``threshold_percentile`` in ``config.json`` names a
             level the reference does not carry.
     """
-    if level not in PERCENTILE_LEVELS:
+    if level not in _cfg.percentile_levels:
         raise ValueError(
             f"threshold_percentile={_cfg.threshold_percentile} has no column in the threshold reference "
-            f"(available levels: {', '.join(str(level) for level in PERCENTILE_LEVELS)})"
+            f"(available levels: {', '.join(str(level) for level in _cfg.percentile_levels)})"
         )
     return f"discharge_p{level}_m3s"
 
@@ -144,7 +138,7 @@ def _place_location() -> Column:
 def _discharge_present() -> Column:
     """Whether the row has a threshold or an ensemble answer to report."""
     present = F.col(_threshold_column(_threshold_level())).isNotNull()
-    for level in _ENSEMBLE_LEVELS:
+    for level in _cfg.ensemble_levels:
         present = present | F.col(f"discharge_{level}_m3s").isNotNull()
     return present
 
@@ -199,7 +193,7 @@ def _other_metrics() -> Column:
     payload = F.struct(
         *(
             field
-            for level in PERCENTILE_LEVELS
+            for level in _cfg.percentile_levels
             for field in _value_and_unit(f"discharge_p{level}_m3s", f"discharge_p{level}")
         ),
         F.when(has_threshold, F.lit(_cfg.threshold_percentile)).alias("threshold_percentile"),
@@ -212,7 +206,7 @@ def _other_metrics() -> Column:
         F.col("baseline_end"),
         *(
             field
-            for level in _ENSEMBLE_LEVELS
+            for level in _cfg.ensemble_levels
             for field in _value_and_unit(f"discharge_{level}_m3s", f"ensemble_{level}")
         ),
     )
@@ -234,7 +228,7 @@ def _danger_rating() -> Column:
     """
     discharge = F.col("discharge_m3s")
     rating = F.lit(None).cast("string")
-    ladder = [level for level in sorted(PERCENTILE_LEVELS) if level >= _threshold_level()]
+    ladder = [level for level in sorted(_cfg.percentile_levels) if level >= _threshold_level()]
     for level in ladder:
         rating = F.when(discharge > F.col(_threshold_column(level)), F.lit(f"Q{level}")).otherwise(rating)
     return rating

@@ -59,6 +59,7 @@ class AvalancheOrgEtlConfig(SingleEtlDatasetConfig):
     country_code: str
     event_category: str
     metric_name: str
+    danger_level_unit: str
 
 
 class EonetEventEtlConfig(SingleEtlDatasetConfig):
@@ -77,6 +78,9 @@ class GdacsEventEtlConfig(SingleEtlDatasetConfig):
 class IbtracsCycloneEtlConfig(SingleEtlDatasetConfig):
     """Constants for ``single_etl/ibtracs_cyclone_etl.py``."""
 
+    event_category: str
+    metric_name: str
+    metric_unit: str
     basin_names: dict[str, str]
     subbasin_names: dict[str, str]
     status_words: dict[str, str]
@@ -106,6 +110,8 @@ class OpenMeteoFloodEtlConfig(SingleEtlDatasetConfig):
     country_code_map: dict[str, str]
     thresholds_file: str
     threshold_percentile: float
+    percentile_levels: list[int]
+    ensemble_levels: list[str]
 
 
 class UsgsEarthquakeEtlConfig(SingleEtlDatasetConfig):
@@ -134,6 +140,9 @@ class UsgsNwisEtlConfig(SingleEtlDatasetConfig):
     name_split_pattern: str
     qualifier_names: dict[str, str]
     flood_categories_file: str
+    flood_levels: list[str]
+    no_flooding_category: str
+    stage_unit: str
 
 
 class UsgsVolcanoEtlConfig(SingleEtlDatasetConfig):
@@ -145,6 +154,9 @@ class UsgsVolcanoEtlConfig(SingleEtlDatasetConfig):
     country_code: str
     event_name_prefix: str
     event_name_fallback: str
+    vnum_unit: str
+    casualties_unit: str
+    damage_unit: str
 
 
 @cache

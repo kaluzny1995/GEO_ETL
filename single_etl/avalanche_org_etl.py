@@ -35,8 +35,6 @@ from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", AvalancheOrgEtlConfig)
 
-_DANGER_LEVEL_UNIT = "NAPADS level"
-
 
 def _danger_rating() -> Column:
     """The zone's danger rating, or ``NULL`` while the zone is unrated.
@@ -64,7 +62,7 @@ def _other_metrics() -> Column:
     return F.to_json(
         F.struct(
             F.col("danger_level").alias("danger_level"),
-            F.lit(_DANGER_LEVEL_UNIT).alias("danger_level_unit"),
+            F.lit(_cfg.danger_level_unit).alias("danger_level_unit"),
             F.when(warning != "", warning).alias("warning"),
             F.col("off_season").alias("off_season"),
         )
