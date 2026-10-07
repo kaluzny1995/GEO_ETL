@@ -35,11 +35,17 @@ Details: [DATA_QUALITY job — load type notes](data-quality.md#load-type-detect
 |-----------|-----------|----------|
 | Target table empty or missing | `HISTORICAL` | Processes every source row |
 | Target table has data | `INCREMENTAL` | Processes only rows with `file_date` > the target's maximum |
-| No row newer than the target's max | `INCREMENTAL` | Warns, writes nothing, reports `nothing to do` |
+| No row newer than the target's max | `INCREMENTAL` | Runner returns `loaded=False` → the job warns and raises `RuntimeError` |
+| Source has rows but `_convert` yields none | `HISTORICAL`/`INCREMENTAL` | Runner returns `loaded=False` → the job warns and raises `RuntimeError` |
 | `--load-type historical` | `HISTORICAL` | Full reprocess even when the target has data |
 | `--load-type incremental` | `INCREMENTAL` | Same as auto; falls back to `HISTORICAL` when the target is empty |
 
-**SINGLE_ETL succeeds when there is nothing to do** — it warns and returns, so `run_etl.py` exits `0` (a script that wants the INGESTION behaviour can raise `RuntimeError` itself).
+**SINGLE_ETL fails when it loads no records** — the same contract as INGESTION: the shared runner reports the empty run as `EtlOutcome(loaded=False, …)` and `jobs/single_etl.py` warns with that summary and raises, so `run_etl.py` exits with code 1 (the E2E chain then logs a warning and stops). The runner itself never raises — it covers an up-to-date incremental run, an empty source and a conversion that yields zero rows:
+
+```
+WARNING No records loaded into avalanche_org_etl — no rows to process in avalanche_org
+ERROR ETL job failed   (RuntimeError)   → exit code 1
+```
 
 **INGESTION fails when there is nothing to ingest** — both steps warn, and because neither wrote anything the job raises, so `run_etl.py` exits with code 1 (the E2E chain then logs a warning and skips `DATA_QUALITY`):
 

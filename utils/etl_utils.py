@@ -10,6 +10,7 @@ subclass that supplies its table names and its own ``_convert``.
 import datetime as dt
 import logging
 from collections.abc import Callable
+from typing import NamedTuple
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
@@ -19,6 +20,21 @@ from model.enums import LoadType
 from utils.raw2plain_utils import get_max_file_date
 
 FILE_DATE_COL = "file_date"
+
+
+class EtlOutcome(NamedTuple):
+    """What a single-ETL run did, so the job can decide success vs failure.
+
+    Attributes:
+        loaded: ``True`` when records were appended to the target table.
+        summary: Human-readable summary — the write report when *loaded* is
+            ``True`` (e.g. ``"HISTORICAL: wrote to geo.usgs_volcano_etl"``),
+            or the complete failure message (starting with
+            ``No records loaded into``) when *loaded* is ``False``.
+    """
+
+    loaded: bool
+    summary: str
 
 
 def resolve_load_type(max_file_date: dt.date | None, requested: LoadType | None) -> LoadType:
@@ -54,7 +70,7 @@ def run_etl(
     *,
     load_type: LoadType | None = None,
     logger: logging.Logger | None = None,
-) -> str:
+) -> EtlOutcome:
     """Read ``geo.<source_table>``, convert it and append to ``geo.<target_table>``.
 
     **Load types** (resolved by :func:`resolve_load_type`)
@@ -84,8 +100,13 @@ def run_etl(
         logger: Optional logger; defaults to this module's logger.
 
     Returns:
-        A human-readable summary, e.g. ``"HISTORICAL: wrote to geo.usgs_volcano_etl"``
-        or ``"INCREMENTAL: nothing to do — usgs_volcano_etl is up to date"``.
+        The :class:`EtlOutcome` of the run: ``loaded=True`` with the write
+        report, or ``loaded=False`` with the complete failure message when no
+        record was loaded into *target_table* (an up-to-date incremental run,
+        an empty source, or a conversion that yields zero rows). This runner
+        never raises — the caller decides what an unloaded run means;
+        ``jobs/single_etl.py`` turns ``loaded=False`` into ``RuntimeError`` so
+        ``run_etl.py`` exits with code 1, the same contract as INGESTION.
     """
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -116,11 +137,13 @@ def run_etl(
         logger.info(f"Processing every row of {source_table}...")
 
     if not source_df.head(1):
-        logger.warning(f"No new records for {target_table} — nothing to do, table is up to date")
-        return f"{resolved.value}: nothing to do — {target_table} is up to date"
+        return EtlOutcome(False, f"No records loaded into {target_table} — no rows to process in {source_table}")
 
     result_df = convert_fn(source_df)
+    if not result_df.head(1):
+        return EtlOutcome(False, f"No records loaded into {target_table} — {source_table} converted to zero rows")
+
     logger.info(f"Writing to {schema}.{target_table}...")
     result_df.write.jdbc(url=jdbc_url, table=f"{schema}.{target_table}", mode="append", properties=properties)
     logger.info(f"Single ETL complete: written to {schema}.{target_table}")
-    return f"{resolved.value}: wrote to {schema}.{target_table}"
+    return EtlOutcome(True, f"{resolved.value}: wrote to {schema}.{target_table}")

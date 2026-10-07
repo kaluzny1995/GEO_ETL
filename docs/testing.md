@@ -24,7 +24,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
 | `test/jobs/test_data_quality.py` | DATA_QUALITY job (HISTORICAL + INCREMENTAL load types, stale-metric purge, replace, no-new-data, logging, unknown table) |
 | `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logger passing, logging) |
-| `test/jobs/test_single_etl.py` | SINGLE_ETL job (script resolution, load type and logger passing, unknown script) |
+| `test/jobs/test_single_etl.py` | SINGLE_ETL job (script resolution, load type and logger passing, unknown script, raises `RuntimeError` when the run loaded no records) |
 | `test/model/test_enums.py` | JobType and LoadType enums (values, membership, from_value, invalid value) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig models |
 | `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models, project config sections |
@@ -40,7 +40,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from raw + plain or ETL-only, table derivation, skip on empty, data_quality rejection) |
-| `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all nine SINGLE_ETL scripts parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, no-new-rows, source table) |
+| `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all nine SINGLE_ETL scripts parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, `loaded=False` for no-new-rows / empty conversion, source table) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (column mapping, source coordinate pass-through, forecast-window collapse) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (category/place/country mapping, stamped geocode pass-through with description-state precedence) |
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |

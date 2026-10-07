@@ -37,6 +37,10 @@ def run(
 
     Raises:
         ValueError: If no script is registered for *script_name*.
+        RuntimeError: When the run loaded no records into its ``_etl`` table
+            (the script's :class:`~utils.etl_utils.EtlOutcome` reports
+            ``loaded=False``) — the job warns with that summary and raises, so
+            ``run_etl.py`` exits with code 1 (same contract as INGESTION).
     """
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -46,7 +50,10 @@ def run(
 
     script = SingleEtlFactory.get(script_name)
     logger.info(f"Running single ETL script: {script_name}...")
-    summary = script.run(spark, app_config, db_config, load_type=load_type, logger=logger)
+    outcome = script.run(spark, app_config, db_config, load_type=load_type, logger=logger)
+    if not outcome.loaded:
+        logger.warning(outcome.summary)
+        raise RuntimeError(outcome.summary)
     logger.info(f"Single ETL script {script_name} complete")
 
-    return f"Single ETL {script_name} complete — {summary}"
+    return f"Single ETL {script_name} complete — {outcome.summary}"

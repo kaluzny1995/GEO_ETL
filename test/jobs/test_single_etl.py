@@ -4,6 +4,7 @@ import pytest
 
 from factory import SingleEtlFactory
 from model.enums import LoadType
+from utils.etl_utils import EtlOutcome
 
 
 def _mock_app_config():
@@ -38,7 +39,7 @@ def _clean_registry():
 def test_single_etl_runs_registered_script(mock_app, mock_db):
     spark = MagicMock()
     script = MagicMock()
-    script.run.return_value = "HISTORICAL: wrote to geo.example_target"
+    script.run.return_value = EtlOutcome(True, "HISTORICAL: wrote to geo.example_target")
     SingleEtlFactory.register("my_etl", script)
 
     from jobs.single_etl import run
@@ -57,7 +58,7 @@ def test_single_etl_runs_registered_script(mock_app, mock_db):
 def test_single_etl_passes_load_type(mock_app, mock_db):
     spark = MagicMock()
     script = MagicMock()
-    script.run.return_value = "INCREMENTAL: wrote to geo.example_target"
+    script.run.return_value = EtlOutcome(True, "INCREMENTAL: wrote to geo.example_target")
     SingleEtlFactory.register("my_etl", script)
 
     from jobs.single_etl import run
@@ -102,3 +103,23 @@ def test_single_etl_loads_configs(mock_app, mock_db):
 
     mock_app.assert_called_once_with()
     mock_db.assert_called_once_with()
+
+
+@patch("jobs.single_etl.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.single_etl.AppConfig.from_json", return_value=_mock_app_config())
+def test_single_etl_fails_when_nothing_loaded(mock_app, mock_db):
+    """No record in the target table → RuntimeError, so the E2E chain stops."""
+    # Arrange
+    spark = MagicMock()
+    logger = MagicMock()
+    script = MagicMock()
+    script.run.return_value = EtlOutcome(False, "No records loaded into example_etl — no rows to process in example")
+    SingleEtlFactory.register("my_etl", script)
+
+    from jobs.single_etl import run
+
+    # Act & Assert
+    with pytest.raises(RuntimeError, match="No records loaded into example_etl"):
+        run(spark, "my_etl", logger=logger)
+
+    logger.warning.assert_called_once_with("No records loaded into example_etl — no rows to process in example")

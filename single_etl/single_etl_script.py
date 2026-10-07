@@ -44,7 +44,7 @@ class SingleEtlScript(ABC):
         *,
         load_type: LoadType | None = None,
         logger: logging.Logger | None = None,
-    ) -> str:
+    ) -> etl_utils.EtlOutcome:
         """Read ``geo.<SOURCE_TABLE>``, convert it and append to ``geo.<TARGET_TABLE>``.
 
         Args:
@@ -56,8 +56,11 @@ class SingleEtlScript(ABC):
             logger: Optional logger; defaults to the runner's logger.
 
         Returns:
-            A human-readable summary, e.g. ``"HISTORICAL: wrote to geo.usgs_volcano_etl"``
-            or ``"INCREMENTAL: nothing to do — usgs_volcano_etl is up to date"``.
+            The :class:`~utils.etl_utils.EtlOutcome` of the shared run —
+            ``loaded`` together with a summary message (the write report, or
+            ``No records loaded into …`` when nothing was loaded). The script
+            itself never fails the run: ``jobs/single_etl.py`` raises
+            ``RuntimeError`` when ``loaded`` is ``False``.
 
         See also:
             :func:`~utils.etl_utils.run_etl` for the shared pipeline and the load-type contract.

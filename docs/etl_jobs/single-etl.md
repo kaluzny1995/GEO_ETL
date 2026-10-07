@@ -20,11 +20,13 @@ flowchart TD
     I --> READ
     READ --> FILTER["keep file_date newer than the maximum<br/>(incremental only)"]
     FILTER --> EMPTY{"any rows?"}
-    EMPTY -->|"no"| SKIP["log warning → return 'nothing to do'<br/>run_etl.py exits 0"]
+    EMPTY -->|"no"| SKIP["EtlOutcome loaded=False<br/>jobs/single_etl.py: warn + raise<br/>run_etl.py exits 1"]
     EMPTY -->|"yes"| CV["_convert()<br/>map the source columns onto the<br/>21-column canonical structure"]
-    CV --> WRITE["write.jdbc append"]
+    CV --> EMPTY2{"converted rows?"}
+    EMPTY2 -->|"no"| SKIP2["EtlOutcome loaded=False<br/>jobs/single_etl.py: warn + raise<br/>run_etl.py exits 1"]
+    EMPTY2 -->|"yes"| WRITE["write.jdbc append"]
     WRITE --> DB[("geo.{source}_etl")]
-    WRITE --> OK["return 'HISTORICAL / INCREMENTAL:<br/>wrote to geo.{source}_etl'"]
+    WRITE --> OK["EtlOutcome loaded=True<br/>'HISTORICAL / INCREMENTAL:<br/>wrote to geo.{source}_etl'"]
 ```
 
 How the data flows:
@@ -32,7 +34,8 @@ How the data flows:
 1. `run_etl.py` resolves `JobType.SINGLE_ETL` → `jobs/single_etl.py` and passes the second positional argument as the **script name** — the file stem of a module in `single_etl/` (e.g. `avalanche_org_etl`).
 2. `SingleEtlFactory` (`factory/single_etl_factory.py`) looks that name up in its registry; scripts are registered by `jobs/__init__.py`.
 3. The job loads both configs, looks the script up in the registry and calls its `run(spark, config, db_config, load_type=..., logger=...)` — the `SingleEtlScript` interface method, which delegates to `utils/etl_utils.run_etl()` with the class's `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()`.
-4. The runner resolves the [load type](load-types.md) from the state of the target table, reads the source table, applies the script's `_convert()` transformation and appends the result to the target table.
+4. The runner resolves the [load type](load-types.md) from the state of the target table, reads the source table, applies the script's `_convert()` transformation and appends the result to the target table, returning an `EtlOutcome` (`loaded` + `summary`).
+5. The **job** decides the exit status: `loaded=True` → completion message; `loaded=False` (nothing newer than the target's max, empty source, or `_convert` produced no rows) → it warns with the outcome's summary and raises `RuntimeError`, so `run_etl.py` exits with code 1.
 
 ```bash
 python run_etl.py SINGLE_ETL avalanche_org_etl                    # auto load type
@@ -40,7 +43,12 @@ python run_etl.py SINGLE_ETL avalanche_org_etl --load-type historical
 python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
 ```
 
-`--load-type` accepts `auto` (default), `historical` or `incremental` and is rejected on any other job; the logs go to `logs/single_etl/single_etl_<script>_<timestamp>.log`. A run that finds nothing new warns and still exits `0` — the DATA_QUALITY behaviour, not the INGESTION one.
+`--load-type` accepts `auto` (default), `historical` or `incremental` and is rejected on any other job; the logs go to `logs/single_etl/single_etl_<script>_<timestamp>.log`. A run that loads no records makes the **job** warn and **raise**, so `run_etl.py` exits with code 1 — the INGESTION behaviour (`DATA_QUALITY` is the job that still finishes green on an unchanged table):
+
+```
+WARNING No records loaded into avalanche_org_etl — no rows to process in avalanche_org
+ERROR ETL job failed   (RuntimeError)   → exit code 1
+```
 
 ## avalanche_org_etl
 

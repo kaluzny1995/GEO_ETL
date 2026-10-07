@@ -5,6 +5,7 @@ import pytest
 from ingestion.raw2plain.raw2plain_script import Raw2PlainScript
 from ingestion.upload.upload_script import UploadScript
 from single_etl.single_etl_script import SingleEtlScript
+from utils.etl_utils import EtlOutcome
 
 
 class _StubScript(SingleEtlScript):
@@ -32,10 +33,11 @@ class TestSingleEtlScript:
         script = _StubScript()
         spark, config, db_config = MagicMock(), MagicMock(), MagicMock()
 
-        with patch("utils.etl_utils.run_etl", return_value="HISTORICAL: wrote") as mock_run:
-            result = script.run(spark, config, db_config)
+        with patch("utils.etl_utils.run_etl", return_value=EtlOutcome(True, "HISTORICAL: wrote")) as mock_run:
+            outcome = script.run(spark, config, db_config)
 
-        assert result == "HISTORICAL: wrote"
+        assert outcome.loaded is True
+        assert outcome.summary == "HISTORICAL: wrote"
         args, kwargs = mock_run.call_args
         assert args[:5] == (spark, config, db_config, "src_plain", "src_etl")
         assert args[5] == script._convert
@@ -46,7 +48,7 @@ class TestSingleEtlScript:
         script = _StubScript()
         load_type, logger = MagicMock(name="load_type"), MagicMock(name="logger")
 
-        with patch("utils.etl_utils.run_etl", return_value="ok") as mock_run:
+        with patch("utils.etl_utils.run_etl", return_value=EtlOutcome(True, "ok")) as mock_run:
             script.run(MagicMock(), MagicMock(), MagicMock(), load_type=load_type, logger=logger)
 
         assert mock_run.call_args.kwargs == {"load_type": load_type, "logger": logger}

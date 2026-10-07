@@ -72,11 +72,12 @@ class TestRun:
             patch.object(script_cls, "_convert") as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=None),
         ):
-            message = script_cls().run(spark, _mock_config(), _mock_db_config())
+            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
 
         # Assert
-        assert message.startswith("HISTORICAL")
-        assert f"wrote to {target_table}" in message
+        assert outcome.loaded is True
+        assert outcome.summary.startswith("HISTORICAL")
+        assert f"wrote to {target_table}" in outcome.summary
         spark.read.jdbc.return_value.filter.assert_not_called()
         writer = mock_convert.return_value.write.jdbc
         writer.assert_called_once()
@@ -93,10 +94,11 @@ class TestRun:
             patch.object(script_cls, "_convert") as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
-            message = script_cls().run(spark, _mock_config(), _mock_db_config())
+            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
 
         # Assert
-        assert message.startswith("INCREMENTAL")
+        assert outcome.loaded is True
+        assert outcome.summary.startswith("INCREMENTAL")
         spark.read.jdbc.return_value.filter.assert_called_once()
         condition = str(spark.read.jdbc.return_value.filter.call_args[0][0])
         assert "file_date" in condition
@@ -113,10 +115,11 @@ class TestRun:
             patch.object(script_cls, "_convert") as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
-            message = script_cls().run(spark, _mock_config(), _mock_db_config(), load_type=LoadType.HISTORICAL)
+            outcome = script_cls().run(spark, _mock_config(), _mock_db_config(), load_type=LoadType.HISTORICAL)
 
         # Assert
-        assert message.startswith("HISTORICAL")
+        assert outcome.loaded is True
+        assert outcome.summary.startswith("HISTORICAL")
         spark.read.jdbc.return_value.filter.assert_not_called()
         mock_convert.return_value.write.jdbc.assert_called_once()
 
@@ -128,7 +131,7 @@ class TestRun:
 
         # Act
         with patch.object(script_cls, "_convert"), patch("utils.etl_utils.get_max_file_date", return_value=None):
-            message = script_cls().run(
+            outcome = script_cls().run(
                 spark,
                 _mock_config(),
                 _mock_db_config(),
@@ -137,14 +140,15 @@ class TestRun:
             )
 
         # Assert
-        assert message.startswith("HISTORICAL")
+        assert outcome.loaded is True
+        assert outcome.summary.startswith("HISTORICAL")
         fallback_logs = [
             call.args[0] for call in logger.info.call_args_list if "target table is empty" in str(call.args[0])
         ]
         assert fallback_logs
 
     @pytest.mark.parametrize("script_cls, source_table, target_table", RUN_CASES)
-    def test_incremental_without_new_rows_writes_nothing(self, script_cls, source_table, target_table):
+    def test_incremental_without_new_rows_reports_not_loaded(self, script_cls, source_table, target_table):
         # Arrange
         spark = _spark_with_rows()
         spark.read.jdbc.return_value.filter.return_value.head.return_value = []
@@ -154,13 +158,34 @@ class TestRun:
             patch.object(script_cls, "_convert") as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
-            message = script_cls().run(spark, _mock_config(), _mock_db_config())
+            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
 
-        # Assert
-        assert message.startswith("INCREMENTAL")
-        assert "nothing to do" in message
+        # Assert — the script reports the empty run, jobs/single_etl.py raises
+        assert outcome.loaded is False
+        assert outcome.summary.startswith("No records loaded into")
+        assert target_table.split(".")[-1] in outcome.summary
         mock_convert.assert_not_called()
         mock_convert.return_value.write.jdbc.assert_not_called()
+
+    @pytest.mark.parametrize("script_cls, source_table, target_table", RUN_CASES)
+    def test_conversion_yielding_no_rows_reports_not_loaded(self, script_cls, source_table, target_table):
+        # Arrange
+        spark = _spark_with_rows()
+        converted = MagicMock()
+        converted.head.return_value = []
+
+        # Act
+        with (
+            patch.object(script_cls, "_convert", return_value=converted) as mock_convert,
+            patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
+        ):
+            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
+
+        # Assert
+        assert outcome.loaded is False
+        assert "converted to zero rows" in outcome.summary
+        mock_convert.assert_called_once()
+        converted.write.jdbc.assert_not_called()
 
     @pytest.mark.parametrize("script_cls, source_table, target_table", RUN_CASES)
     def test_reads_source_table(self, script_cls, source_table, target_table):
