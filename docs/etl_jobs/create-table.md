@@ -6,7 +6,7 @@
 
 ```mermaid
 flowchart TD
-    CLI["CLI<br/>python run_etl.py CREATE avalanche_org"] -->|JobFactory| JOB["jobs/create_table.py"]
+    CLI["CLI<br/>python run_etl.py CREATE {table}"] -->|JobFactory| JOB["jobs/create_table.py"]
     JOB --> MODEL["TableFactory.get<br/>Pydantic model (raw or plain)"]
     JOB --> CFG["AppConfig + SupabaseConnectionConfig<br/>build jdbc_url / properties"]
     CFG --> SCHEMA["create_schema<br/>CREATE SCHEMA IF NOT EXISTS geo"]

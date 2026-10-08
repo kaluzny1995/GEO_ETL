@@ -34,13 +34,13 @@ How the data flows:
 1. `run_etl.py` resolves `JobType.SINGLE_ETL` → `jobs/single_etl.py` and passes the second positional argument as the **script name** — the file stem of a module in `single_etl/` (e.g. `avalanche_org_etl`).
 2. `SingleEtlFactory` (`factory/single_etl_factory.py`) looks that name up in its registry; scripts are registered by `jobs/__init__.py`.
 3. The job loads both configs, looks the script up in the registry and calls its `run(spark, config, db_config, load_type=..., logger=...)` — the `SingleEtlScript` interface method, which delegates to `utils/etl_utils.run_etl()` with the class's `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()`.
-4. The runner resolves the [load type](load-types.md) from the state of the target table, reads the source table, applies the script's `_convert()` transformation and appends the result to the target table, returning an `EtlOutcome` (`loaded` + `summary`).
+4. The runner resolves the [load type](load-types.md) from the state of the target table, reads the source table — or several tables, stacked with `unionByName` first, as the [`union_etl` script](#union_etl) does — applies the script's `_convert()` transformation and appends the result to the target table, returning an `EtlOutcome` (`loaded` + `summary`).
 5. The **job** decides the exit status: `loaded=True` → completion message; `loaded=False` (nothing newer than the target's max, empty source, or `_convert` produced no rows) → it warns with the outcome's summary and raises `RuntimeError`, so `run_etl.py` exits with code 1.
 
 ```bash
-python run_etl.py SINGLE_ETL avalanche_org_etl                    # auto load type
-python run_etl.py SINGLE_ETL avalanche_org_etl --load-type historical
-python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
+python run_etl.py SINGLE_ETL <table_name>_etl                    # auto load type
+python run_etl.py SINGLE_ETL <table_name>_etl --load-type historical
+python run_etl.py SINGLE_ETL <table_name>_etl --load-type incremental
 ```
 
 `--load-type` accepts `auto` (default), `historical` or `incremental` and is rejected on any other job; the logs go to `logs/single_etl/single_etl_<script>_<timestamp>.log`. A run that loads no records makes the **job** warn and **raise**, so `run_etl.py` exits with code 1 — the INGESTION behaviour (`DATA_QUALITY` is the job that still finishes green on an unchanged table):
@@ -288,6 +288,46 @@ Dropped from the ETL: `observatory`, `notice_type`, `notice_url`, `notice_data_u
 `color_code`, `alert_level`, `casualties` and `damage` are **not** dropped: they live in `other_metrics` because `danger_rating` now carries the VEI. The alert-level terms and the Aviation Color Code are **two independent scales** (USGS: a `NORMAL`…`WARNING` change issues a VAN, a `GREEN`…`RED` change issues a VONA), so both are read from `other_metrics` to detect an escalation, and the NCEI death toll and damage total travel with their units (`people`, `million USD`) so neither can be misread as a bare number. The volcano number and the notice id give the row a stable volcano key and a globally unique notice key.
 
 The coordinates, region, status line, full notice type **and the NCEI eruption numbers** (`vei`, `casualties`, `damage` — the maximum VEI, total deaths and total damage in millions of USD over all of the volcano's significant eruptions) arrive with every row: the GEO_Download downloader resolves the notice details through `data/usgs_volcano_notices.csv` and the eruption record through `data/usgs_volcano_ncei_eruptions.csv` at download time and stamps them into the CSVs, and it stamps the `geocode_state` column the same way (strict on fetch failure — a failed lookup raises and fails the download instead of leaving holes, successful answers are kept for every later run). This ETL passes all of it straight through: no lookup file, no API call, no driver-side map.
+
+## union_etl
+
+`single_etl/union_etl.py`: every source `*_etl` table → `geo.union_etl` (the canonical 21 columns, one row appended for every row the source scripts produced).
+
+The nine tables to stack and the target come from `datasets.single_etl.union_etl` in `config.json`:
+
+```json
+"union_etl": {
+  "target_table": "union_etl",
+  "source_tables": [
+    "avalanche_org_etl", "eonet_event_etl", "gdacs_event_etl",
+    "ibtracs_cyclone_etl", "nifc_fire_etl", "openmeteo_flood_etl",
+    "usgs_earthquake_etl", "usgs_nwis_etl", "usgs_volcano_etl"
+  ]
+}
+```
+
+`SOURCE_TABLE` is that tuple and the shared runner stacks the frames with `unionByName` before `_convert()` sees them — so the script's `_convert()` is the **identity**: nothing is remapped, merged or re-stamped, the rows already carry the structure of `model/etl/event_etl.py`. What distinguishes a row is what its own script put in it:
+
+| Column | In the union table |
+|--------|--------------------|
+| `source_name` | which source produced the row (`AVALANCHE_ORG`, `EONET`, `GDACS`, `IBTRACS`, `NIFC`, `OPENMETEO`, `USGS`) |
+| `event_category`, `event_subcategory`, `metric_name`, `metric_unit` | the source's own labels — kept per source, not harmonised |
+| `danger_rating`, `other_metrics` | the source's own scale and JSON metrics (units included) |
+| the remaining columns | unchanged from the source row |
+
+Load types behave as in the [table above](#single-etl-job): the target's latest `file_date` decides, and an `INCREMENTAL` run filters **each** of the nine sources with the same `file_date > <target max>` condition before stacking, so only rows `geo.union_etl` does not have yet are appended. When no source row is newer the run loads nothing:
+
+```
+WARNING No records loaded into union_etl — no rows to process in 9 source tables
+ERROR ETL job failed   (RuntimeError)   → exit code 1
+```
+
+```bash
+python run_etl.py CREATE <table_name>                      # once — builds the target table
+python run_etl.py SINGLE_ETL <table_name>                  # auto load type
+python run_etl.py SINGLE_ETL <table_name> --load-type historical
+python run_etl.py SINGLE_ETL <table_name> --load-type incremental
+```
 
 ## Adding a new script
 

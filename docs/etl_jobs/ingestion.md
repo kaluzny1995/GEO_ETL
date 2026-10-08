@@ -6,7 +6,7 @@
 
 ```mermaid
 flowchart TD
-    CLI["CLI<br/>python run_etl.py INGESTION avalanche_org"] -->|JobFactory, _raw suffix| JOB["jobs/ingestion.py"]
+    CLI["CLI<br/>python run_etl.py INGESTION {table}"] -->|JobFactory, _raw suffix| JOB["jobs/ingestion.py"]
     JOB --> FU["UploadScriptFactory.get<br/>Class.upload(spark, config, db_config, logger)"]
     JOB --> FT["Raw2PlainScriptFactory.get<br/>Class.raw2plain(spark, config, db_config, logger)"]
 

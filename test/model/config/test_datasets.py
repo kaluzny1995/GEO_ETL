@@ -10,6 +10,7 @@ from model.config.datasets import (
     EonetEventEtlConfig,
     GdacsEventEtlConfig,
     Raw2PlainDatasetConfig,
+    UnionEtlConfig,
     UploadDatasetConfig,
     load_dataset,
 )
@@ -23,7 +24,8 @@ DATASETS = {
             "target_table": "demo_etl",
             "source_name": "DEMO",
             "category_map": {"A": "alpha"},
-        }
+        },
+        "demo_union_etl": {"target_table": "demo_union_etl", "source_tables": ["alpha_etl", "beta_etl"]},
     },
 }
 
@@ -59,6 +61,11 @@ class TestLoadDataset:
         assert cfg.target_table == "demo_etl"
         assert cfg.category_map == {"A": "alpha"}
 
+    def test_returns_typed_union_config(self, config_path):
+        cfg = load_dataset("/x/demo_union_etl.py", "single_etl", UnionEtlConfig, path=config_path)
+        assert cfg.target_table == "demo_union_etl"
+        assert cfg.source_tables == ["alpha_etl", "beta_etl"]
+
     def test_unknown_key_raises_key_error(self, config_path):
         with pytest.raises(KeyError, match=r"datasets\.upload"):
             load_dataset("/x/missing_upload.py", "upload", UploadDatasetConfig, path=config_path)
@@ -90,13 +97,31 @@ class TestProjectConfig:
         with open(CONFIG_PATH) as f:
             datasets = json.load(f)["datasets"]
         assert set(datasets) == {"upload", "raw2plain", "single_etl"}
-        assert all(len(datasets[section]) == 9 for section in datasets)
+        assert len(datasets["upload"]) == 9
+        assert len(datasets["raw2plain"]) == 9
+        assert len(datasets["single_etl"]) == 10
+
+    def test_project_union_script_config_loads(self):
+        cfg = load_dataset("/x/union_etl.py", "single_etl", UnionEtlConfig)
+        assert cfg.target_table == "union_etl"
+        assert cfg.source_tables == [
+            "avalanche_org_etl",
+            "eonet_event_etl",
+            "gdacs_event_etl",
+            "ibtracs_cyclone_etl",
+            "nifc_fire_etl",
+            "openmeteo_flood_etl",
+            "usgs_earthquake_etl",
+            "usgs_nwis_etl",
+            "usgs_volcano_etl",
+        ]
 
     def test_project_config_sections_load(self):
         for key, cfg in {
             "avalanche_org_upload": UploadDatasetConfig,
             "avalanche_org_raw2plain": Raw2PlainDatasetConfig,
             "gdacs_event_etl": GdacsEventEtlConfig,
+            "union_etl": UnionEtlConfig,
         }.items():
             if key.endswith("_etl"):
                 section = "single_etl"

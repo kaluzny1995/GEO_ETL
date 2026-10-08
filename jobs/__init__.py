@@ -54,6 +54,11 @@ def _register():
     _script = UsgsVolcanoEtlScript()
     SingleEtlFactory.register(_script.TARGET_TABLE, _script)
 
+    from single_etl.union_etl import UnionEtlScript
+
+    _script = UnionEtlScript()
+    SingleEtlFactory.register(_script.TARGET_TABLE, _script)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
     from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 

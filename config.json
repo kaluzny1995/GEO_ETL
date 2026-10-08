@@ -613,6 +613,20 @@
         "vnum_unit": "Smithsonian GVP",
         "casualties_unit": "people",
         "damage_unit": "million USD"
+      },
+      "union_etl": {
+        "target_table": "union_etl",
+        "source_tables": [
+          "avalanche_org_etl",
+          "eonet_event_etl",
+          "gdacs_event_etl",
+          "ibtracs_cyclone_etl",
+          "nifc_fire_etl",
+          "openmeteo_flood_etl",
+          "usgs_earthquake_etl",
+          "usgs_nwis_etl",
+          "usgs_volcano_etl"
+        ]
       }
     }
   }

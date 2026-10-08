@@ -9,6 +9,7 @@ from model.etl.gdacs_event_etl import GdacsEventEtl
 from model.etl.ibtracs_cyclone_etl import IbtracsCycloneEtl
 from model.etl.nifc_fire_etl import NifcFireEtl
 from model.etl.openmeteo_flood_etl import OpenMeteoFloodEtl
+from model.etl.union_etl import UnionEtl
 from model.etl.usgs_earthquake_etl import UsgsEarthquakeEtl
 from model.etl.usgs_nwis_etl import UsgsNwisEtl
 from model.etl.usgs_volcano_etl import UsgsVolcanoEtl
@@ -22,6 +23,7 @@ MODEL_CLASSES = [
     IbtracsCycloneEtl,
     NifcFireEtl,
     OpenMeteoFloodEtl,
+    UnionEtl,
     UsgsEarthquakeEtl,
     UsgsNwisEtl,
     UsgsVolcanoEtl,
@@ -319,6 +321,50 @@ MISSING_CASES = [
         "metric_name",
     ),
     (
+        UnionEtl,
+        {
+            "source_name": "EONET",
+            "event_category": "storm",
+            "country_code": "ZZ",
+            "metric_name": "magnitude",
+            "file_date": "2026-10-03",
+        },
+        "source_name",
+    ),
+    (
+        UnionEtl,
+        {
+            "source_name": "EONET",
+            "event_category": "storm",
+            "country_code": "ZZ",
+            "metric_name": "magnitude",
+            "file_date": "2026-10-03",
+        },
+        "event_category",
+    ),
+    (
+        UnionEtl,
+        {
+            "source_name": "EONET",
+            "event_category": "storm",
+            "country_code": "ZZ",
+            "metric_name": "magnitude",
+            "file_date": "2026-10-03",
+        },
+        "country_code",
+    ),
+    (
+        UnionEtl,
+        {
+            "source_name": "EONET",
+            "event_category": "storm",
+            "country_code": "ZZ",
+            "metric_name": "magnitude",
+            "file_date": "2026-10-03",
+        },
+        "metric_name",
+    ),
+    (
         UsgsEarthquakeEtl,
         {
             "source_name": "USGS",
@@ -459,6 +505,7 @@ DDL_CASES = [
     (IbtracsCycloneEtl, "ibtracs_cyclone_etl"),
     (NifcFireEtl, "nifc_fire_etl"),
     (OpenMeteoFloodEtl, "openmeteo_flood_etl"),
+    (UnionEtl, "union_etl"),
     (UsgsEarthquakeEtl, "usgs_earthquake_etl"),
     (UsgsNwisEtl, "usgs_nwis_etl"),
     (UsgsVolcanoEtl, "usgs_volcano_etl"),

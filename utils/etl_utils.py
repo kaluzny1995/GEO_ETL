@@ -9,7 +9,7 @@ subclass that supplies its table names and its own ``_convert``.
 
 import datetime as dt
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
 from pyspark.sql import DataFrame, SparkSession
@@ -64,7 +64,7 @@ def run_etl(
     spark: SparkSession,
     config: AppConfig,
     db_config: SupabaseConnectionConfig,
-    source_table: str,
+    source_table: str | Sequence[str],
     target_table: str,
     convert_fn: Callable[[DataFrame], DataFrame],
     *,
@@ -72,6 +72,10 @@ def run_etl(
     logger: logging.Logger | None = None,
 ) -> EtlOutcome:
     """Read ``geo.<source_table>``, convert it and append to ``geo.<target_table>``.
+
+    *source_table* may also be a sequence of table names — the frames are then
+    stacked with ``unionByName`` before *convert_fn* sees them (the ``union_etl``
+    script stacks the nine ``*_etl`` tables this way).
 
     **Load types** (resolved by :func:`resolve_load_type`)
 
@@ -90,7 +94,8 @@ def run_etl(
         spark: Active Spark session.
         config: Application configuration (DB schema, JDBC driver, logging).
         db_config: Supabase connection credentials.
-        source_table: Source plain table name (e.g. ``"usgs_volcano"``).
+        source_table: Source plain table name (e.g. ``"usgs_volcano"``), or
+            several table names to stack first (the union script).
         target_table: Target ETL table name (e.g. ``"usgs_volcano_etl"``).
         convert_fn: Dataset-specific function that accepts the source
             :class:`~pyspark.sql.DataFrame` and returns the canonical
@@ -115,7 +120,11 @@ def run_etl(
     jdbc_url = db_config.get_jdbc_url()
     properties = db_config.get_jdbc_properties(config.database.jdbc_driver)
 
-    logger.info(f"---- Single ETL started: {schema}.{source_table} → {schema}.{target_table} ----")
+    sources: tuple[str, ...] = (source_table,) if isinstance(source_table, str) else tuple(source_table)
+    source_label = source_table if isinstance(source_table, str) else f"{len(sources)} source tables"
+    source_desc = f"{schema}.{source_label}" if isinstance(source_table, str) else source_label
+
+    logger.info(f"---- Single ETL started: {source_desc} → {schema}.{target_table} ----")
 
     max_file_date = get_max_file_date(spark, jdbc_url, properties, schema, target_table)
     resolved = resolve_load_type(max_file_date, load_type)
@@ -128,20 +137,26 @@ def run_etl(
     else:
         logger.info(f"Load type requested: {resolved.value}")
 
-    source_df = spark.read.jdbc(url=jdbc_url, table=f"{schema}.{source_table}", properties=properties)
+    frames: list[DataFrame] = []
+    for source in sources:
+        frame = spark.read.jdbc(url=jdbc_url, table=f"{schema}.{source}", properties=properties)
+        if resolved is LoadType.INCREMENTAL and max_file_date is not None:
+            logger.info(f"Processing rows of {source} with {FILE_DATE_COL} > {max_file_date}...")
+            frame = frame.filter(F.col(FILE_DATE_COL) > F.lit(max_file_date.isoformat()))
+        else:
+            logger.info(f"Processing every row of {source}...")
+        frames.append(frame)
 
-    if resolved is LoadType.INCREMENTAL and max_file_date is not None:
-        logger.info(f"Processing rows of {source_table} with {FILE_DATE_COL} > {max_file_date}...")
-        source_df = source_df.filter(F.col(FILE_DATE_COL) > F.lit(max_file_date.isoformat()))
-    else:
-        logger.info(f"Processing every row of {source_table}...")
+    source_df = frames[0]
+    for frame in frames[1:]:
+        source_df = source_df.unionByName(frame)
 
     if not source_df.head(1):
-        return EtlOutcome(False, f"No records loaded into {target_table} — no rows to process in {source_table}")
+        return EtlOutcome(False, f"No records loaded into {target_table} — no rows to process in {source_label}")
 
     result_df = convert_fn(source_df)
     if not result_df.head(1):
-        return EtlOutcome(False, f"No records loaded into {target_table} — {source_table} converted to zero rows")
+        return EtlOutcome(False, f"No records loaded into {target_table} — {source_label} converted to zero rows")
 
     logger.info(f"Writing to {schema}.{target_table}...")
     result_df.write.jdbc(url=jdbc_url, table=f"{schema}.{target_table}", mode="append", properties=properties)

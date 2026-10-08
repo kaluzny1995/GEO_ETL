@@ -68,6 +68,10 @@ The `datasets` section of the same file holds every script's wiring and transfor
         "event_category": "avalanche",
         "metric_name": "magnitude",
         "danger_level_unit": "NAPADS level"
+      },
+      "union_etl": {
+        "target_table": "union_etl",
+        "source_tables": ["avalanche_org_etl", "eonet_event_etl", "..."]
       }
     }
   }
@@ -78,7 +82,7 @@ The `datasets` section of the same file holds every script's wiring and transfor
 |---------|----------|----------------|
 | `datasets.upload.<script>` | raw table name, CSV folder | `UploadDatasetConfig` |
 | `datasets.raw2plain.<script>` | raw + plain table names | `Raw2PlainDatasetConfig` |
-| `datasets.single_etl.<script>` | plain/ETL tables, source name, category and country maps, metric labels, lookup tables | one `<Name>EtlConfig` per script |
+| `datasets.single_etl.<script>` | plain/ETL tables, source name, category and country maps, metric labels, lookup tables (`union_etl` instead lists the `*_etl` tables it stacks) | one `<Name>EtlConfig` per script, `UnionEtlConfig` for the union script |
 
 Each script loads its own entry at import time and uses the model's fields directly — there are no per-field aliases:
 

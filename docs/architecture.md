@@ -2,7 +2,7 @@
 
 # Project Structure
 
-The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold script classes with their interfaces (`upload_script.py`, `raw2plain_script.py`), `single_etl/` holds per-dataset PySpark scripts (interface in `single_etl/single_etl_script.py`) run by the `SINGLE_ETL` job, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
+The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold script classes with their interfaces (`upload_script.py`, `raw2plain_script.py`), `single_etl/` holds per-dataset PySpark scripts (interface in `single_etl/single_etl_script.py`) run by the `SINGLE_ETL` job — including a `union_etl` script that stacks their output into one `geo.union_etl` table, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
 
 ```
 GEO_ETL/
@@ -71,7 +71,8 @@ GEO_ETL/
 │   ├── openmeteo_flood_etl.py         # geo.openmeteo_flood -> geo.openmeteo_flood_etl (canonical event structure)
 │   ├── usgs_earthquake_etl.py         # geo.usgs_earthquake -> geo.usgs_earthquake_etl (canonical event structure)
 │   ├── usgs_nwis_etl.py               # geo.usgs_nwis -> geo.usgs_nwis_etl (canonical event structure)
-│   └── usgs_volcano_etl.py            # geo.usgs_volcano -> geo.usgs_volcano_etl (canonical event structure)
+│   ├── usgs_volcano_etl.py            # geo.usgs_volcano -> geo.usgs_volcano_etl (canonical event structure)
+│   └── union_etl.py                   # every *_etl table -> geo.union_etl (stacks the nine canonical tables)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
@@ -99,7 +100,8 @@ GEO_ETL/
 │   │   ├── openmeteo_flood_etl.py     # OpenMeteoFloodEtl — geo.openmeteo_flood_etl model
 │   │   ├── usgs_earthquake_etl.py     # UsgsEarthquakeEtl — geo.usgs_earthquake_etl model
 │   │   ├── usgs_nwis_etl.py           # UsgsNwisEtl — geo.usgs_nwis_etl model
-│   │   └── usgs_volcano_etl.py        # UsgsVolcanoEtl — geo.usgs_volcano_etl model
+│   │   ├── usgs_volcano_etl.py        # UsgsVolcanoEtl — geo.usgs_volcano_etl model
+│   │   └── union_etl.py               # UnionEtl — geo.union_etl model (every *_etl table stacked)
 │   ├── plain/
 │       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
 │       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
@@ -168,13 +170,13 @@ GEO_ETL/
     │   └── test_single_etl.py
     ├── model/
     │   ├── test_enums.py
-    │   ├── test_model_contract.py    # Shared contract for all 27 plain/raw/ETL models
+    │   ├── test_model_contract.py    # Shared contract for all 28 plain/raw/ETL models
     │   ├── config/
     │   │   ├── test_config.py
     │   │   ├── test_datasets.py
     │   │   └── test_supabase_config.py
     │   ├── etl/
-    │   │   └── test_event_etl_models.py   # 9 ETL models (parametrized)
+    │   │   └── test_event_etl_models.py   # 10 ETL models incl. UnionEtl (parametrized)
     │   ├── plain/
     │   │   └── test_plain_models.py       # 9 plain models (parametrized)
     │   ├── raw/
@@ -192,7 +194,7 @@ GEO_ETL/
     │   └── raw2plain/
     │       └── test_raw2plain_scripts.py  # 9 raw2plain scripts (parametrized)
     ├── single_etl/
-    │   ├── test_shared_etl_behavior.py    # Run() behavior shared by all 9 scripts
+    │   ├── test_shared_etl_behavior.py    # Run() behavior shared by all 10 scripts
     │   ├── test_avalanche_org_etl.py
     │   ├── test_eonet_event_etl.py
     │   ├── test_gdacs_event_etl.py
@@ -201,7 +203,8 @@ GEO_ETL/
     │   ├── test_openmeteo_flood_etl.py
     │   ├── test_usgs_earthquake_etl.py
     │   ├── test_usgs_nwis_etl.py
-    │   └── test_usgs_volcano_etl.py
+    │   ├── test_usgs_volcano_etl.py
+    │   └── test_union_etl.py
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py

@@ -53,21 +53,28 @@ conda activate geo_etl_311
 
 # Create the tables for a data source — one CREATE per table:
 # raw (all-TEXT) and plain (typed)
-python run_etl.py CREATE avalanche_org_raw
-python run_etl.py CREATE avalanche_org
+python run_etl.py CREATE <table_name>_raw
+python run_etl.py CREATE <table_name>
 
 # Run full ingestion pipeline (upload CSVs → raw table → typed plain table)
-python run_etl.py INGESTION avalanche_org
+python run_etl.py INGESTION <table_name>
 
 # Measure data quality of the plain table (writes geo.data_quality)
-python run_etl.py DATA_QUALITY avalanche_org
+python run_etl.py DATA_QUALITY <table_name>
 
 # Run a standalone PySpark script from single_etl/ (load type auto-detected)
-python run_etl.py SINGLE_ETL avalanche_org_etl
+python run_etl.py SINGLE_ETL <table_name>_etl
 
 # Same, forcing the load type
-python run_etl.py SINGLE_ETL avalanche_org_etl --load-type historical
-python run_etl.py SINGLE_ETL avalanche_org_etl --load-type incremental
+python run_etl.py SINGLE_ETL <table_name>_etl --load-type historical
+python run_etl.py SINGLE_ETL <table_name>_etl --load-type incremental
+
+# Stack every *_etl table into one union table (the union script, load type auto-detected)
+python run_etl.py CREATE <table_name>
+python run_etl.py SINGLE_ETL <table_name>
+
+# Same, forcing the load type
+python run_etl.py SINGLE_ETL <table_name> --load-type historical
 ```
 
 GEO_ETL makes no reverse-geocoding API calls: the lookup and the fetching live in GEO_Download, whose downloaders stamp `geocode_country` / `geocode_state` into the daily CSVs at download time — the scripts below only read those columns and apply their own fallbacks.
@@ -86,55 +93,26 @@ GEO_ETL makes no reverse-geocoding API calls: the lookup and the fetching live i
 
 `usgs_volcano_etl` passes the notice details the GEO_Download downloader stamped into the CSVs (coordinates, region, status line, full notice type) straight through; the metric is the stamped NCEI/WDS eruption record (`vei` with unit `VEI`, casualties and damage in `other_metrics`), and `state_province` comes from the `geocode_state` column stamped at download time (`ZZ` when empty, e.g. the Ahyi Seamount ocean point), see [ETL jobs — usgs_volcano_etl](etl_jobs/single-etl.md#usgs_volcano_etl).
 
-**All registered tables:**
+**Every registered table — one run per table (the names are listed in [Data tables](data-tables.md)):**
 
 ```bash
-# Create the raw tables (all TEXT) — one CREATE per table
-python run_etl.py CREATE avalanche_org_raw
-python run_etl.py CREATE eonet_event_raw
-python run_etl.py CREATE gdacs_event_raw
-python run_etl.py CREATE ibtracs_cyclone_raw
-python run_etl.py CREATE nifc_fire_raw
-python run_etl.py CREATE openmeteo_flood_raw
-python run_etl.py CREATE usgs_earthquake_raw
-python run_etl.py CREATE usgs_nwis_raw
-python run_etl.py CREATE usgs_volcano_raw
+# Create the raw tables (all TEXT) — one CREATE run per table
+python run_etl.py CREATE <table_name>_raw
 
-# Create the plain tables (typed) — again one CREATE per table
-python run_etl.py CREATE avalanche_org
-python run_etl.py CREATE eonet_event
-python run_etl.py CREATE gdacs_event
-python run_etl.py CREATE ibtracs_cyclone
-python run_etl.py CREATE nifc_fire
-python run_etl.py CREATE openmeteo_flood
-python run_etl.py CREATE usgs_earthquake
-python run_etl.py CREATE usgs_nwis
-python run_etl.py CREATE usgs_volcano
+# Create the plain tables (typed) — again one CREATE run per table
+python run_etl.py CREATE <table_name>
 
-# Canonical ETL table (SINGLE_ETL target)
-python run_etl.py CREATE avalanche_org_etl
-python run_etl.py CREATE eonet_event_etl
-python run_etl.py CREATE gdacs_event_etl
-python run_etl.py CREATE ibtracs_cyclone_etl
-python run_etl.py CREATE nifc_fire_etl
-python run_etl.py CREATE openmeteo_flood_etl
-python run_etl.py CREATE usgs_earthquake_etl
-python run_etl.py CREATE usgs_nwis_etl
-python run_etl.py CREATE usgs_volcano_etl
+# Canonical ETL tables (SINGLE_ETL targets) — one CREATE run per table
+python run_etl.py CREATE <table_name>_etl
 
-# Ingest data (upload + transform)
-python run_etl.py INGESTION avalanche_org
-python run_etl.py INGESTION eonet_event
-python run_etl.py INGESTION gdacs_event
-python run_etl.py INGESTION ibtracs_cyclone
-python run_etl.py INGESTION nifc_fire
-python run_etl.py INGESTION openmeteo_flood
-python run_etl.py INGESTION usgs_earthquake
-python run_etl.py INGESTION usgs_nwis
-python run_etl.py INGESTION usgs_volcano
+# Union table — stacks every *_etl table into one (the union script)
+python run_etl.py CREATE <table_name>
+
+# Ingest data (upload + transform) — one run per data source
+python run_etl.py INGESTION <table_name>
 ```
 
-> **Note:** `CREATE` takes the exact table name — one run creates one table, so raw and plain tables need their own `CREATE`. Only `INGESTION` appends the `_raw` suffix itself: pass `avalanche_org`, not `avalanche_org_raw`.
+> **Note:** `CREATE` takes the exact table name — one run creates one table, so raw and plain tables need their own `CREATE`. Only `INGESTION` appends the `_raw` suffix itself: pass `<table_name>`, not `<table_name>_raw`.
 
 **How it works:**
 
@@ -143,7 +121,7 @@ python run_etl.py INGESTION usgs_volcano
 3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model for the **exact** table name passed on the command line, executes it against Supabase — one table per run
 4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories — **exits with code 1 when nothing was ingested** (no CSV newer than the raw table's max `file_date` and no raw row newer than the plain table's)
 5. For `DATA_QUALITY`: measures only the selected `file_date`s of the plain table and replaces those rows in `geo.data_quality`
-6. For `SINGLE_ETL`: resolves the script name (`single_etl/<name>.py`) via `SingleEtlFactory` and runs it with the selected load type — **exits with code 1 when no record was loaded** (no source row newer than the `_etl` table's max `file_date`, an empty source, or a conversion that yields zero rows)
+6. For `SINGLE_ETL`: resolves the script name (`single_etl/<name>.py`) via `SingleEtlFactory` and runs it with the selected load type — **exits with code 1 when no record was loaded** (no source row newer than the `_etl` table's max `file_date`, an empty source, or a conversion that yields zero rows). The `union_etl` script is one of them: it stacks every `*_etl` table into `geo.union_etl`
 
 See [ETL jobs](etl-jobs.md) for the job registry, the CREATE, INGESTION and SINGLE_ETL pipelines and their load-type logic.
 
@@ -154,16 +132,13 @@ See [ETL jobs](etl-jobs.md) for the job registry, the CREATE, INGESTION and SING
 ```bash
 conda activate geo_etl_311
 
-# One table
-python run_etl.py DATA_QUALITY avalanche_org
+# One table (plain name — no _raw suffix)
+python run_etl.py DATA_QUALITY <table_name>
 
 # One table — whole table as a single snapshot (file_date = 'overall')
-python run_etl.py DATA_QUALITY avalanche_org --overall
+python run_etl.py DATA_QUALITY <table_name> --overall
 
-# All plain tables
-for t in avalanche_org eonet_event gdacs_event ibtracs_cyclone nifc_fire openmeteo_flood usgs_earthquake usgs_nwis usgs_volcano; do
-    python run_etl.py DATA_QUALITY "$t"
-done
+# All plain tables — repeat the first command once per table
 ```
 
 > **Note:** Pass the plain table name — `DATA_QUALITY` does not add the `_raw` suffix, and the metrics are computed on the typed table.
@@ -206,7 +181,7 @@ JDBC URL:       jdbc:postgresql://aws-1-eu-west-1.pooler.supabase.com:6543/postg
 +------------------+------+
 |auth              |27    |
 |extensions        |2     |
-|geo               |28    |
+|geo               |29    |
 |information_schema|69    |
 |public            |2     |
 |realtime          |3     |
@@ -259,19 +234,15 @@ Delete all rows with the most recent `file_date`. Useful for re-running INCREMEN
 ```bash
 conda activate geo_etl_311
 
-# Delete latest file_date from the raw + plain tables of a single data source
-python run_delete_last_filedate_data.py avalanche_org
+# Delete latest file_date from the raw + plain tables of one data source
+# (repeat once per table for all data sources)
+python run_delete_last_filedate_data.py <table_name>
 
 # Delete latest file_date from the ETL table only
-python run_delete_last_filedate_data.py avalanche_org_etl
-
-# Delete latest file_date for all data sources
-for t in avalanche_org eonet_event gdacs_event ibtracs_cyclone nifc_fire openmeteo_flood usgs_earthquake usgs_nwis usgs_volcano; do
-    python run_delete_last_filedate_data.py "$t"
-done
+python run_delete_last_filedate_data.py <table_name>_etl
 ```
 
-> **Note:** Both forms are accepted — the script appends the `_raw` suffix itself when you pass the plain name, so `avalanche_org` and `avalanche_org_raw` do the same thing.
+> **Note:** Both forms are accepted — the script appends the `_raw` suffix itself when you pass the plain name, so `<table_name>` and `<table_name>_raw` do the same thing.
 
 The script derives the plain table name automatically by stripping the `_raw` suffix (e.g. `avalanche_org_raw` → `avalanche_org`).
 
@@ -290,11 +261,11 @@ Delete complete: file_date=2026-09-22, raw=166, plain=166
 
 ## Incremental test workflow
 
-1. Run HISTORICAL ingestion to load all data (`python run_etl.py INGESTION <table>`).
+1. Run HISTORICAL ingestion to load all data (`python run_etl.py INGESTION <table_name>`).
 2. Delete latest `file_date` from both raw + plain tables using `run_delete_last_filedate_data.py`.
 3. Run INGESTION again — the script detects missing files and re-loads the deleted data.
 
-The same pattern works for the ETL step: pass `<table>_etl` to the script, then re-run `python run_etl.py SINGLE_ETL <table>_etl` to re-process the deleted date incrementally.
+The same pattern works for the ETL step: pass `<table_name>_etl` to the script, then re-run `python run_etl.py SINGLE_ETL <table_name>_etl` to re-process the deleted date incrementally.
 
 Load types and the detection logic are described in [ETL jobs — Load type detection](etl_jobs/load-types.md).
 

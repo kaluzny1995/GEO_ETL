@@ -2,6 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from typing import ClassVar
 
 from pyspark.sql import DataFrame, SparkSession
@@ -20,8 +21,9 @@ class SingleEtlScript(ABC):
     of its own and delegates to :func:`~utils.etl_utils.run_etl`.
     """
 
-    SOURCE_TABLE: ClassVar[str]
-    """Plain table the script reads (e.g. ``"usgs_volcano"``)."""
+    SOURCE_TABLE: ClassVar[str | Sequence[str]]
+    """Plain table the script reads (e.g. ``"usgs_volcano"``) — or several
+    tables to stack with ``unionByName`` (the union script)."""
 
     TARGET_TABLE: ClassVar[str]
     """ETL table the script appends to (e.g. ``"usgs_volcano_etl"``)."""
@@ -45,7 +47,7 @@ class SingleEtlScript(ABC):
         load_type: LoadType | None = None,
         logger: logging.Logger | None = None,
     ) -> etl_utils.EtlOutcome:
-        """Read ``geo.<SOURCE_TABLE>``, convert it and append to ``geo.<TARGET_TABLE>``.
+        """Read ``geo.<SOURCE_TABLE>`` (one table, or several stacked), convert it and append to ``geo.<TARGET_TABLE>``.
 
         Args:
             spark: Active Spark session.

@@ -159,6 +159,25 @@ class UsgsVolcanoEtlConfig(SingleEtlDatasetConfig):
     damage_unit: str
 
 
+class UnionEtlConfig(BaseModel):
+    """Constants for ``single_etl/union_etl.py`` (the union script).
+
+    Unlike the source scripts it has no single source table and stamps no
+    ``source_name`` — it stacks rows the other ``*_etl`` scripts already
+    produced.
+
+    Attributes:
+        source_tables: Source ``*_etl`` tables stacked into *target_table* in
+            this order (the nine registered ``<source>_etl`` tables).
+        target_table: Table the stacked rows are appended to (``union_etl``).
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    target_table: str
+    source_tables: list[str]
+
+
 @cache
 def _read_datasets(path: str) -> dict:
     with open(path) as f:

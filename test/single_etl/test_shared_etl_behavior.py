@@ -1,4 +1,4 @@
-"""Parametrized run-behaviour tests shared by all nine single-ETL scripts.
+"""Parametrized run-behaviour tests shared by all ten single-ETL scripts.
 
 Each case exercises the same behaviour against a different script class —
 the script supplies its own source/target tables while
@@ -17,6 +17,7 @@ from single_etl.gdacs_event_etl import GdacsEventEtlScript
 from single_etl.ibtracs_cyclone_etl import IbtracsCycloneEtlScript
 from single_etl.nifc_fire_etl import NifcFireEtlScript
 from single_etl.openmeteo_flood_etl import OpenMeteoFloodEtlScript
+from single_etl.union_etl import UnionEtlScript
 from single_etl.usgs_earthquake_etl import UsgsEarthquakeEtlScript
 from single_etl.usgs_nwis_etl import UsgsNwisEtlScript
 from single_etl.usgs_volcano_etl import UsgsVolcanoEtlScript
@@ -31,6 +32,7 @@ RUN_CASES = [
     (UsgsEarthquakeEtlScript, "geo.usgs_earthquake", "geo.usgs_earthquake_etl"),
     (UsgsNwisEtlScript, "geo.usgs_nwis", "geo.usgs_nwis_etl"),
     (UsgsVolcanoEtlScript, "geo.usgs_volcano", "geo.usgs_volcano_etl"),
+    (UnionEtlScript, tuple(f"geo.{table}" for table in UnionEtlScript.SOURCE_TABLE), "geo.union_etl"),
 ]
 
 INCREMENTAL_CASES = [
@@ -56,8 +58,16 @@ def _mock_db_config():
 
 
 def _spark_with_rows():
+    """One frame for every read — filter and stacking return it unchanged.
+
+    The union script stacks nine reads with ``unionByName``; collapsing each
+    frame back onto itself keeps every assertion (head, convert input) valid
+    for one source and for nine.
+    """
     spark = MagicMock()
-    spark.read.jdbc.return_value.head.return_value = [MagicMock()]
+    frame = spark.read.jdbc.return_value
+    frame.filter.return_value = frame
+    frame.unionByName.return_value = frame
     return spark
 
 
@@ -99,7 +109,8 @@ class TestRun:
         # Assert
         assert outcome.loaded is True
         assert outcome.summary.startswith("INCREMENTAL")
-        spark.read.jdbc.return_value.filter.assert_called_once()
+        expected_sources = [source_table] if isinstance(source_table, str) else list(source_table)
+        assert spark.read.jdbc.return_value.filter.call_count == len(expected_sources)
         condition = str(spark.read.jdbc.return_value.filter.call_args[0][0])
         assert "file_date" in condition
         assert "2026-09-28" in condition
@@ -200,5 +211,6 @@ class TestRun:
             script_cls().run(spark, _mock_config(), _mock_db_config())
 
         # Assert
-        assert spark.read.jdbc.call_args.kwargs["table"] == source_table
+        expected_sources = [source_table] if isinstance(source_table, str) else list(source_table)
+        assert [call.kwargs["table"] for call in spark.read.jdbc.call_args_list] == expected_sources
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value

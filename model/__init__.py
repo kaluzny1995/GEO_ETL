@@ -6,6 +6,7 @@ from model.etl.gdacs_event_etl import GdacsEventEtl
 from model.etl.ibtracs_cyclone_etl import IbtracsCycloneEtl
 from model.etl.nifc_fire_etl import NifcFireEtl
 from model.etl.openmeteo_flood_etl import OpenMeteoFloodEtl
+from model.etl.union_etl import UnionEtl
 from model.etl.usgs_earthquake_etl import UsgsEarthquakeEtl
 from model.etl.usgs_nwis_etl import UsgsNwisEtl
 from model.etl.usgs_volcano_etl import UsgsVolcanoEtl
@@ -62,6 +63,7 @@ def _register_tables():
     TableFactory.register("usgs_volcano_raw", UsgsVolcanoRaw)
     TableFactory.register("usgs_volcano", UsgsVolcano)
     TableFactory.register("usgs_volcano_etl", UsgsVolcanoEtl)
+    TableFactory.register("union_etl", UnionEtl)
     TableFactory.register("data_quality", DataQuality)
 
 
@@ -90,6 +92,7 @@ __all__ = [
     "OpenMeteoFloodEtl",
     "OpenMeteoFloodRaw",
     "SupabaseConnectionConfig",
+    "UnionEtl",
     "UsgsEarthquake",
     "UsgsEarthquakeEtl",
     "UsgsEarthquakeRaw",

@@ -1,4 +1,4 @@
-"""Cross-family contract tests shared by all 27 canonical models.
+"""Cross-family contract tests shared by all 28 canonical models.
 
 Every plain, raw and ETL model must accept a full row, expose its Spark
 schema in model order, treat the same fields as optional and require
@@ -17,6 +17,7 @@ from model.etl.gdacs_event_etl import GdacsEventEtl
 from model.etl.ibtracs_cyclone_etl import IbtracsCycloneEtl
 from model.etl.nifc_fire_etl import NifcFireEtl
 from model.etl.openmeteo_flood_etl import OpenMeteoFloodEtl
+from model.etl.union_etl import UnionEtl
 from model.etl.usgs_earthquake_etl import UsgsEarthquakeEtl
 from model.etl.usgs_nwis_etl import UsgsNwisEtl
 from model.etl.usgs_volcano_etl import UsgsVolcanoEtl
@@ -932,6 +933,44 @@ VALID_CASES = [
         },
     ),
     (
+        UnionEtl,
+        {
+            "source_name": "EONET",
+            "subsource_name": None,
+            "event_name": "Storm - Cyclone",
+            "event_category": "storm",
+            "event_subcategory": None,
+            "event_description": "Observed by EONET",
+            "latitude": 12.34,
+            "longitude": 56.78,
+            "country_code": "ZZ",
+            "state_province": None,
+            "place_location": "Bay of Bengal",
+            "metric_name": "magnitude",
+            "metric_value": 3.2,
+            "metric_unit": None,
+            "danger_rating": None,
+            "other_metrics": None,
+            "event_start": dt.datetime(2026, 10, 1, 6, 0),
+            "event_end": None,
+            "last_latitude": None,
+            "last_longitude": None,
+            "file_date": "2026-10-03",
+        },
+        {
+            "source_name": "EONET",
+            "event_name": "Storm - Cyclone",
+            "event_category": "storm",
+            "event_description": "Observed by EONET",
+            "latitude": 12.34,
+            "country_code": "ZZ",
+            "place_location": "Bay of Bengal",
+            "metric_name": "magnitude",
+            "metric_value": 3.2,
+            "file_date": "2026-10-03",
+        },
+    ),
+    (
         UsgsEarthquakeEtl,
         {
             "source_name": "USGS",
@@ -1703,6 +1742,33 @@ OPTIONAL_CASES = [
         ],
     ),
     (
+        UnionEtl,
+        {
+            "source_name": "EONET",
+            "event_category": "storm",
+            "country_code": "ZZ",
+            "metric_name": "magnitude",
+            "file_date": "2026-10-03",
+        },
+        [
+            "subsource_name",
+            "event_name",
+            "event_subcategory",
+            "event_description",
+            "latitude",
+            "longitude",
+            "state_province",
+            "place_location",
+            "metric_value",
+            "metric_unit",
+            "danger_rating",
+            "event_start",
+            "event_end",
+            "last_latitude",
+            "last_longitude",
+        ],
+    ),
+    (
         UsgsEarthquakeEtl,
         {
             "source_name": "USGS",
@@ -1812,6 +1878,7 @@ COUNT_CASES = [
     (IbtracsCycloneEtl, 21),
     (NifcFireEtl, 21),
     (OpenMeteoFloodEtl, 21),
+    (UnionEtl, 21),
     (UsgsEarthquakeEtl, 21),
     (UsgsNwisEtl, 21),
     (UsgsVolcanoEtl, 21),
@@ -2064,6 +2131,7 @@ TYPE_CASES = [
     (IbtracsCycloneEtl, ["source_name", "country_code", "place_location", "other_metrics", "file_date"], StringType),
     (NifcFireEtl, ["source_name", "country_code", "place_location", "other_metrics", "file_date"], StringType),
     (OpenMeteoFloodEtl, ["source_name", "country_code", "place_location", "other_metrics", "file_date"], StringType),
+    (UnionEtl, ["source_name", "country_code", "place_location", "other_metrics", "file_date"], StringType),
     (UsgsEarthquakeEtl, ["source_name", "country_code", "place_location", "other_metrics", "file_date"], StringType),
     (UsgsNwisEtl, ["source_name", "country_code", "place_location", "other_metrics", "file_date"], StringType),
     (UsgsVolcanoEtl, ["source_name", "country_code", "place_location", "other_metrics", "file_date"], StringType),
@@ -2073,6 +2141,7 @@ TYPE_CASES = [
     (IbtracsCycloneEtl, ["latitude", "longitude", "metric_value", "last_latitude", "last_longitude"], DoubleType),
     (NifcFireEtl, ["latitude", "longitude", "metric_value", "last_latitude", "last_longitude"], DoubleType),
     (OpenMeteoFloodEtl, ["latitude", "longitude", "metric_value", "last_latitude", "last_longitude"], DoubleType),
+    (UnionEtl, ["latitude", "longitude", "metric_value", "last_latitude", "last_longitude"], DoubleType),
     (UsgsEarthquakeEtl, ["latitude", "longitude", "metric_value", "last_latitude", "last_longitude"], DoubleType),
     (UsgsNwisEtl, ["latitude", "longitude", "metric_value", "last_latitude", "last_longitude"], DoubleType),
     (UsgsVolcanoEtl, ["latitude", "longitude", "metric_value", "last_latitude", "last_longitude"], DoubleType),
@@ -2082,6 +2151,7 @@ TYPE_CASES = [
     (IbtracsCycloneEtl, ["event_start", "event_end"], TimestampType),
     (NifcFireEtl, ["event_start", "event_end"], TimestampType),
     (OpenMeteoFloodEtl, ["event_start", "event_end"], TimestampType),
+    (UnionEtl, ["event_start", "event_end"], TimestampType),
     (UsgsEarthquakeEtl, ["event_start", "event_end"], TimestampType),
     (UsgsNwisEtl, ["event_start", "event_end"], TimestampType),
     (UsgsVolcanoEtl, ["event_start", "event_end"], TimestampType),

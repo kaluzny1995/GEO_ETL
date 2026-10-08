@@ -40,6 +40,8 @@ Details: [DATA_QUALITY job — load type notes](data-quality.md#load-type-detect
 | `--load-type historical` | `HISTORICAL` | Full reprocess even when the target has data |
 | `--load-type incremental` | `INCREMENTAL` | Same as auto; falls back to `HISTORICAL` when the target is empty |
 
+The [`union_etl` script](single-etl.md#union_etl) follows the same table: its target is `geo.union_etl`, and an `INCREMENTAL` run filters *each* of the nine source `*_etl` tables with the target's `file_date` maximum before stacking them.
+
 **SINGLE_ETL fails when it loads no records** — the same contract as INGESTION: the shared runner reports the empty run as `EtlOutcome(loaded=False, …)` and `jobs/single_etl.py` warns with that summary and raises, so `run_etl.py` exits with code 1 (the E2E chain then logs a warning and stops). The runner itself never raises — it covers an up-to-date incremental run, an empty source and a conversion that yields zero rows:
 
 ```

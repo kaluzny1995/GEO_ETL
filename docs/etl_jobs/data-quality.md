@@ -8,10 +8,10 @@
 conda activate geo_etl_311
 
 # Plain table name — no _raw suffix, metrics are measured on the typed table
-python run_etl.py DATA_QUALITY avalanche_org
+python run_etl.py DATA_QUALITY <table_name>
 
 # Whole table as one snapshot, stored under file_date = 'overall'
-python run_etl.py DATA_QUALITY avalanche_org --overall
+python run_etl.py DATA_QUALITY <table_name> --overall
 ```
 
 > **Note:** `INGESTION` appends `_raw` internally for its own lookups, `CREATE` takes the exact table name it is given, and `DATA_QUALITY` adds nothing — pass the plain table name.
@@ -71,7 +71,7 @@ DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org';
 `--overall` measures **every row of the table as one group**, regardless of `file_date`, and stores the result under the sentinel `file_date = 'overall'` — it skips the load type detection and the purge (steps 4 and 5), and only previously stored `overall` rows are replaced, so the per-`file_date` history stays untouched:
 
 ```bash
-python run_etl.py DATA_QUALITY avalanche_org --overall
+python run_etl.py DATA_QUALITY <table_name> --overall
 ```
 
 | | Per-`file_date` run (default) | `--overall` run |

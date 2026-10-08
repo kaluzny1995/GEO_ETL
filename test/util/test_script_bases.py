@@ -44,6 +44,23 @@ class TestSingleEtlScript:
         assert script._convert("frame") == "frame"
         assert kwargs == {"load_type": None, "logger": None}
 
+    def test_run_passes_a_stack_of_source_tables_through(self):
+        class _StackScript(SingleEtlScript):
+            SOURCE_TABLE = ("src_plain", "other_plain")
+            TARGET_TABLE = "stack_etl"
+
+            def _convert(self, df):
+                return df
+
+        script = _StackScript()
+        assert script._convert("frame") == "frame"
+        with patch("utils.etl_utils.run_etl", return_value=EtlOutcome(True, "ok")) as mock_run:
+            script.run(MagicMock(), MagicMock(), MagicMock())
+
+        args, _kwargs = mock_run.call_args
+        assert args[3] == ("src_plain", "other_plain")
+        assert args[4] == "stack_etl"
+
     def test_run_passes_load_type_and_logger_through(self):
         script = _StubScript()
         load_type, logger = MagicMock(name="load_type"), MagicMock(name="logger")

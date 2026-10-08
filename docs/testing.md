@@ -27,20 +27,21 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/jobs/test_single_etl.py` | SINGLE_ETL job (script resolution, load type and logger passing, unknown script, raises `RuntimeError` when the run loaded no records) |
 | `test/model/test_enums.py` | JobType and LoadType enums (values, membership, from_value, invalid value) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig models |
-| `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models, project config sections |
+| `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models, project config sections (incl. the union script's `source_tables`) |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
-| `test/model/test_model_contract.py` | Shared contract for all 27 canonical models (plain + raw + ETL): full-row kwargs, optional fields default to None, Spark schema field count/names/nullable/type, missing `file_date` raises |
+| `test/model/test_model_contract.py` | Shared contract for all 28 canonical models (plain + raw + ETL): full-row kwargs, optional fields default to None, Spark schema field count/names/nullable/type, missing `file_date` raises |
 | `test/model/raw/test_raw_models.py` | All nine raw models parametrized (all-fields-accepted, optional present, missing required field, all-string Spark schema) + NIFC CSV header order |
 | `test/model/plain/test_plain_models.py` | All nine plain models parametrized (missing required/key field, DDL fragments, DDL create table, factory registry) + IBTrACS field-name membership |
 | `test/model/other/test_data_quality.py` | DataQuality model validation + Spark schema + DDL types + registry |
-| `test/model/etl/test_event_etl_models.py` | All nine ETL models parametrized (missing required fields, empty model raises, canonical field order, field names, non-nullable required fields, DDL header/column types, registry) |
+| `test/model/etl/test_event_etl_models.py` | The nine source ETL models + `UnionEtl` parametrized (missing required fields, empty model raises, canonical field order, field names, non-nullable required fields, DDL header/column types, registry) |
 | `test/ingestion/upload/test_upload_scripts.py` | All nine upload scripts parametrized (helpers + upload: historical, incremental, no files, logging, parse/max-file-date) |
 | `test/ingestion/raw2plain/test_raw2plain_scripts.py` | All nine Raw2Plain transforms parametrized (historical, incremental, no records, type conversion, max-file-date helper) |
 | `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch, `--overall` / `--load-type`, Spark session lifecycle, logger passing, error handling) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from raw + plain or ETL-only, table derivation, skip on empty, data_quality rejection) |
-| `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all nine SINGLE_ETL scripts parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, `loaded=False` for no-new-rows / empty conversion, source table) |
+| `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all ten SINGLE_ETL scripts (the nine source scripts + `union_etl`) parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, `loaded=False` for no-new-rows / empty conversion, source table) |
+| `test/single_etl/test_union_etl.py` | union script (nine configured source tables, identity `_convert`, target from config, registry entry) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (column mapping, source coordinate pass-through, forecast-window collapse) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (category/place/country mapping, stamped geocode pass-through with description-state precedence) |
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |
