@@ -28,6 +28,7 @@ def get_max_file_date(
     properties: dict[str, str],
     schema: str,
     table_name: str,
+    source_table: str | None = None,
 ) -> dt.date | None:
     """Return the most recent ``file_date`` value in *table_name*.
 
@@ -37,12 +38,23 @@ def get_max_file_date(
         properties: JDBC connection properties (e.g. ``user``, ``password``).
         schema: PostgreSQL schema name (e.g. ``"geo"``).
         table_name: Target table name (without schema prefix).
+        source_table: When set, only rows whose ``source_name`` also occurs in
+            ``schema.source_table`` are considered — every ``*_etl`` table
+            stamps its own ``source_name``, so scoping the target to the
+            labels of one source table gives that source's incremental
+            threshold. ``None`` (the default) uses every row of *table_name*.
 
     Returns:
-        The maximum :class:`datetime.date`, or ``None`` when the table is empty
-        or does not exist.
+        The maximum :class:`datetime.date`, or ``None`` when no matching row
+        exists — the table is empty, does not exist, or (when *source_table*
+        is set) has no rows with that source's ``source_name`` yet.
     """
-    subquery = f"(SELECT MAX(TO_DATE(file_date, 'YYYY-MM-DD')) AS max_file_date FROM {schema}.{table_name}) AS t"
+    where = (
+        f" WHERE source_name IN (SELECT DISTINCT source_name FROM {schema}.{source_table})"
+        if source_table is not None
+        else ""
+    )
+    subquery = f"(SELECT MAX(TO_DATE(file_date, 'YYYY-MM-DD')) AS max_file_date FROM {schema}.{table_name}{where}) AS t"
     try:
         row = spark.read.jdbc(url=jdbc_url, table=subquery, properties=properties).first()
         if row and row.max_file_date:

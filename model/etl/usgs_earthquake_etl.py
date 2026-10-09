@@ -8,7 +8,7 @@ class UsgsEarthquakeEtl(EventEtl):
 
     Mapping (see ``single_etl/usgs_earthquake_etl.py``):
 
-    * ``source_name`` — always ``USGS``; ``subsource_name`` — the ``net``
+    * ``source_name`` — always ``USGS_EARTHQUAKE``; ``subsource_name`` — the ``net``
       of the preferred origin (``us``, ``ak``, ``ci``, …, verbatim).
     * ``event_name`` — ``"Earthquake - <country name>"``: ``United States``
       for US-suffixed places, the ``place`` suffix itself for

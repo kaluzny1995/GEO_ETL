@@ -367,7 +367,7 @@ MISSING_CASES = [
     (
         UsgsEarthquakeEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_EARTHQUAKE",
             "event_category": "earthquake",
             "country_code": "US",
             "metric_name": "magnitude",
@@ -378,7 +378,7 @@ MISSING_CASES = [
     (
         UsgsEarthquakeEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_EARTHQUAKE",
             "event_category": "earthquake",
             "country_code": "US",
             "metric_name": "magnitude",
@@ -389,7 +389,7 @@ MISSING_CASES = [
     (
         UsgsEarthquakeEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_EARTHQUAKE",
             "event_category": "earthquake",
             "country_code": "US",
             "metric_name": "magnitude",
@@ -400,7 +400,7 @@ MISSING_CASES = [
     (
         UsgsEarthquakeEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_EARTHQUAKE",
             "event_category": "earthquake",
             "country_code": "US",
             "metric_name": "magnitude",
@@ -411,7 +411,7 @@ MISSING_CASES = [
     (
         UsgsNwisEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_NWIS",
             "event_category": "flood",
             "country_code": "US",
             "metric_name": "discharge",
@@ -422,7 +422,7 @@ MISSING_CASES = [
     (
         UsgsNwisEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_NWIS",
             "event_category": "flood",
             "country_code": "US",
             "metric_name": "discharge",
@@ -433,7 +433,7 @@ MISSING_CASES = [
     (
         UsgsNwisEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_NWIS",
             "event_category": "flood",
             "country_code": "US",
             "metric_name": "discharge",
@@ -444,7 +444,7 @@ MISSING_CASES = [
     (
         UsgsNwisEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_NWIS",
             "event_category": "flood",
             "country_code": "US",
             "metric_name": "discharge",
@@ -455,7 +455,7 @@ MISSING_CASES = [
     (
         UsgsVolcanoEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_VOLCANO",
             "event_category": "volcano",
             "country_code": "US",
             "metric_name": "vei",
@@ -466,7 +466,7 @@ MISSING_CASES = [
     (
         UsgsVolcanoEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_VOLCANO",
             "event_category": "volcano",
             "country_code": "US",
             "metric_name": "vei",
@@ -477,7 +477,7 @@ MISSING_CASES = [
     (
         UsgsVolcanoEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_VOLCANO",
             "event_category": "volcano",
             "country_code": "US",
             "metric_name": "vei",
@@ -488,7 +488,7 @@ MISSING_CASES = [
     (
         UsgsVolcanoEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_VOLCANO",
             "event_category": "volcano",
             "country_code": "US",
             "metric_name": "vei",

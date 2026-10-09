@@ -35,12 +35,12 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/model/other/test_data_quality.py` | DataQuality model validation + Spark schema + DDL types + registry |
 | `test/model/etl/test_event_etl_models.py` | The nine source ETL models + `UnionEtl` parametrized (missing required fields, empty model raises, canonical field order, field names, non-nullable required fields, DDL header/column types, registry) |
 | `test/ingestion/upload/test_upload_scripts.py` | All nine upload scripts parametrized (helpers + upload: historical, incremental, no files, logging, parse/max-file-date) |
-| `test/ingestion/raw2plain/test_raw2plain_scripts.py` | All nine Raw2Plain transforms parametrized (historical, incremental, no records, type conversion, max-file-date helper) |
+| `test/ingestion/raw2plain/test_raw2plain_scripts.py` | All nine Raw2Plain transforms parametrized (historical, incremental, no records, type conversion, max-file-date helper incl. the union's per-`source_name` scoping) |
 | `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch, `--overall` / `--load-type`, Spark session lifecycle, logger passing, error handling) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from raw + plain or ETL-only, table derivation, skip on empty, data_quality rejection) |
-| `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all ten SINGLE_ETL scripts (the nine source scripts + `union_etl`) parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, `loaded=False` for no-new-rows / empty conversion, source table) |
+| `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all ten SINGLE_ETL scripts (the nine source scripts + `union_etl`) parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, `loaded=False` for no-new-rows / empty conversion, source table) + the union's per-source INCREMENTAL thresholds (keyed by each table's `source_name`) |
 | `test/single_etl/test_union_etl.py` | union script (nine configured source tables, identity `_convert`, target from config, registry entry) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (column mapping, source coordinate pass-through, forecast-window collapse) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (category/place/country mapping, stamped geocode pass-through with description-state precedence) |

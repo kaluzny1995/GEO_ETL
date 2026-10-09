@@ -385,7 +385,7 @@
       "usgs_earthquake_etl": {
         "source_table": "usgs_earthquake",
         "target_table": "usgs_earthquake_etl",
-        "source_name": "USGS",
+        "source_name": "USGS_EARTHQUAKE",
         "event_category": "earthquake",
         "metric_name": "magnitude",
         "unit_km": "km",
@@ -570,7 +570,7 @@
       "usgs_nwis_etl": {
         "source_table": "usgs_nwis",
         "target_table": "usgs_nwis_etl",
-        "source_name": "USGS",
+        "source_name": "USGS_NWIS",
         "event_category": "flood",
         "metric_name": "discharge",
         "country_code": "US",
@@ -603,7 +603,7 @@
       "usgs_volcano_etl": {
         "source_table": "usgs_volcano",
         "target_table": "usgs_volcano_etl",
-        "source_name": "USGS",
+        "source_name": "USGS_VOLCANO",
         "event_category": "volcano",
         "metric_name": "vei",
         "metric_unit": "VEI",

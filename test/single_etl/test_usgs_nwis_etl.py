@@ -91,7 +91,7 @@ class TestConvert:
     def test_event_mapping(self, spark_session):
         (row,) = _convert(spark_session, _source_row())
 
-        assert row.source_name == "USGS"
+        assert row.source_name == "USGS_NWIS"
         assert row.subsource_name == "USGS-01646500"
         assert row.event_name == "Streamflow - Potomac river"
         assert row.event_category == "flood"

@@ -214,3 +214,79 @@ class TestRun:
         expected_sources = [source_table] if isinstance(source_table, str) else list(source_table)
         assert [call.kwargs["table"] for call in spark.read.jdbc.call_args_list] == expected_sources
         assert mock_convert.call_args.args[0] is spark.read.jdbc.return_value.filter.return_value
+
+
+class TestStackedProvenance:
+    """The union stacks nine tables, each keyed by its own ``source_name``.
+
+    The per-source ``source_name`` threshold is what keeps INCREMENTAL
+    honest — a single global ``max(file_date)`` would silently skip the
+    older files of a source that catches up after the others (the 51-row
+    IBTRACS gap this behaviour caused in production).
+    """
+
+    def test_incremental_thresholds_are_per_source_table(self):
+        # Arrange — the union holds rows up to 2026-10-03, but IBTRACS only
+        # up to 2026-10-01: every source must be filtered with ITS date.
+        global_max = dt.date(2026, 10, 3)
+        stale = "ibtracs_cyclone_etl"
+        per_source = {
+            table: dt.date(2026, 10, 1) if table == stale else global_max for table in UnionEtlScript.SOURCE_TABLE
+        }
+        spark = _spark_with_rows()
+
+        def fake_max_file_date(*_args, source_table=None, **_kwargs):
+            if source_table is None:
+                return global_max
+            return per_source[source_table]
+
+        # Act
+        with (
+            patch.object(UnionEtlScript, "_convert"),
+            patch("utils.etl_utils.get_max_file_date", side_effect=fake_max_file_date) as mock_max,
+        ):
+            outcome = UnionEtlScript().run(spark, _mock_config(), _mock_db_config())
+
+        # Assert — one global query (load type) + one threshold query per source
+        assert outcome.loaded is True
+        assert mock_max.call_count == 1 + len(UnionEtlScript.SOURCE_TABLE)
+        assert mock_max.call_args_list[0].kwargs.get("source_table") is None
+        conditions = [str(call.args[0]) for call in spark.read.jdbc.return_value.filter.call_args_list]
+        assert len(conditions) == len(UnionEtlScript.SOURCE_TABLE)
+        stale_index = list(UnionEtlScript.SOURCE_TABLE).index(stale)
+        assert "2026-10-01" in conditions[stale_index]
+        for index, condition in enumerate(conditions):
+            if index != stale_index:
+                assert "2026-10-03" in condition, UnionEtlScript.SOURCE_TABLE[index]
+
+    def test_source_absent_from_the_target_is_stacked_in_full(self):
+        # Arrange — a source with no rows in the union yet must not be
+        # filtered with another source's threshold (that would skip it forever).
+        fresh = "gdacs_event_etl"
+        global_max = dt.date(2026, 10, 3)
+
+        def fake_max_file_date(*_args, source_table=None, **_kwargs):
+            if source_table is None:
+                return global_max
+            return None if source_table == fresh else global_max
+
+        spark = _spark_with_rows()
+        logger = MagicMock()
+
+        # Act
+        with (
+            patch.object(UnionEtlScript, "_convert"),
+            patch("utils.etl_utils.get_max_file_date", side_effect=fake_max_file_date),
+        ):
+            outcome = UnionEtlScript().run(
+                spark,
+                _mock_config(),
+                _mock_db_config(),
+                logger=logger,
+            )
+
+        # Assert — every source except the fresh one is date-filtered
+        assert outcome.loaded is True
+        assert spark.read.jdbc.return_value.filter.call_count == len(UnionEtlScript.SOURCE_TABLE) - 1
+        messages = [str(call.args[0]) for call in logger.info.call_args_list]
+        assert any(f"Processing every row of {fresh} — it has no rows in union_etl yet" in msg for msg in messages)

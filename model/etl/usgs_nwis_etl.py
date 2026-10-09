@@ -8,7 +8,7 @@ class UsgsNwisEtl(EventEtl):
 
     Mapping (see ``single_etl/usgs_nwis_etl.py``):
 
-    * ``source_name`` — always ``USGS``; ``subsource_name`` — ``site_id``
+    * ``source_name`` — always ``USGS_NWIS``; ``subsource_name`` — ``site_id``
       verbatim (``USGS-01646500``).
     * ``event_name`` — ``"Streamflow - <river name>"``: the ``site_name``
       up to the first ``NEAR``/``AT`` marker, lower-cased with only its

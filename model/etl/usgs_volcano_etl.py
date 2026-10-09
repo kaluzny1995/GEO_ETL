@@ -8,7 +8,7 @@ class UsgsVolcanoEtl(EventEtl):
 
     Mapping (see ``single_etl/usgs_volcano_etl.py``):
 
-    * ``source_name`` — always ``USGS``; ``subsource_name`` — the source
+    * ``source_name`` — always ``USGS_VOLCANO``; ``subsource_name`` — the source
       ``observatory_name`` verbatim (``Alaska Volcano Observatory``,
       ``Hawaiian Volcano Observatory``, ``Northern Mariana Islands``).
     * ``event_name`` — ``"Volcano - <volcano_name>"``

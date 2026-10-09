@@ -7,7 +7,7 @@ All tables live in the `geo` PostgreSQL schema of Supabase. Every data source is
 - **Raw table** (`<name>_raw`) — every column is TEXT, exactly as ingested from the CSV.
 - **Plain table** (`<name>`) — typed columns (int, bool, float, date, datetime) produced by the raw2plain transform.
 - **ETL table** (`<name>_etl`) — canonical event row (same 21 columns for every source) produced by the [`SINGLE_ETL` job](etl_jobs/single-etl.md), ready to be merged with the other `*_etl` tables.
-- **Union table** (`union_etl`) — every `*_etl` table stacked into one by the [`union_etl` script](etl_jobs/single-etl.md#union_etl) of the [`SINGLE_ETL` job](etl_jobs/single-etl.md); `source_name` still says which source a row came from.
+- **Union table** (`union_etl`) — every `*_etl` table stacked into one by the [`union_etl` script](etl_jobs/single-etl.md#union_etl) of the [`SINGLE_ETL` job](etl_jobs/single-etl.md); `source_name` says which of the nine tables a row came from — one distinct label per table (incl. `USGS_EARTHQUAKE`, `USGS_NWIS`, `USGS_VOLCANO`), which is also what keeps incremental loads per source.
 
 DDL is generated from the Pydantic models instead of being written by hand — see [ETL jobs — CREATE TABLE job](etl_jobs/create-table.md).
 
@@ -42,7 +42,7 @@ DDL is generated from the Pydantic models instead of being written by hand — s
 | `usgs_volcano_raw` | `UsgsVolcanoRaw` | `model/raw/` | USGS volcanic activity data — all fields as TEXT |
 | `usgs_volcano` | `UsgsVolcano` | `model/plain/` | USGS volcanic activity data — typed (int, float, datetime) |
 | `usgs_volcano_etl` | `UsgsVolcanoEtl` | `model/etl/` | USGS volcanic activity notice in the canonical event structure (str, float, datetime) |
-| `union_etl` | `UnionEtl` | `model/etl/` | Every `*_etl` table stacked into one by the `union_etl` script — the canonical 21 columns, `source_name` identifies the source |
+| `union_etl` | `UnionEtl` | `model/etl/` | Every `*_etl` table stacked into one by the `union_etl` script — the canonical 21 columns, `source_name` identifies the source table (one distinct label per table) |
 | `data_quality` | `DataQuality` | `model/other/` | Quality metrics per `file_date` — long format (str, float, datetime) |
 
 > **Note:** One `CREATE` run builds exactly one table — the raw and the plain table need their own run (`python run_etl.py CREATE <table_name>_raw`, then `python run_etl.py CREATE <table_name>`). Only `INGESTION` appends the `_raw` suffix itself: pass `<table_name>` to it, not `<table_name>_raw`.

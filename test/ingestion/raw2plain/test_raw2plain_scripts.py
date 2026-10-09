@@ -284,3 +284,20 @@ class TestGetMaxFileDate:
         # Assert
         call_kwargs = spark.read.jdbc.call_args
         assert stem in call_kwargs.kwargs["table"]
+        assert "source_table" not in call_kwargs.kwargs["table"]
+
+    @pytest.mark.parametrize("stem", STEMS)
+    def test_queries_only_rows_of_the_given_source_table(self, stem):
+        # Arrange
+        spark = MagicMock()
+        spark.read.jdbc.return_value.first.return_value = None
+
+        from utils.raw2plain_utils import get_max_file_date
+
+        # Act
+        get_max_file_date(spark, "jdbc:url", {}, "geo", "union_etl", source_table=f"{stem}_etl")
+
+        # Assert — scoped to the source_name labels that table stamps
+        subquery = spark.read.jdbc.call_args.kwargs["table"]
+        assert "union_etl" in subquery
+        assert f"WHERE source_name IN (SELECT DISTINCT source_name FROM geo.{stem}_etl)" in subquery

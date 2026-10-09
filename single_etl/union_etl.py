@@ -2,12 +2,14 @@
 
 Stacks the nine source ``*_etl`` tables into one ``geo.union_etl`` table. The
 rows keep every value their own script produced — ``source_name`` says which
-source they came from (``AVALANCHE_ORG``, ``EONET``, ``GDACS``, …) along with
-that source's ``event_category``, ``metric_name`` / ``metric_unit`` and
-``other_metrics``. Nothing is remapped: :meth:`UnionEtlScript._convert` is the
-identity because the rows already carry the canonical 21-column structure from
-``model/etl/event_etl.py``, and ``SOURCE_TABLE`` is the tuple of tables the
-shared runner stacks with ``unionByName``.
+source they came from (one distinct label per table: ``AVALANCHE_ORG``,
+``EONET``, ``GDACS``, ``IBTRACS``, ``NIFC``, ``OPENMETEO``,
+``USGS_EARTHQUAKE``, ``USGS_NWIS``, ``USGS_VOLCANO``) along with that
+source's ``event_category``, ``metric_name`` / ``metric_unit`` and
+``other_metrics``. Nothing is remapped: :meth:`UnionEtlScript._convert` is
+the identity because the rows already carry the canonical 21-column
+structure from ``model/etl/event_etl.py``, and ``SOURCE_TABLE`` is the
+tuple of tables the shared runner stacks with ``unionByName``.
 
 Run::
 
@@ -16,12 +18,15 @@ Run::
     python run_etl.py SINGLE_ETL union_etl --load-type incremental
 
 **Load types** — ``HISTORICAL``, ``INCREMENTAL`` and the ``--load-type auto``
-detection behave as in every other script: the target's latest ``file_date``
-decides, an ``INCREMENTAL`` run filters *each* source table with the same
-``file_date`` condition before stacking, and an empty target falls back to
-``HISTORICAL``. When no source row is newer than the target's maximum the run
-loads nothing and ``jobs/single_etl.py`` fails with ``RuntimeError`` — see
-:func:`utils.etl_utils.run_etl`.
+detection behave as in every other script: an empty target falls back to
+``HISTORICAL``, and when no source row is newer than its own threshold the
+run loads nothing and ``jobs/single_etl.py`` fails with ``RuntimeError`` —
+see :func:`utils.etl_utils.run_etl`. The difference is the ``INCREMENTAL``
+threshold: instead of one ``file_date`` for the whole union, *each* source
+table is filtered against the latest ``file_date`` among the target rows
+carrying its own ``source_name``, so a source that catches up after an
+outage still delivers its older files, and a source with no rows in the
+target yet is stacked in full.
 """
 
 from typing import ClassVar

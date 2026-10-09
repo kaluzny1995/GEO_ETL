@@ -973,7 +973,7 @@ VALID_CASES = [
     (
         UsgsEarthquakeEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_EARTHQUAKE",
             "subsource_name": "ci",
             "event_name": "Earthquake - United States",
             "event_category": "earthquake",
@@ -996,7 +996,7 @@ VALID_CASES = [
             "file_date": "2026-09-01",
         },
         {
-            "source_name": "USGS",
+            "source_name": "USGS_EARTHQUAKE",
             "subsource_name": "ci",
             "event_name": "Earthquake - United States",
             "event_category": "earthquake",
@@ -1015,7 +1015,7 @@ VALID_CASES = [
     (
         UsgsNwisEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_NWIS",
             "subsource_name": "USGS-01646500",
             "event_name": "Streamflow - Potomac river",
             "event_category": "flood",
@@ -1038,7 +1038,7 @@ VALID_CASES = [
             "file_date": "2026-09-01",
         },
         {
-            "source_name": "USGS",
+            "source_name": "USGS_NWIS",
             "subsource_name": "USGS-01646500",
             "event_name": "Streamflow - Potomac river",
             "event_category": "flood",
@@ -1056,7 +1056,7 @@ VALID_CASES = [
     (
         UsgsVolcanoEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_VOLCANO",
             "subsource_name": "Alaska Volcano Observatory",
             "event_name": "Volcano - Great Sitkin",
             "event_category": "volcano",
@@ -1079,7 +1079,7 @@ VALID_CASES = [
             "file_date": "2026-09-29",
         },
         {
-            "source_name": "USGS",
+            "source_name": "USGS_VOLCANO",
             "subsource_name": "Alaska Volcano Observatory",
             "event_name": "Volcano - Great Sitkin",
             "event_category": "volcano",
@@ -1771,7 +1771,7 @@ OPTIONAL_CASES = [
     (
         UsgsEarthquakeEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_EARTHQUAKE",
             "event_category": "earthquake",
             "country_code": "US",
             "metric_name": "magnitude",
@@ -1799,7 +1799,7 @@ OPTIONAL_CASES = [
     (
         UsgsNwisEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_NWIS",
             "event_category": "flood",
             "country_code": "US",
             "metric_name": "discharge",
@@ -1827,7 +1827,7 @@ OPTIONAL_CASES = [
     (
         UsgsVolcanoEtl,
         {
-            "source_name": "USGS",
+            "source_name": "USGS_VOLCANO",
             "event_category": "volcano",
             "country_code": "US",
             "metric_name": "vei",

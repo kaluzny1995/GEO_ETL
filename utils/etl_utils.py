@@ -83,7 +83,13 @@ def run_etl(
       full reprocess forced with ``--load-type historical``; clear the target first
       if the write must not duplicate rows).
     - ``INCREMENTAL`` — only rows whose ``file_date`` is newer than the latest
-      ``file_date`` stored in *target_table*.
+      ``file_date`` stored in *target_table*. For a sequence of sources the
+      comparison is made **per source table**: the threshold is the latest
+      ``file_date`` among the target rows carrying that source's own
+      ``source_name`` (every ``*_etl`` table stamps one distinct label), so a
+      source that lags behind the others still delivers its older files once
+      it catches up; a source with no rows in *target_table* yet is
+      processed in full.
 
     ``load_type=None`` (the ``--load-type auto`` default) leaves the decision to
     this runner: an empty target (or a target table that does not exist yet)
@@ -95,7 +101,9 @@ def run_etl(
         config: Application configuration (DB schema, JDBC driver, logging).
         db_config: Supabase connection credentials.
         source_table: Source plain table name (e.g. ``"usgs_volcano"``), or
-            several table names to stack first (the union script).
+            several table names to stack first (the union script); the
+            INCREMENTAL threshold of each stacked table is scoped to the
+            ``source_name`` its rows carry.
         target_table: Target ETL table name (e.g. ``"usgs_volcano_etl"``).
         convert_fn: Dataset-specific function that accepts the source
             :class:`~pyspark.sql.DataFrame` and returns the canonical
@@ -140,9 +148,15 @@ def run_etl(
     frames: list[DataFrame] = []
     for source in sources:
         frame = spark.read.jdbc(url=jdbc_url, table=f"{schema}.{source}", properties=properties)
-        if resolved is LoadType.INCREMENTAL and max_file_date is not None:
-            logger.info(f"Processing rows of {source} with {FILE_DATE_COL} > {max_file_date}...")
-            frame = frame.filter(F.col(FILE_DATE_COL) > F.lit(max_file_date.isoformat()))
+        if resolved is LoadType.INCREMENTAL:
+            threshold = max_file_date
+            if not isinstance(source_table, str):
+                threshold = get_max_file_date(spark, jdbc_url, properties, schema, target_table, source_table=source)
+            if threshold is not None:
+                logger.info(f"Processing rows of {source} with {FILE_DATE_COL} > {threshold}...")
+                frame = frame.filter(F.col(FILE_DATE_COL) > F.lit(threshold.isoformat()))
+            else:
+                logger.info(f"Processing every row of {source} — it has no rows in {target_table} yet...")
         else:
             logger.info(f"Processing every row of {source}...")
         frames.append(frame)

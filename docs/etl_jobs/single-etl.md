@@ -205,7 +205,7 @@ Besides the source, the script left-joins the threshold reference CSV `data/open
 
 | Target column | Source |
 |---------------|--------|
-| `source_name` | always `USGS` |
+| `source_name` | always `USGS_EARTHQUAKE` |
 | `subsource_name` | `net` verbatim — the preferred origin's network (`ak`, `nc`, `ci`, …) |
 | `event_name` | `"Earthquake - <country name>"` — `United States` for a US state suffix, the `place` suffix itself for international events (`Earthquake - Chile`), the stamped `geocode_country` for places the suffix does not cover; `Earthquake` alone when no country resolves |
 | `event_category` | always `earthquake` |
@@ -233,7 +233,7 @@ Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `ma
 
 | Target column | Source |
 |---------------|--------|
-| `source_name` | always `USGS` |
+| `source_name` | always `USGS_NWIS` |
 | `subsource_name` | `site_id` verbatim (`USGS-01646500`) |
 | `event_name` | `"Streamflow - <river name>"` — the `site_name` up to its first `NEAR`/`AT` marker, lower-cased with only the first letter upper-cased (`Streamflow - Potomac river`); `Streamflow` alone when the name is missing or blank |
 | `event_category` | always `flood` (the same category the OpenMeteo discharge snapshots use) |
@@ -263,7 +263,7 @@ Dropped from the ETL: `parameter_code` (its value *is* the discharge metric) and
 
 | Target column | Source |
 |---------------|--------|
-| `source_name` | always `USGS` |
+| `source_name` | always `USGS_VOLCANO` |
 | `subsource_name` | `observatory_name` verbatim (`Alaska Volcano Observatory`, `Hawaiian Volcano Observatory`, `Northern Mariana Islands`) |
 | `event_name` | `"Volcano - <volcano_name>"` (`Volcano - Great Sitkin`); `Volcano` alone when the name is missing or blank |
 | `event_category` | always `volcano` |
@@ -310,17 +310,19 @@ The nine tables to stack and the target come from `datasets.single_etl.union_etl
 
 | Column | In the union table |
 |--------|--------------------|
-| `source_name` | which source produced the row (`AVALANCHE_ORG`, `EONET`, `GDACS`, `IBTRACS`, `NIFC`, `OPENMETEO`, `USGS`) |
+| `source_name` | which of the nine tables the row came from — one distinct label per table (`AVALANCHE_ORG`, `EONET`, `GDACS`, `IBTRACS`, `NIFC`, `OPENMETEO`, `USGS_EARTHQUAKE`, `USGS_NWIS`, `USGS_VOLCANO`); this is also the per-source incremental key |
 | `event_category`, `event_subcategory`, `metric_name`, `metric_unit` | the source's own labels — kept per source, not harmonised |
 | `danger_rating`, `other_metrics` | the source's own scale and JSON metrics (units included) |
 | the remaining columns | unchanged from the source row |
 
-Load types behave as in the [table above](#single-etl-job): the target's latest `file_date` decides, and an `INCREMENTAL` run filters **each** of the nine sources with the same `file_date > <target max>` condition before stacking, so only rows `geo.union_etl` does not have yet are appended. When no source row is newer the run loads nothing:
+Load types behave as in the [table above](#single-etl-job): the target's latest `file_date` decides between `HISTORICAL` and `INCREMENTAL`, but the `INCREMENTAL` filter is **per source table** — each of the nine sources is filtered with its own `file_date > <latest file_date among the target rows carrying that source's own source_name>`. The labels are unique per table (the three USGS tables used to share `USGS`; they are now `USGS_EARTHQUAKE`, `USGS_NWIS` and `USGS_VOLCANO`), which is what makes the per-source threshold exact. A source that catches up after an outage therefore still delivers its older files, and a source with no rows in the union yet is stacked in full. When no source row is newer the run loads nothing:
 
 ```
 WARNING No records loaded into union_etl — no rows to process in 9 source tables
 ERROR ETL job failed   (RuntimeError)   → exit code 1
 ```
+
+> **Note:** every `*_etl` table must stamp a **distinct** `source_name` — the union's per-source incremental threshold is keyed on it (the three USGS tables were renamed from the shared `USGS` to `USGS_EARTHQUAKE`, `USGS_NWIS` and `USGS_VOLCANO`). A `union_etl` that predates that rename has to be rebuilt once: `python run_drop_table.py union_etl`, `python run_etl.py CREATE union_etl`, then one `SINGLE_ETL union_etl` run (it auto-detects `HISTORICAL` and rebuilds the table from the current `*_etl` tables).
 
 ```bash
 python run_etl.py CREATE <table_name>                      # once — builds the target table

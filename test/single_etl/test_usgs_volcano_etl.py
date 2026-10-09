@@ -63,7 +63,7 @@ class TestConvert:
     def test_event_mapping(self, spark_session):
         (row,) = _convert(spark_session, _source_row())
 
-        assert row.source_name == "USGS"
+        assert row.source_name == "USGS_VOLCANO"
         assert row.subsource_name == "Alaska Volcano Observatory"
         assert row.event_name == "Volcano - Great Sitkin"
         assert row.event_category == "volcano"
