@@ -58,4 +58,4 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
 | `test/util/test_script_bases.py` | Script interface contracts: `SingleEtlScript` ABC — abstract `_convert()`, `run()` delegates tables, convert, load type and logger to `run_etl`; `Raw2PlainScript` ABC — `raw2plain()` delegates tables, convert and logger to the shared runner; `UploadScript` ABC — abstract config attributes, `upload()` delegates table, model, folder and logger to the shared runner |
 | `test/util/test_spark_monitor.py` | Stage memory logger registration (Java bridge, directory creation, listener setup) |
-| `test/util/test_logger.py` | Logger setup, duplicate handlers, nested directories |
+| `test/util/test_logger.py` | Logger setup, duplicate handlers (file + stdout mirror), nested directories |

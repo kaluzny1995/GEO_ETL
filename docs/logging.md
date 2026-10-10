@@ -8,6 +8,14 @@ When called via the INGESTION job, `upload()` and `raw2plain()` receive the inge
 
 **Spark internal logs** (Log4j output from the Spark driver) are captured via a file-descriptor redirect before the JVM starts and merged into the same log file with a `[spark]` prefix when the job completes. This means every `.log` file contains both our application messages and Spark's internal diagnostics in one place.
 
+## Stdout mirroring (orchestrator task logs)
+
+`setup_logger` attaches **two** handlers: the `FileHandler` above **and** a plain `logging.StreamHandler(sys.stdout)` with the same formatter. Every record is therefore written to the log file *and* mirrored to **stdout**. The point is subprocess orchestrators — in [GEO_E2E](../../GEO_E2E) each Airflow task runs `conda run --no-capture-output …`, so stdout is captured into the Airflow task log (web UI → task → **Log**). Without the mirror the UI would show only the wrapper's own lines and an empty `Output:` block, while the full job output sat unread in `logs/`.
+
+The stdout target is deliberately **stdout**, not stderr: `run_etl.py`'s `_StderrCapture` fd-redirects **stderr** (fd 2) to a temp file to capture the JVM's Log4j output — a stderr handler would be swallowed into that temp file instead of reaching the orchestrator.
+
+`run_etl.py` additionally prints the JVM/fd-redirected lines to stdout when the job ends: `_merge_logs_by_timestamp` returns the `[spark]`-prefixed stderr lines plus the stage-memory lines (in timestamp order) and `main()` flushes each to stdout. The Python lines already stream there live via the stdout handler; the JVM lines only exist after the merge, so they are appended at the end. The **file** keeps the fully merged chronological view — the stdout order (live Python, then spark/memory at the end) is a byproduct of when each source becomes available.
+
 ## Log structure
 
 ```
@@ -87,7 +95,7 @@ logger.error("Something failed")
 logger.exception("Traceback for failure")  # includes stack trace
 ```
 
-Each log file is timestamped and unique per execution. The `setup_logger` function auto-creates directories and prevents duplicate handlers.
+Each log file is timestamped and unique per execution. The `setup_logger` function auto-creates directories and prevents duplicate handlers — one `FileHandler` per distinct log file and at most one stdout `StreamHandler` per logger name, no matter how many times it is called.
 
 Log level and root directory come from `logging.level` and `logging.directory` in `config.json` — see [Configuration](configuration.md#application-configuration).
 

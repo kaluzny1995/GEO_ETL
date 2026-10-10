@@ -421,7 +421,7 @@ def test_merge_logs_by_timestamp_merges_python_spark_and_memory(tmp_path):
     extra_lines = ["2026-01-01 10:00:01 spark line\n", "plain stderr tail\n"]
 
     # Act
-    _merge_logs_by_timestamp(str(main_log), extra_lines, str(memory_log))
+    extras = _merge_logs_by_timestamp(str(main_log), extra_lines, str(memory_log))
 
     # Assert — content lines in timestamp order (main_log lines are re-written with a trailing blank)
     lines = [line for line in main_log.read_text().splitlines() if line]
@@ -433,6 +433,12 @@ def test_merge_logs_by_timestamp_merges_python_spark_and_memory(tmp_path):
         "2026-01-01 10:00:04 python second",
     ]
     assert not memory_log.exists()
+    # The extras (spark + memory, timestamp-ordered) are returned for the stdout mirror
+    assert extras == [
+        "[spark] plain stderr tail",
+        "[spark] 2026-01-01 10:00:01 spark line",
+        "2026-01-01 10:00:03 memory line",
+    ]
 
 
 @patch("run_etl.register_memory_logger")
@@ -442,7 +448,7 @@ def test_merge_logs_by_timestamp_merges_python_spark_and_memory(tmp_path):
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_merges_captured_spark_logs_into_main_log(
-    mock_logger, mock_create, mock_config, mock_spark, mock_capture, mock_memory
+    mock_logger, mock_create, mock_config, mock_spark, mock_capture, mock_memory, capsys
 ):
     mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
     mock_capture.return_value.stop_and_read.return_value = ["2026-01-01 10:00:01 captured spark line"]
@@ -467,9 +473,11 @@ def test_main_merges_captured_spark_logs_into_main_log(
 
         main()
 
-    # Assert
+    # Assert — merged into the file …
     with open(main_log_path) as f:
         content = f.read()
     os.unlink(main_log_path)
     assert "[spark] 2026-01-01 10:00:01 captured spark line" in content
     assert "2026-01-01 10:00:00 job started" in content
+    # … and mirrored to stdout for the orchestrator's task log (Airflow)
+    assert "[spark] 2026-01-01 10:00:01 captured spark line" in capsys.readouterr().out

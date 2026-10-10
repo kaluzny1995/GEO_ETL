@@ -74,7 +74,7 @@ When called from the INGESTION job, a logger is passed so all logs go to the sam
 script.upload(spark, config, db_config, logger=my_logger)
 ```
 
-Expected log file content — `logs/upload/upload_<table>_<timestamp>.log` when run standalone, `logs/ingestion/ingestion_<table>_<timestamp>.log` when called from the INGESTION job (the logger writes only to the file):
+Expected log file content — `logs/upload/upload_<table>_<timestamp>.log` when run standalone, `logs/ingestion/ingestion_<table>_<timestamp>.log` when called from the INGESTION job (the logger writes to the file and mirrors to stdout):
 
 ```
 ---- Upload started: avalanche_org_raw ----

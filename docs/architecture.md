@@ -120,7 +120,7 @@ GEO_ETL/
 │   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
 │   ├── etl_utils.py                  # Shared single-ETL runner (resolve_load_type, run_etl template)
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
-│   ├── logger.py                     # setup_logger() for file-based logging
+│   ├── logger.py                     # setup_logger() — file + stdout mirror
 │   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
 │   ├── schema_converter.py           # Pydantic -> PySpark StructType schemas
 │   ├── spark_monitor.py              # Stage memory logging via Java SparkListener

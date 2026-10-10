@@ -96,7 +96,7 @@ DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org' AND file_date = 
 
 ## Expected log file content
 
-Written to `logs/data_quality/data_quality_<table>_<timestamp>.log` (the job's logger writes only to the file — `run_etl.py` prints nothing):
+Written to `logs/data_quality/data_quality_<table>_<timestamp>.log` (the job's logger writes to the file and mirrors to stdout — `run_etl.py` itself prints nothing extra):
 
 First run (every `file_date`):
 

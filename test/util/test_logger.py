@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 from utils.logger import setup_logger
 
@@ -44,3 +45,26 @@ def test_setup_logger_different_files(tmp_path):
     setup_logger(name="test_multi", log_file=log_file2)
     file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
     assert len(file_handlers) == 2
+
+
+def test_setup_logger_mirrors_to_stdout(tmp_path):
+    """A plain StreamHandler on sys.stdout is added so orchestrators (Airflow)
+    capture the same content as the log file."""
+    log_file = str(tmp_path / "test.log")
+    logger = setup_logger(name="test_stdout", log_file=log_file)
+    stream_handlers = [
+        h for h in logger.handlers if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+    ]
+    assert len(stream_handlers) == 1
+    assert stream_handlers[0].stream is sys.stdout
+
+
+def test_setup_logger_no_duplicate_stdout_handlers(tmp_path):
+    """Repeated setup_logger calls with the same name add the stdout handler once."""
+    log_file = str(tmp_path / "test.log")
+    logger = setup_logger(name="test_stdout_dedup", log_file=log_file)
+    setup_logger(name="test_stdout_dedup", log_file=log_file)
+    stream_handlers = [
+        h for h in logger.handlers if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+    ]
+    assert len(stream_handlers) == 1

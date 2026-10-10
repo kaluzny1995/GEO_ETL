@@ -73,7 +73,7 @@ class _StderrCapture:
         return []
 
 
-def _merge_logs_by_timestamp(main_log: str, extra_lines: list[str], memory_log: str) -> None:
+def _merge_logs_by_timestamp(main_log: str, extra_lines: list[str], memory_log: str) -> list[str]:
     """Rewrite *main_log* with lines from Python, Spark stderr, and memory merged by timestamp.
 
     Both Python's ``logging`` and Java's ``StageMemoryListener`` use the
@@ -82,6 +82,11 @@ def _merge_logs_by_timestamp(main_log: str, extra_lines: list[str], memory_log: 
     *extra_lines* (Spark stderr captured via fd redirect), reads the
     *memory_log*, parses timestamps, and rewrites *main_log* in chronological
     order.  The *memory_log* file is deleted afterward.
+
+    Returns the extra lines (Spark stderr with a ``[spark]`` prefix plus the
+    memory lines, in timestamp order) so the caller can mirror them to stdout —
+    the Python lines already stream there live via the logger's stdout handler,
+    but the JVM/fd-redirected lines never pass through it.
     """
     import re
 
@@ -91,6 +96,7 @@ def _merge_logs_by_timestamp(main_log: str, extra_lines: list[str], memory_log: 
 
     # Collect all (timestamp_key, full_line) pairs
     entries: list[tuple[str, str]] = []
+    extras: list[tuple[str, str]] = []
 
     # Lines already in main_log
     with open(main_log) as f:
@@ -103,6 +109,7 @@ def _merge_logs_by_timestamp(main_log: str, extra_lines: list[str], memory_log: 
         if stripped:
             full_line = f"[spark] {stripped}"
             entries.append((_parse_ts(stripped), full_line))
+            extras.append((_parse_ts(stripped), full_line))
 
     # Memory log lines
     if os.path.exists(memory_log):
@@ -111,14 +118,18 @@ def _merge_logs_by_timestamp(main_log: str, extra_lines: list[str], memory_log: 
                 stripped = line.rstrip()
                 if stripped:
                     entries.append((_parse_ts(stripped), stripped))
+                    extras.append((_parse_ts(stripped), stripped))
         os.remove(memory_log)
 
     # Stable sort by timestamp (preserves original order for equal timestamps)
     entries.sort(key=lambda e: e[0])
+    extras.sort(key=lambda e: e[0])
 
     with open(main_log, "w") as f:
         for _, line in entries:
             f.write(line + "\n")
+
+    return [line for _, line in extras]
 
 
 def main() -> None:
@@ -220,7 +231,10 @@ def main() -> None:
                 main_log = h.baseFilename
 
         if main_log and (spark_lines or os.path.exists(memory_log)):
-            _merge_logs_by_timestamp(main_log, spark_lines, memory_log)
+            # Mirror the JVM/fd-redirected lines to stdout for the orchestrator's
+            # task log (Airflow) — the Python lines already stream there live.
+            for line in _merge_logs_by_timestamp(main_log, spark_lines, memory_log):
+                print(line, flush=True)
 
 
 if __name__ == "__main__":
