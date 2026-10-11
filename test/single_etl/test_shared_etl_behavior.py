@@ -6,6 +6,7 @@ the script supplies its own source/target tables while
 """
 
 import datetime as dt
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -71,6 +72,20 @@ def _spark_with_rows():
     return spark
 
 
+@contextmanager
+def _patch_convert(script_cls, **kwargs):
+    """Patch ``_convert`` and keep the mocked frame flowing through dedup.
+
+    The runner deduplicates the converted frame with ``dropDuplicates``;
+    pointing that call back at the same mock keeps every write assertion on
+    one object, just as ``_spark_with_rows`` collapses the read frames.
+    """
+    with patch.object(script_cls, "_convert", **kwargs) as mock_convert:
+        converted = mock_convert.return_value
+        converted.dropDuplicates.return_value = converted
+        yield mock_convert
+
+
 class TestRun:
     @pytest.mark.parametrize("script_cls, source_table, target_table", RUN_CASES)
     def test_auto_detects_historical(self, script_cls, source_table, target_table):
@@ -79,7 +94,7 @@ class TestRun:
 
         # Act
         with (
-            patch.object(script_cls, "_convert") as mock_convert,
+            _patch_convert(script_cls) as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=None),
         ):
             outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
@@ -101,7 +116,7 @@ class TestRun:
 
         # Act
         with (
-            patch.object(script_cls, "_convert") as mock_convert,
+            _patch_convert(script_cls) as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
             outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
@@ -123,7 +138,7 @@ class TestRun:
 
         # Act
         with (
-            patch.object(script_cls, "_convert") as mock_convert,
+            _patch_convert(script_cls) as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
             outcome = script_cls().run(spark, _mock_config(), _mock_db_config(), load_type=LoadType.HISTORICAL)
@@ -290,3 +305,35 @@ class TestStackedProvenance:
         assert spark.read.jdbc.return_value.filter.call_count == len(UnionEtlScript.SOURCE_TABLE) - 1
         messages = [str(call.args[0]) for call in logger.info.call_args_list]
         assert any(f"Processing every row of {fresh} — it has no rows in union_etl yet" in msg for msg in messages)
+
+
+class TestDeduplication:
+    """Every script deduplicates the converted frame on its own keys.
+
+    ``DEDUP_KEYS`` + ``file_date`` is what makes a run idempotent per file:
+    GDACS's paginated listings and avalanche.org's conflicting standing
+    products collapse to one row per event per file, while the snapshots of
+    other files are untouched — and ``union_etl``, which stacks sources that
+    are already deduplicated by their own scripts, declares no keys.
+    """
+
+    @pytest.mark.parametrize("script_cls, source_table, target_table", RUN_CASES)
+    def test_dedup_runs_with_the_scripts_keys_scoped_to_file_date(self, script_cls, source_table, target_table):
+        # Arrange
+        spark = _spark_with_rows()
+
+        # Act
+        with (
+            _patch_convert(script_cls) as mock_convert,
+            patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
+        ):
+            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
+
+        # Assert — the frame written is the deduplicated one, keyed per file
+        assert outcome.loaded is True
+        converted = mock_convert.return_value
+        converted.write.jdbc.assert_called_once()
+        if script_cls.DEDUP_KEYS is None:
+            converted.dropDuplicates.assert_not_called()
+        else:
+            converted.dropDuplicates.assert_called_once_with([*script_cls.DEDUP_KEYS, "file_date"])

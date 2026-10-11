@@ -44,6 +44,7 @@ class UnionEtlScript(SingleEtlScript):
 
     SOURCE_TABLE: ClassVar[tuple[str, ...]] = tuple(_cfg.source_tables)
     TARGET_TABLE: ClassVar[str] = _cfg.target_table
+    DEDUP_KEYS = None
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Return the stacked rows unchanged — they are already canonical.

@@ -74,6 +74,15 @@ class AvalancheOrgEtlScript(SingleEtlScript):
 
     SOURCE_TABLE = _cfg.source_table
     TARGET_TABLE = _cfg.target_table
+    DEDUP_KEYS = (
+        "subsource_name",
+        "state_province",
+        "place_location",
+        "latitude",
+        "longitude",
+        "event_start",
+        "event_end",
+    )
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.avalanche_org`` columns onto the canonical ETL structure.
@@ -90,16 +99,20 @@ class AvalancheOrgEtlScript(SingleEtlScript):
         Each source file holds the analysis day plus the next day's forecast (the
         shared ``[D, D+1]`` download range), and ``date`` is not part of the
         canonical structure — while both rows share one forecast window (the
-        off-season "no rating" product), they project to identical rows. The
-        trailing :meth:`DataFrame.distinct` collapses such copies, so the target
-        keeps one row per forecast statement per ``file_date``; rows that differ
-        (e.g. the next day's own validity window) are kept as their own snapshot.
+        off-season "no rating" product), they project to the same dedup key.
+        The shared deduplication step that :func:`utils.etl_utils.run_etl`
+        applies after this method — :attr:`DEDUP_KEYS` plus ``file_date`` —
+        collapses such copies (and rows that differ only in payload, e.g. a
+        conflicting ``off_season`` flag), so the target keeps one row per
+        forecast statement per ``file_date``; rows that differ (e.g. the next
+        day's own validity window) keep a different key and stay their own
+        snapshot.
 
         Args:
             df: Rows read from :attr:`SOURCE_TABLE`.
 
         Returns:
-            The DataFrame in :attr:`TARGET_TABLE` column order, without duplicate rows.
+            The DataFrame in :attr:`TARGET_TABLE` column order.
         """
         return df.select(
             F.lit(_cfg.source_name).alias("source_name"),
@@ -123,4 +136,4 @@ class AvalancheOrgEtlScript(SingleEtlScript):
             F.lit(None).cast("double").alias("last_latitude"),
             F.lit(None).cast("double").alias("last_longitude"),
             F.col(self.FILE_DATE_COL),
-        ).distinct()
+        )

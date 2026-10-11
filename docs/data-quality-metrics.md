@@ -16,14 +16,16 @@ Each row of `geo.data_quality` is one metric value for one `file_date` (or for t
 | `null_pct__<column>` | Share of rows where `<column>` is NULL — one metric per column. |
 | `bad_pct__<rule>` | Share of rows violating a rule — one metric per rule. |
 | `bad_row_pct` | Share of rows violating *any* rule. |
-| `dup_row_pct` | Share of full-row duplicates inside the `file_date`. |
-| `unique_row_pct` | Share of distinct rows inside the `file_date`. |
+| `dup_row_pct` | Share of full-row duplicates inside the `file_date` — rows repeating an earlier row of the same `file_date` in **all** columns: `(count(*) − count(DISTINCT xxhash64(<all columns>))) / count(*)`. |
+| `unique_row_pct` | Share of distinct rows inside the `file_date` — `1 − dup_row_pct`. |
 | `distinct__<column>` | Number of distinct non-NULL values — one metric per column (`file_date` excluded). |
 | `min__<column>`, `max__<column>`, `range__<column>` | Observed value range of a numeric column (`range` = `max − min`). |
 | `mean__<column>`, `stddev__<column>` | Mean and population standard deviation of a numeric column. |
 | `p05__<column>` … `p95__<column>` | Approximate 5th/25th/50th/75th/95th percentile of a numeric column — one metric per point. |
 
 Nulls are reported by `null_pct__*` only. A rule that cannot be evaluated because of a NULL does not count the row as incorrect, so the two metric families never double count. The range and distribution statistics simply ignore NULL values.
+
+`dup_row_pct` uses full-row equality, which is a **weaker** test than the [`SINGLE_ETL` deduplication predicate](etl_jobs/single-etl.md#deduplication) (`DEDUP_KEYS + file_date`, null-safe over the key columns only): every full-row duplicate is a key duplicate, so a table written through the ETL's deduplication step — or, like `union_etl`, stacked from such tables (its `source_name` keeps rows of different sources distinct) — always measures `dup_row_pct = 0` per `file_date`, while the step itself additionally removes rows that differ only in payload.
 
 ## Rules
 

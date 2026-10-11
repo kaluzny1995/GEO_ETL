@@ -42,7 +42,23 @@ class TestSingleEtlScript:
         assert args[:5] == (spark, config, db_config, "src_plain", "src_etl")
         assert args[5] == script._convert
         assert script._convert("frame") == "frame"
-        assert kwargs == {"load_type": None, "logger": None}
+        assert kwargs == {"dedup_keys": None, "load_type": None, "logger": None}
+
+    def test_run_passes_the_class_dedup_keys_through(self):
+        class _KeyedScript(SingleEtlScript):
+            SOURCE_TABLE = "src_plain"
+            TARGET_TABLE = "src_etl"
+            DEDUP_KEYS = ("event_name", "latitude", "longitude", "event_start")
+
+            def _convert(self, df):
+                return df
+
+        script = _KeyedScript()
+
+        with patch("utils.etl_utils.run_etl", return_value=EtlOutcome(True, "ok")) as mock_run:
+            script.run(MagicMock(), MagicMock(), MagicMock())
+
+        assert mock_run.call_args.kwargs["dedup_keys"] == ("event_name", "latitude", "longitude", "event_start")
 
     def test_run_passes_a_stack_of_source_tables_through(self):
         class _StackScript(SingleEtlScript):
@@ -68,7 +84,7 @@ class TestSingleEtlScript:
         with patch("utils.etl_utils.run_etl", return_value=EtlOutcome(True, "ok")) as mock_run:
             script.run(MagicMock(), MagicMock(), MagicMock(), load_type=load_type, logger=logger)
 
-        assert mock_run.call_args.kwargs == {"load_type": load_type, "logger": logger}
+        assert mock_run.call_args.kwargs == {"dedup_keys": None, "load_type": load_type, "logger": logger}
 
 
 class _StubRaw2PlainScript(Raw2PlainScript):

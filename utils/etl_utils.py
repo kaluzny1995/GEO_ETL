@@ -2,9 +2,11 @@
 
 Provides a template ``run_etl()`` function that reads a source JDBC table,
 resolves the load type from the target's latest ``file_date``, applies a
-dataset-specific ``convert_fn``, and appends the result to the ETL table.
+dataset-specific ``convert_fn``, deduplicates the result on the script's
+dedup keys (scoped per ``file_date``), and appends it to the ETL table.
 Each script in ``single_etl/`` is a :class:`~single_etl.single_etl_script.SingleEtlScript`
-subclass that supplies its table names and its own ``_convert``.
+subclass that supplies its table names, its own ``_convert`` and its
+``DEDUP_KEYS``.
 """
 
 import datetime as dt
@@ -60,6 +62,34 @@ def resolve_load_type(max_file_date: dt.date | None, requested: LoadType | None)
     return LoadType.INCREMENTAL
 
 
+def dedup(df: DataFrame, keys: Sequence[str]) -> DataFrame:
+    """Keep one row per *keys* + ``file_date`` combination.
+
+    The deduplication step every ``*_etl`` run applies after
+    :func:`run_etl`'s *convert_fn*. Two rows of the batch are duplicates
+    **iff** they carry the same ``file_date`` and compare equal on every
+    column of the natural event key declared by the script
+    (:attr:`SingleEtlScript.DEDUP_KEYS`) — equality is exact (no rounding
+    or normalisation) and null-safe (``NULL == NULL``); payload columns do
+    not participate in the match. Each group collapses to one row, so the
+    file's snapshot stays while cross-file snapshots (an event re-listed
+    on later days) are never touched.
+
+    Args:
+        df: The converted canonical DataFrame.
+        keys: Canonical columns identifying one natural event (must not
+            include ``file_date`` — the runner scopes the dedup to each
+            ``file_date`` itself).
+
+    Returns:
+        The DataFrame with every (``keys``, ``file_date``) group reduced to
+        one row. When group members differ in payload only (observed for
+        avalanche.org's standing product, whose ``off_season`` flag can
+        conflict), one of the variants is kept.
+    """
+    return df.dropDuplicates([*keys, FILE_DATE_COL])
+
+
 def run_etl(
     spark: SparkSession,
     config: AppConfig,
@@ -68,6 +98,7 @@ def run_etl(
     target_table: str,
     convert_fn: Callable[[DataFrame], DataFrame],
     *,
+    dedup_keys: Sequence[str] | None = None,
     load_type: LoadType | None = None,
     logger: logging.Logger | None = None,
 ) -> EtlOutcome:
@@ -96,6 +127,13 @@ def run_etl(
     means ``HISTORICAL``, otherwise ``INCREMENTAL``. Both types append to the
     target.
 
+    **Deduplication** — when *dedup_keys* is given, the converted frame is
+    passed through :func:`dedup` before the write: one row per key +
+    ``file_date`` combination (the keys themselves never include
+    ``file_date``, so every file's snapshot is preserved). ``dedup_keys=None``
+    skips the step — the ``union_etl`` script, which stacks sources that are
+    already deduplicated by their own scripts.
+
     Args:
         spark: Active Spark session.
         config: Application configuration (DB schema, JDBC driver, logging).
@@ -108,6 +146,9 @@ def run_etl(
         convert_fn: Dataset-specific function that accepts the source
             :class:`~pyspark.sql.DataFrame` and returns the canonical
             21-column DataFrame.
+        dedup_keys: Canonical columns identifying one natural event, or
+            ``None`` to skip deduplication; combined with ``file_date`` by
+            :func:`dedup` so only within-file duplicates collapse.
         load_type: Load type forced by the caller (``--load-type``), or ``None``
             for automatic detection.
         logger: Optional logger; defaults to this module's logger.
@@ -117,9 +158,11 @@ def run_etl(
         report, or ``loaded=False`` with the complete failure message when no
         record was loaded into *target_table* (an up-to-date incremental run,
         an empty source, or a conversion that yields zero rows). This runner
-        never raises — the caller decides what an unloaded run means;
-        ``jobs/single_etl.py`` turns ``loaded=False`` into ``RuntimeError`` so
-        ``run_etl.py`` exits with code 1, the same contract as INGESTION.
+        never raises for those load outcomes — the caller decides what an
+        unloaded run means; ``jobs/single_etl.py`` turns ``loaded=False`` into
+        ``RuntimeError`` so ``run_etl.py`` exits with code 1, the same contract
+        as INGESTION. (Infrastructure failures and an unresolvable
+        *dedup_keys* column still surface as exceptions.)
     """
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -171,6 +214,12 @@ def run_etl(
     result_df = convert_fn(source_df)
     if not result_df.head(1):
         return EtlOutcome(False, f"No records loaded into {target_table} — {source_label} converted to zero rows")
+
+    if dedup_keys:
+        before = result_df.count()
+        result_df = dedup(result_df, dedup_keys)
+        removed = before - result_df.count()
+        logger.info(f"Deduplication on ({', '.join(dedup_keys)}, {FILE_DATE_COL}) removed {removed} of {before} rows")
 
     logger.info(f"Writing to {schema}.{target_table}...")
     result_df.write.jdbc(url=jdbc_url, table=f"{schema}.{target_table}", mode="append", properties=properties)

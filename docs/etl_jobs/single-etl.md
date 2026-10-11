@@ -2,7 +2,7 @@
 
 # SINGLE_ETL job
 
-`jobs/single_etl.py` runs **one standalone PySpark script** from `single_etl/` — a complete read → transform → write pipeline for a single dataset, independent of the CREATE/INGESTION table pairs. Each script is a `SingleEtlScript` subclass (`single_etl/single_etl_script.py`) whose `run()` method delegates to the shared runner `utils/etl_utils.run_etl()`, fed the class's tables plus its `_convert()` handler:
+`jobs/single_etl.py` runs **one standalone PySpark script** from `single_etl/` — a complete read → transform → deduplicate → write pipeline for a single dataset, independent of the CREATE/INGESTION table pairs. Each script is a `SingleEtlScript` subclass (`single_etl/single_etl_script.py`) whose `run()` method delegates to the shared runner `utils/etl_utils.run_etl()`, fed the class's tables, its `_convert()` handler and its `DEDUP_KEYS`:
 
 ```mermaid
 flowchart TD
@@ -11,7 +11,7 @@ flowchart TD
     JOB --> FACT["SingleEtlFactory.get<br/>registry in jobs/__init__.py"]
     CFG --> SCRIPT["single_etl/{script}.py<br/>{Script} class implements SingleEtlScript<br/>run(spark, config, db_config, load_type, logger)"]
     FACT --> SCRIPT
-    SCRIPT --> RUN["utils/etl_utils.run_etl<br/>shared pipeline: tables + convert_fn (_convert)"]
+    SCRIPT --> RUN["utils/etl_utils.run_etl<br/>shared pipeline: tables + convert_fn (_convert)<br/>+ dedup_keys (DEDUP_KEYS)"]
     RUN --> MAX["MAX(file_date) in the target table<br/>get_max_file_date"]
     MAX --> LT{"Load type<br/>(--load-type forces one)"}
     LT -->|"target empty or missing"| H["HISTORICAL<br/>every source row"]
@@ -24,7 +24,8 @@ flowchart TD
     EMPTY -->|"yes"| CV["_convert()<br/>map the source columns onto the<br/>21-column canonical structure"]
     CV --> EMPTY2{"converted rows?"}
     EMPTY2 -->|"no"| SKIP2["EtlOutcome loaded=False<br/>jobs/single_etl.py: warn + raise<br/>run_etl.py exits 1"]
-    EMPTY2 -->|"yes"| WRITE["write.jdbc append"]
+    EMPTY2 -->|"yes"| DEDUP["utils.etl_utils.dedup<br/>dropDuplicates(DEDUP_KEYS + file_date)<br/>one row per event per file<br/>(no keys → skipped)"]
+    DEDUP --> WRITE["write.jdbc append"]
     WRITE --> DB[("geo.{source}_etl")]
     WRITE --> OK["EtlOutcome loaded=True<br/>'HISTORICAL / INCREMENTAL:<br/>wrote to geo.{source}_etl'"]
 ```
@@ -33,8 +34,8 @@ How the data flows:
 
 1. `run_etl.py` resolves `JobType.SINGLE_ETL` → `jobs/single_etl.py` and passes the second positional argument as the **script name** — the file stem of a module in `single_etl/` (e.g. `avalanche_org_etl`).
 2. `SingleEtlFactory` (`factory/single_etl_factory.py`) looks that name up in its registry; scripts are registered by `jobs/__init__.py`.
-3. The job loads both configs, looks the script up in the registry and calls its `run(spark, config, db_config, load_type=..., logger=...)` — the `SingleEtlScript` interface method, which delegates to `utils/etl_utils.run_etl()` with the class's `SOURCE_TABLE`, `TARGET_TABLE` and `_convert()`.
-4. The runner resolves the [load type](load-types.md) from the state of the target table, reads the source table — or several tables, stacked with `unionByName` first, as the [`union_etl` script](#union_etl) does — applies the script's `_convert()` transformation and appends the result to the target table, returning an `EtlOutcome` (`loaded` + `summary`).
+3. The job loads both configs, looks the script up in the registry and calls its `run(spark, config, db_config, load_type=..., logger=...)` — the `SingleEtlScript` interface method, which delegates to `utils/etl_utils.run_etl()` with the class's `SOURCE_TABLE`, `TARGET_TABLE`, `_convert()` and `DEDUP_KEYS`.
+4. The runner resolves the [load type](load-types.md) from the state of the target table, reads the source table — or several tables, stacked with `unionByName` first, as the [`union_etl` script](#union_etl) does — applies the script's `_convert()` transformation, deduplicates the result per [`DEDUP_KEYS` + `file_date`](#deduplication) and appends it to the target table, returning an `EtlOutcome` (`loaded` + `summary`).
 5. The **job** decides the exit status: `loaded=True` → completion message; `loaded=False` (nothing newer than the target's max, empty source, or `_convert` produced no rows) → it warns with the outcome's summary and raises `RuntimeError`, so `run_etl.py` exits with code 1.
 
 ```bash
@@ -49,6 +50,46 @@ python run_etl.py SINGLE_ETL <table_name>_etl --load-type incremental
 WARNING No records loaded into avalanche_org_etl — no rows to process in avalanche_org
 ERROR ETL job failed   (RuntimeError)   → exit code 1
 ```
+
+## Deduplication
+
+After `_convert()` maps a source onto the 21-column structure, the shared runner passes the frame through `utils/etl_utils.dedup()` — `dropDuplicates(DEDUP_KEYS + file_date)`.
+
+**Duplication predicate.** For a script with key set `K = DEDUP_KEYS`, two converted rows `r1`, `r2` **of the batch being written** are duplicates **iff**
+
+```
+r1.file_date = r2.file_date   AND   for every k in K: r1.k == r2.k
+```
+
+where `==` is Spark's exact, null-safe column equality:
+
+- **exact** — values must match as stored: timestamps to full precision, coordinates with no rounding or distance tolerance; no normalisation, case-folding or fuzzy matching of any kind;
+- **null-safe** — `NULL == NULL`: two rows whose key column is `NULL` (avalanche forecasts have `event_name = NULL`, a standing product can have no forecast window) match on that column exactly like any other value;
+- **key-only** — payload columns (`metric_value`, `danger_rating`, `other_metrics`, `event_end` where it is not a key, …) do not participate in the match: rows agreeing on every key are duplicates even when their payloads differ;
+- **scoped per file** — the first conjunct confines each group to a single `file_date`, so a snapshot stored under another `file_date` can never join a group and the event's per-day history survives (this is exactly the scope `DATA_QUALITY` measures at).
+
+Every group collapses to **one row**. `dropDuplicates` guarantees no particular survivor when the members differ in payload (the only conflict observed in production is avalanche.org's standing product carrying `off_season` as both `true` and `false`); the run's log line reports how many rows the step removed.
+
+The step only ever sees the current batch — `HISTORICAL` reads the whole table, `INCREMENTAL` only the files newer than the target's maximum — and because each file passes through this step on its first load, no duplicates per `file_date` exist table-wide afterwards. A forced `--load-type historical` reprocess *appends* on top of existing rows, so the target must be cleared first (that is what the rebuild procedure and every reload do); otherwise the re-listed files would duplicate the stored ones, which batch-scoped deduplication cannot see. `union_etl` declares no keys (`K = ∅`): it stacks sources that are already deduplicated by their own scripts, so the runner skips the step.
+
+Each run logs what it removed: `Deduplication on (event_category, event_name, latitude, longitude, event_start, file_date) removed 288 of 10818 rows`.
+
+> **Not the same predicate as `dup_row_pct`.** The DATA_QUALITY metric [`dup_row_pct`](../data-quality-metrics.md) tests full-row equality over **all 21 columns**; this step matches only `K + file_date`. Full-row equality implies key equality (the key columns are a subset of the row), so once this step has run, `dup_row_pct` is necessarily `0` for every `file_date` — and the step is strictly stronger, since it also collapses rows that differ in payload.
+
+**Key sets per script** — `K` as declared in the class's `DEDUP_KEYS`; `file_date` is added by the runner and never belongs to `K` itself:
+
+| Script | `DEDUP_KEYS` (= K) | One row per… |
+|--------|--------------|--------------|
+| `avalanche_org_etl` | `subsource_name`, `state_province`, `place_location`, `latitude`, `longitude`, `event_start`, `event_end` | forecast statement (zone × window) — collapses the `[D, D+1]` copies of the off-season product and the conflicting `off_season` rows |
+| `eonet_event_etl` | `event_name`, `latitude`, `longitude`, `event_start` | event geometry |
+| `gdacs_event_etl` | `event_category`, `event_name`, `latitude`, `longitude`, `event_start` | event snapshot — GDACS paginates its lists, so one file can carry the same event twice |
+| `ibtracs_cyclone_etl` | `subsource_name`, `event_name`, `latitude`, `longitude`, `event_start` | track position |
+| `nifc_fire_etl` | `event_name`, `latitude`, `longitude`, `event_start` | perimeter snapshot |
+| `openmeteo_flood_etl` | `event_name`, `place_location`, `latitude`, `longitude`, `event_start` | river-day |
+| `usgs_earthquake_etl` | `event_start`, `latitude`, `longitude` | seismic event (epicentre + origin time) |
+| `usgs_nwis_etl` | `subsource_name`, `event_start` | gauge-day |
+| `usgs_volcano_etl` | `event_name`, `event_start`, `subsource_name` | notice (volcano × issue time × observatory) |
+| `union_etl` | *(none)* | the stacked `*_etl` rows, already deduplicated by their scripts |
 
 ## avalanche_org_etl
 
@@ -66,7 +107,7 @@ ERROR ETL job failed   (RuntimeError)   → exit code 1
 
 The coordinates ship with every source row, so this ETL performs no lookup and needs no network: GEO_Download computes each zone's polygon centroid when the daily CSVs are written (and consolidates them in `GEO_Download/data/avalanche_org_notices.csv`). A row without coordinates (`latitude` / `longitude` empty — the download found no usable geometry) maps to `NULL`.
 
-Each source file holds the analysis day plus the next day's forecast (the shared `[D, D+1]` download range), and `date` is not part of the canonical structure — while both rows share one forecast window (the off-season "no rating" product), they project to identical rows. `_convert` therefore collapses exact duplicates, so the target keeps one row per forecast statement per `file_date` (one row per zone per file); rows that differ — e.g. the next day's own validity window in season — are kept as their own snapshot.
+Each source file holds the analysis day plus the next day's forecast (the shared `[D, D+1]` download range), and `date` is not part of the canonical structure — while both rows share one forecast window (the off-season "no rating" product), they project to the same dedup key. The shared [deduplication step](#deduplication) (`DEDUP_KEYS` + `file_date`, applied after `_convert`) collapses such copies — and rows differing only in payload, e.g. a conflicting `off_season` flag — so the target keeps one row per forecast statement per `file_date` (one row per zone per file); rows that differ — e.g. the next day's own validity window in season — keep a different key and stay their own snapshot.
 
 ## eonet_event_etl
 
@@ -195,7 +236,7 @@ The jurisdiction's full name ships with every source row — GEO_Download resolv
 | `other_metrics` | the river's threshold reference — `{"discharge_p50": …, "discharge_p50_unit": "m³/s", …, "discharge_p99": …, "discharge_p99_unit": "m³/s", "threshold_percentile": 0.95, "threshold", "threshold_unit": "m³/s", "exceedance_ratio", "threshold_exceeded", "baseline_days", "baseline_start", "baseline_end"}` — plus, on forecast days, the GloFAS ensemble spread `{"ensemble_mean": …, "ensemble_mean_unit": "m³/s", "ensemble_median", "ensemble_p25", "ensemble_p75"}` with their own `_unit` companions; every measurement carries its unit in a separate `<name>_unit` key (`m³/s`) rather than inside the key name, and a unit key never outlives its value; keys the row cannot answer are dropped together with their group (no reference row → no percentiles, baseline or threshold; analysis day → no ensemble) and a row with nothing to say is `NULL` rather than `{}` (the lead time `date - file_date` remains derivable) |
 | `file_date` | `file_date` |
 
-Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days — the current CSVs hold exactly that: 111 rivers, two `date` values each, out of the candidates listed in `rivers.json`; only rivers that returned discharge data are written), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so no deduplication is needed. The country map runs in-script; the country fallback and the subdivision come from the `geocode_country` / `geocode_state` columns GEO_Download stamps into every downloaded file at download time, so this ETL performs no lookup and needs no network.
+Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days — the current CSVs hold exactly that: 111 rivers, two `date` values each, out of the candidates listed in `rivers.json`; only rivers that returned discharge data are written), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so the shared [deduplication step](#deduplication) finds nothing to remove (its river-day key stays as a safety net). The country map runs in-script; the country fallback and the subdivision come from the `geocode_country` / `geocode_state` columns GEO_Download stamps into every downloaded file at download time, so this ETL performs no lookup and needs no network.
 
 Besides the source, the script left-joins the threshold reference CSV `data/openmeteo_discharge_thresholds.csv` on `river_name` + `country` (broadcast — one row per river, built by GEO_Download's `run_openmeteo_thresholds.py` from the GloFAS baseline, which `run_download.py` creates when the file is missing) and drops the reference's own `latitude`/`longitude`, so the source row keeps its coordinates; a river missing from the reference — or a run before the file was built — leaves `danger_rating` and the threshold keys `NULL` instead of failing. The GloFAS ensemble statistics ship only on forecast days (`date` after the analysis day), so `other_metrics` on an analysis day carries the reference alone. The percentile levels come from `percentile_levels` in `config.json` (`50 / 90 / 95 / 99`) and the ensemble keys from `ensemble_levels` (`mean / median / p25 / p75`); `threshold_percentile` picks which of those levels starts the danger ladder and must name one of them.
 
@@ -255,7 +296,7 @@ Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `ma
 
 Besides the source, the script left-joins the flood-category reference `data/usgs_flood_categories.csv` on `site_id` (broadcast — one row per gauge, kept present by GEO_Download's `USGS_NWIS` downloader from the NWS NWPS gauges) and picks only the join key, the NWS gauge id and the four stage thresholds out of it, so the source row keeps its own `site_name` and point; a gauge the reference does not cover — or a run before the file was built — leaves those keys `NULL` instead of failing. The rating itself comes from the source row: the downloader already classified the day's peak, so `danger_rating` is filled even when the reference has no thresholds for the gauge.
 
-Dropped from the ETL: `parameter_code` (its value *is* the discharge metric) and `gauge_height` / `flood_category` (they live in `other_metrics` / `danger_rating`). Each downloaded file holds the measurement day plus sometimes the next day (54 rows over 33 files for one gauge), so a `(site, date)` pair can appear in two files — yesterday's next-day row is today's reading — and the ETL keeps every snapshot as its own row; `(site, date, file_date)` is unique, so no deduplication is needed. The subdivision comes from the `geocode_state` column GEO_Download stamped into the CSVs at download time — this ETL performs no lookup of its own.
+Dropped from the ETL: `parameter_code` (its value *is* the discharge metric) and `gauge_height` / `flood_category` (they live in `other_metrics` / `danger_rating`). Each downloaded file holds the measurement day plus sometimes the next day (54 rows over 33 files for one gauge), so a `(site, date)` pair can appear in two files — yesterday's next-day row is today's reading — and the ETL keeps every snapshot as its own row; `(site, date, file_date)` is unique, so the shared [deduplication step](#deduplication) finds nothing to remove (its gauge-day key stays as a safety net). The subdivision comes from the `geocode_state` column GEO_Download stamped into the CSVs at download time — this ETL performs no lookup of its own.
 
 ## usgs_volcano_etl
 
@@ -306,7 +347,7 @@ The nine tables to stack and the target come from `datasets.single_etl.union_etl
 }
 ```
 
-`SOURCE_TABLE` is that tuple and the shared runner stacks the frames with `unionByName` before `_convert()` sees them — so the script's `_convert()` is the **identity**: nothing is remapped, merged or re-stamped, the rows already carry the structure of `model/etl/event_etl.py`. What distinguishes a row is what its own script put in it:
+`SOURCE_TABLE` is that tuple and the shared runner stacks the frames with `unionByName` before `_convert()` sees them — so the script's `_convert()` is the **identity**: nothing is remapped, merged or re-stamped, the rows already carry the structure of `model/etl/event_etl.py`, and `DEDUP_KEYS` is `None` — the stacked rows were deduplicated by their own scripts, so the runner skips the [deduplication step](#deduplication) for the union. What distinguishes a row is what its own script put in it:
 
 | Column | In the union table |
 |--------|--------------------|
@@ -334,7 +375,7 @@ python run_etl.py SINGLE_ETL <table_name> --load-type incremental
 ## Adding a new script
 
 1. Add a `datasets.single_etl.<name>_etl` entry to `config.json` (source and ETL table names, `source_name`, plus any category/country maps, metric labels or lookup tables the source needs) and a `<Name>EtlConfig` model for it in `model/config/datasets.py`.
-2. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py`, rename the class to `<Name>EtlScript`, point `load_dataset()` at the new config class and rewrite the `_convert()` method for the new source (the module docstring walks through it) — `run()` is inherited from `SingleEtlScript` and needs no change, it delegates to `utils/etl_utils.run_etl()` for every source.
+2. Copy `single_etl/avalanche_org_etl.py` to `single_etl/<name>_etl.py`, rename the class to `<Name>EtlScript`, point `load_dataset()` at the new config class and rewrite the `_convert()` method for the new source (the module docstring walks through it) — `run()` is inherited from `SingleEtlScript` and needs no change, it delegates to `utils/etl_utils.run_etl()` for every source. Declare the source's `DEDUP_KEYS` next to the table names (the [deduplication table](#deduplication) above shows what each existing script uses): the canonical columns that identify one natural event, without `file_date`.
 3. Register an instance in `jobs/__init__.py`:
 
 ```python

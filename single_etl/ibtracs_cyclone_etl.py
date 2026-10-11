@@ -169,6 +169,7 @@ class IbtracsCycloneEtlScript(SingleEtlScript):
 
     SOURCE_TABLE = _cfg.source_table
     TARGET_TABLE = _cfg.target_table
+    DEDUP_KEYS = ("subsource_name", "event_name", "latitude", "longitude", "event_start")
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.ibtracs_cyclone`` columns onto the canonical ETL structure.

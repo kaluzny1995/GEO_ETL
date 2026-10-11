@@ -5,6 +5,7 @@ from pyspark.sql import Row
 
 from model.etl.avalanche_org_etl import AvalancheOrgEtl
 from single_etl.avalanche_org_etl import AvalancheOrgEtlScript
+from utils.etl_utils import dedup
 
 _SCRIPT = AvalancheOrgEtlScript()
 
@@ -128,7 +129,8 @@ class TestConvert:
             _source_row(date=dt.date(2026, 1, 11)),
         ]
 
-        out = _convert(spark_session, *rows)
+        converted = _SCRIPT._convert(spark_session.createDataFrame(list(rows)))
+        out = dedup(converted, AvalancheOrgEtlScript.DEDUP_KEYS).collect()
 
         assert len(out) == 1
         assert out[0].file_date == "2026-01-10"
@@ -143,7 +145,8 @@ class TestConvert:
             ),
         ]
 
-        out = _convert(spark_session, *rows)
+        converted = _SCRIPT._convert(spark_session.createDataFrame(list(rows)))
+        out = dedup(converted, AvalancheOrgEtlScript.DEDUP_KEYS).collect()
 
         assert len(out) == 2
         assert {row.event_start for row in out} == {
