@@ -103,7 +103,7 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
     model = TableFactory.get(table_name)
 
     app_config = AppConfig.from_json()
-    db_config = SupabaseConnectionConfig.from_json()
+    db_config = SupabaseConnectionConfig.from_env()
     jdbc_url = db_config.get_jdbc_url()
     properties = db_config.get_jdbc_properties(app_config.database.jdbc_driver)
     schema = app_config.database.db_schema

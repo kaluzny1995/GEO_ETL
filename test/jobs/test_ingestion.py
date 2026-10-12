@@ -35,7 +35,7 @@ def _clean_factories():
     Raw2PlainScriptFactory.clear()
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
 def test_ingestion_runs_upload_then_raw2plain(mock_app, mock_db):
     spark = MagicMock()
@@ -56,7 +56,7 @@ def test_ingestion_runs_upload_then_raw2plain(mock_app, mock_db):
     assert "complete" in result
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
 def test_ingestion_upload_before_raw2plain(mock_app, mock_db):
     spark = MagicMock()
@@ -86,7 +86,7 @@ def test_ingestion_upload_before_raw2plain(mock_app, mock_db):
     assert call_order == ["upload", "raw2plain"]
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
 def test_ingestion_passes_config_and_db_config(mock_app, mock_db):
     spark = MagicMock()
@@ -106,7 +106,7 @@ def test_ingestion_passes_config_and_db_config(mock_app, mock_db):
     assert db_cfg is mock_db.return_value
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
 def test_ingestion_passes_logger_to_upload_and_raw2plain(mock_app, mock_db):
     spark = MagicMock()
@@ -125,7 +125,7 @@ def test_ingestion_passes_logger_to_upload_and_raw2plain(mock_app, mock_db):
     assert raw2plain_script.raw2plain.call_args.kwargs["logger"] is log
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
 def test_ingestion_logs_steps(mock_app, mock_db):
     spark = MagicMock()
@@ -143,7 +143,7 @@ def test_ingestion_logs_steps(mock_app, mock_db):
     log.info.assert_any_call("Raw2Plain for t complete")
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
 def test_ingestion_fails_when_nothing_to_ingest(mock_app, mock_db):
     """No new file and no pending raw rows → RuntimeError, so the E2E chain stops."""
@@ -163,7 +163,7 @@ def test_ingestion_fails_when_nothing_to_ingest(mock_app, mock_db):
         run(spark, "t")
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
 def test_ingestion_succeeds_when_only_upload_found_new_files(mock_app, mock_db):
     """A new CSV that produced no new plain rows is still a successful run."""
@@ -185,7 +185,7 @@ def test_ingestion_succeeds_when_only_upload_found_new_files(mock_app, mock_db):
     assert "complete" in result
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
 def test_ingestion_succeeds_when_only_raw2plain_has_pending_rows(mock_app, mock_db):
     """Raw rows left by an earlier crash are transformed — the run must not fail."""

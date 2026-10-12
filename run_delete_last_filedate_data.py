@@ -102,7 +102,7 @@ def _get_max_file_date(
 def main() -> None:
     """Parse CLI arguments, connect to Spark, and delete the latest file_date."""
     app_config = AppConfig.from_json()
-    db_config = SupabaseConnectionConfig.from_json()
+    db_config = SupabaseConnectionConfig.from_env()
 
     parser = argparse.ArgumentParser(
         description="Delete the latest file_date from raw and plain tables, or from the ETL table only"

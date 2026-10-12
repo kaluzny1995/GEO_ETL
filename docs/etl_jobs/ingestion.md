@@ -61,7 +61,7 @@ from model.config import AppConfig, SupabaseConnectionConfig
 from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 
 config = AppConfig.from_json()
-db_config = SupabaseConnectionConfig.from_json()
+db_config = SupabaseConnectionConfig.from_env()
 spark = SparkSession.builder.master("spark://localhost:7078").appName("upload").getOrCreate()
 
 AvalancheOrgUploadScript().upload(spark, config, db_config)
@@ -97,7 +97,7 @@ from model.config import AppConfig, SupabaseConnectionConfig
 from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
 
 config = AppConfig.from_json()
-db_config = SupabaseConnectionConfig.from_json()
+db_config = SupabaseConnectionConfig.from_env()
 spark = SparkSession.builder.master("spark://localhost:7078").appName("raw2plain").getOrCreate()
 
 AvalancheOrgRaw2PlainScript().raw2plain(spark, config, db_config)

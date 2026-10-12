@@ -26,7 +26,7 @@ def _mock_db_config():
 @patch("run_drop_schema.SparkSession.builder")
 @patch("run_drop_schema._schema_has_tables", return_value=False)
 @patch("run_drop_schema.drop_schema")
-@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_drop_schema.setup_logger")
 def test_drop_schema_when_empty(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):
@@ -45,7 +45,7 @@ def test_drop_schema_when_empty(mock_logger, mock_app, mock_db, mock_drop, mock_
 @patch("run_drop_schema.SparkSession.builder")
 @patch("run_drop_schema._schema_has_tables", return_value=True)
 @patch("run_drop_schema.drop_schema")
-@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_drop_schema.setup_logger")
 def test_drop_schema_when_has_tables(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):
@@ -64,7 +64,7 @@ def test_drop_schema_when_has_tables(mock_logger, mock_app, mock_db, mock_drop, 
 @patch("run_drop_schema.SparkSession.builder")
 @patch("run_drop_schema._schema_has_tables", return_value=False)
 @patch("run_drop_schema.drop_schema")
-@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_drop_schema.setup_logger")
 def test_drop_schema_logs_success(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):
@@ -85,7 +85,7 @@ def test_drop_schema_logs_success(mock_logger, mock_app, mock_db, mock_drop, moc
 @patch("run_drop_schema.SparkSession.builder")
 @patch("run_drop_schema._schema_has_tables", return_value=True)
 @patch("run_drop_schema.drop_schema")
-@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_drop_schema.setup_logger")
 def test_drop_schema_logs_warning(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):
@@ -106,7 +106,7 @@ def test_drop_schema_logs_warning(mock_logger, mock_app, mock_db, mock_drop, moc
 @patch("run_drop_schema.SparkSession.builder")
 @patch("run_drop_schema._schema_has_tables", return_value=False)
 @patch("run_drop_schema.drop_schema", side_effect=RuntimeError("boom"))
-@patch("run_drop_schema.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_schema.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_drop_schema.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_drop_schema.setup_logger")
 def test_drop_schema_failure_is_reraised(mock_logger, mock_app, mock_db, mock_drop, mock_has_tables, mock_builder):

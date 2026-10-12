@@ -24,7 +24,7 @@ def main() -> None:
     """Parse CLI arguments, connect to Spark, and drop the specified table."""
     # Load configs
     app_config = AppConfig.from_json()
-    db_config = SupabaseConnectionConfig.from_json()
+    db_config = SupabaseConnectionConfig.from_env()
 
     # Parse CLI arguments (positional: table_name)
     parser = argparse.ArgumentParser(description="Drop a table from Supabase")

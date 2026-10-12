@@ -35,7 +35,7 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
         logger = logging.getLogger(__name__)
 
     app_config = AppConfig.from_json()
-    db_config = SupabaseConnectionConfig.from_json()
+    db_config = SupabaseConnectionConfig.from_env()
 
     # Step 1: Upload raw CSVs -> raw table
     upload_script = UploadScriptFactory.get(table_name)

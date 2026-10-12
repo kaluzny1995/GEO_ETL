@@ -13,7 +13,7 @@ from utils.logger import setup_logger
 
 def main() -> None:
     app_config = AppConfig.from_json()
-    db_config = SupabaseConnectionConfig.from_json()
+    db_config = SupabaseConnectionConfig.from_env()
 
     log_dir = app_config.logging.directory
 

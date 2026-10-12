@@ -71,7 +71,7 @@ def mock_spark():
 @patch("jobs.data_quality.execute_statement")
 @patch("jobs.data_quality.execute_ddl")
 @patch("jobs.data_quality.create_schema")
-@patch("jobs.data_quality.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.data_quality.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.data_quality.AppConfig.from_json", return_value=_mock_app_config())
 @patch("jobs.data_quality.TableFactory.get", return_value=DummyModel)
 class TestHistoricalRun:
@@ -256,7 +256,7 @@ class TestHistoricalRun:
 @patch("jobs.data_quality.execute_statement")
 @patch("jobs.data_quality.execute_ddl")
 @patch("jobs.data_quality.create_schema")
-@patch("jobs.data_quality.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.data_quality.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.data_quality.AppConfig.from_json", return_value=_mock_app_config())
 @patch("jobs.data_quality.TableFactory.get", return_value=DummyModel)
 class TestIncrementalRun:
@@ -438,7 +438,7 @@ class TestIncrementalRun:
 @patch("jobs.data_quality.execute_statement")
 @patch("jobs.data_quality.execute_ddl")
 @patch("jobs.data_quality.create_schema")
-@patch("jobs.data_quality.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("jobs.data_quality.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("jobs.data_quality.AppConfig.from_json", return_value=_mock_app_config())
 @patch("jobs.data_quality.TableFactory.get", return_value=DummyModel)
 class TestOverallRun:

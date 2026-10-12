@@ -11,7 +11,18 @@ conda env create -f environment.yml
 conda activate geo_etl_311
 ```
 
-### 2. Start the Spark cluster
+### 2. Configure Supabase credentials
+
+Copy the template and fill in the values from the Supabase dashboard (**Connect → Connection pooling → Transaction pooler**; the password is set at project creation or via **Generate password** in Project Settings → Database — full walkthrough in [Configuration — Supabase Credentials](configuration.md#supabase-credentials)):
+
+```bash
+cp .env.example .env
+# edit .env: SUPABASE_DB_USER, SUPABASE_DB_PASSWORD, SUPABASE_DB_HOST, SUPABASE_DB_PORT, SUPABASE_DB_NAME
+```
+
+The `.env` file is gitignored. In CI, export the same variables instead — no file is needed.
+
+### 3. Start the Spark cluster
 
 The cluster is managed by Docker Compose in [GEO_E2E](../../GEO_E2E). Make sure the `.env` file there is configured with the correct `GEO_DATA_DIR` path, then:
 
@@ -22,7 +33,7 @@ docker compose up -d geo_spark_master geo_spark_worker_1 geo_spark_worker_2
 
 See [Spark cluster](spark-cluster.md) for ports, Web UIs and the custom image.
 
-### 3. Verify cluster connectivity
+### 4. Verify cluster connectivity
 
 ```bash
 conda activate geo_etl_311
@@ -116,7 +127,7 @@ python run_etl.py INGESTION <table_name>
 
 **How it works:**
 
-1. Reads config from `config.json` (Spark master, DB schema, JDBC driver) and `supabase_config.json` (credentials)
+1. Reads config from `config.json` (Spark master, DB schema, JDBC driver) and the `SUPABASE_DB_*` environment variables / `.env` (Supabase credentials)
 2. Connects to the Spark cluster
 3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model for the **exact** table name passed on the command line, executes it against Supabase — one table per run
 4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories — **exits with code 1 when nothing was ingested** (no CSV newer than the raw table's max `file_date` and no raw row newer than the plain table's)

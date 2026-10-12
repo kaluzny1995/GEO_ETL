@@ -46,7 +46,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 | [ETL jobs](docs/etl-jobs.md) | Job registry and links to the CREATE, INGESTION, DATA_QUALITY and SINGLE_ETL pipelines, plus load type detection. |
 | [Data quality metrics](docs/data-quality-metrics.md) | Metric families, rules and querying `geo.data_quality`. |
 | [Data tables](docs/data-tables.md) | The `geo` schema — raw/plain table pairs, registered models, current data and how to add a table. |
-| [Configuration](docs/configuration.md) | `config.json` and `supabase_config.json` reference. |
+| [Configuration](docs/configuration.md) | `config.json` reference and Supabase credentials (`.env`). |
 | [Spark cluster](docs/spark-cluster.md) | Cluster services, Web UI, Spark JARs and connecting from PySpark. |
 | [Logging](docs/logging.md) | Log structure and format, plus stage memory monitoring and the SparkListener build. |
 | [Testing](docs/testing.md) | Running pytest and what each test suite covers. |
@@ -63,9 +63,10 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 ## Quick start
 
 ```bash
-# 1. Create the environment
+# 1. Create the environment and the credentials file
 conda env create -f environment.yml
 conda activate geo_etl_311
+cp .env.example .env   # then edit .env with your Supabase credentials
 
 # 2. Start the Spark cluster (docker-compose lives in GEO_E2E)
 cd ../GEO_E2E
@@ -91,7 +92,7 @@ python run_etl.py CREATE <table_name>
 python run_etl.py SINGLE_ETL <table_name>
 ```
 
-Supabase credentials must be present in `supabase_config.json` — see [Configuration](docs/configuration.md). Full instructions, including verifying the schema, dropping tables, deleting the latest `file_date` and the standalone upload/raw2plain pipelines, are in [Usage](docs/usage.md).
+Supabase credentials must be provided as environment variables, most conveniently in a gitignored `.env` file in the project root (copy `.env.example` and fill it in) — see [Configuration](docs/configuration.md). Full instructions, including verifying the schema, dropping tables, deleting the latest `file_date` and the standalone upload/raw2plain pipelines, are in [Usage](docs/usage.md).
 
 ## Related Projects
 

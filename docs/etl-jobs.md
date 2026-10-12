@@ -46,7 +46,7 @@ python run_etl.py DATA_QUALITY <table_name> --load-type historical   # → parse
 
 Every run:
 
-1. Reads `config.json` (Spark master, DB schema, JDBC driver) and `supabase_config.json` (credentials).
+1. Reads `config.json` (Spark master, DB schema, JDBC driver) and the `SUPABASE_DB_*` environment variables / `.env` (Supabase credentials).
 2. Creates a Spark session connected to the cluster and registers the stage memory logger (see [Logging](logging.md#stage-memory-monitoring)).
 3. Resolves the job type to its module and executes it, passing the table name, config objects and logger.
 4. Stops the Spark session.

@@ -46,7 +46,7 @@ def run(
         logger = logging.getLogger(__name__)
 
     app_config = AppConfig.from_json()
-    db_config = SupabaseConnectionConfig.from_json()
+    db_config = SupabaseConnectionConfig.from_env()
 
     script = SingleEtlFactory.get(script_name)
     logger.info(f"Running single ETL script: {script_name}...")

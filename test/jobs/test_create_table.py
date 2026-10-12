@@ -38,7 +38,7 @@ def mock_spark():
 
 class TestCreateTableRun:
     @patch("jobs.create_table.TableFactory.get", return_value=DummyModel)
-    @patch("jobs.create_table.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
     @patch("jobs.create_table.AppConfig.from_json", return_value=_mock_app_config())
     @patch("jobs.create_table.execute_ddl")
     @patch("jobs.create_table.create_schema")
@@ -50,7 +50,7 @@ class TestCreateTableRun:
         assert "created" in result
 
     @patch("jobs.create_table.TableFactory.get", return_value=DummyModel)
-    @patch("jobs.create_table.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
     @patch("jobs.create_table.AppConfig.from_json", return_value=_mock_app_config())
     @patch("jobs.create_table.execute_ddl")
     @patch("jobs.create_table.create_schema")
@@ -63,7 +63,7 @@ class TestCreateTableRun:
         assert call_args[0][1] == "geo"
 
     @patch("jobs.create_table.TableFactory.get", return_value=DummyModel)
-    @patch("jobs.create_table.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
     @patch("jobs.create_table.AppConfig.from_json", return_value=_mock_app_config())
     @patch("jobs.create_table.execute_ddl")
     @patch("jobs.create_table.create_schema")
@@ -85,7 +85,7 @@ class TestCreateTableRun:
         assert "avalanche_org_raw" in TableFactory.tables()
 
     @patch("jobs.create_table.TableFactory.get", return_value=DummyModel)
-    @patch("jobs.create_table.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
     @patch("jobs.create_table.AppConfig.from_json", return_value=_mock_app_config())
     @patch("jobs.create_table.execute_ddl")
     @patch("jobs.create_table.create_schema")

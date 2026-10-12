@@ -25,7 +25,7 @@ def _mock_db_config():
 
 @patch("run_drop_table.SparkSession.builder")
 @patch("run_drop_table.drop_table")
-@patch("run_drop_table.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_drop_table.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_drop_table.setup_logger")
 def test_drop_table_calls_correct_functions(mock_logger, mock_app, mock_db, mock_drop, mock_builder):
@@ -45,7 +45,7 @@ def test_drop_table_calls_correct_functions(mock_logger, mock_app, mock_db, mock
 
 @patch("run_drop_table.SparkSession.builder")
 @patch("run_drop_table.drop_table")
-@patch("run_drop_table.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_drop_table.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_drop_table.setup_logger")
 def test_drop_table_logs_success(mock_logger, mock_app, mock_db, mock_drop, mock_builder):
@@ -65,7 +65,7 @@ def test_drop_table_logs_success(mock_logger, mock_app, mock_db, mock_drop, mock
 
 @patch("run_drop_table.SparkSession.builder")
 @patch("run_drop_table.drop_table", side_effect=RuntimeError("boom"))
-@patch("run_drop_table.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_drop_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_drop_table.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_drop_table.setup_logger")
 def test_drop_table_failure_is_reraised(mock_logger, mock_app, mock_db, mock_drop, mock_builder):

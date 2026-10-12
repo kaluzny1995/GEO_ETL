@@ -33,7 +33,7 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
 
     # Load configs (Spark master, DB schema, Supabase credentials)
     app_config = AppConfig.from_json()
-    db_config = SupabaseConnectionConfig.from_json()
+    db_config = SupabaseConnectionConfig.from_env()
 
     # Build JDBC connection params
     jdbc_url = db_config.get_jdbc_url()

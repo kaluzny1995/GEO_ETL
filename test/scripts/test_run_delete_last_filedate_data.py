@@ -30,7 +30,7 @@ def _mock_db_config():
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_deletes_from_both_tables(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
@@ -56,7 +56,7 @@ def test_deletes_from_both_tables(mock_logger, mock_app, mock_db, mock_max_date,
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_derives_plain_table_name(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
@@ -81,7 +81,7 @@ def test_derives_plain_table_name(mock_logger, mock_app, mock_db, mock_max_date,
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value=None)
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
@@ -99,7 +99,7 @@ def test_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_date, mock_
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_etl_suffix_deletes_only_the_etl_table(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
@@ -127,7 +127,7 @@ def test_etl_suffix_deletes_only_the_etl_table(mock_logger, mock_app, mock_db, m
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value=None)
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_etl_suffix_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
@@ -145,7 +145,7 @@ def test_etl_suffix_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_rejects_the_data_quality_table(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
@@ -168,7 +168,7 @@ def test_rejects_the_data_quality_table(mock_logger, mock_app, mock_db, mock_max
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_logs_delete_info(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
@@ -192,7 +192,7 @@ def test_logs_delete_info(mock_logger, mock_app, mock_db, mock_max_date, mock_co
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_stops_spark_after_completion(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
@@ -214,7 +214,7 @@ def test_stops_spark_after_completion(mock_logger, mock_app, mock_db, mock_max_d
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_json", return_value=_mock_db_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_stops_spark_on_exception(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
