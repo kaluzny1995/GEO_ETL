@@ -101,7 +101,7 @@ Each run logs what it removed: `Deduplication on (event_category, event_name, la
 | `place_location` | `zone_name`; `event_name` stays `NULL` — a forecast has no event name |
 | `latitude` / `longitude` | the source's `latitude` / `longitude` columns — polygon centroid of the zone computed by GEO_Download at download time |
 | `metric_name` | always `magnitude`; `metric_value` / `metric_unit` stay `NULL` — a danger level is a rating, not a measurement |
-| `danger_rating` | zone rating as text, `NULL` while unrated (`danger_level = -1`, `danger_rating = "no rating"`) |
+| `danger_rating` | the zone's NAPADS level mapped onto the shared severity scale — `low` (1) … `extreme` (5); unrated zones (`danger_level = -1`, `danger_rating = "no rating"`) and a level the map does not know rate `no_rating` |
 | `event_start` / `event_end` | `forecast_start` / `forecast_end` |
 | `other_metrics` | `{"danger_level": …, "danger_level_unit": "NAPADS level", "warning": "warning", "off_season": …}` — the raw scale index (`-1` = no rating) with its `<name>_unit` companion key, the avalanche-warning product (omitted while no warning covers the zone) and the season state; zone ids and links are not metrics |
 
@@ -125,7 +125,7 @@ Each source file holds the analysis day plus the next day's forecast (the shared
 | `place_location` | `event_name` minus its type prefix (`Wildfire`, `Prescribed Fire`, `Incident Complex`, `Emergency Stabilization BAER`) when a place is left, e.g. `Wildfire Snow, Custer, Montana` → `Snow, Custer, Montana`; `NULL` for `Hurricane Polo` / `Iceberg D32` |
 | `metric_name` | `wind speed` (storms), `area` (fires), `surface` (ice), `magnitude` for any other category |
 | `metric_value` / `metric_unit` | `magnitude_value` / `magnitude_unit` |
-| `danger_rating` | `NULL` — EONET carries no rating |
+| `danger_rating` | `no_rating` — EONET carries no rating |
 | `other_metrics` | `{"geometry_count": n}` — the event's geometry points |
 | `event_start` | `event_date` |
 | `event_end` | `last_date` |
@@ -152,7 +152,7 @@ Both answers arrive with every row: GEO_Download stamps `geocode_country` / `geo
 | `metric_name` | `magnitude` (EQ/FL/VO), `wind speed` (TC), `area` (WF/DR) |
 | `metric_value` | `severity`, with `0` ("not defined" — every FL and VO row) mapped to `NULL` |
 | `metric_unit` | `severity_unit` (`M`, `km/h`, `ha`, `km2`), `NULL` when blank |
-| `danger_rating` | `alert_level` (`Green` / `Orange` / `Red`) |
+| `danger_rating` | `alert_level` mapped onto the shared severity scale — `Green` → `none`, `Orange` → `medium`, `Red` → `high`; a blank or unknown level rates `no_rating` |
 | `other_metrics` / `last_latitude` / `last_longitude` | `NULL` — a snapshot has no metrics beyond the measurement and no track |
 | `event_start` | `from_date` |
 | `event_end` | `to_date` (= `from_date` for the instantaneous earthquakes) |
@@ -177,7 +177,7 @@ The source's alpha-3 country code wins because GDACS knows the affected country 
 | `metric_name` | always `wind speed` |
 | `metric_value` | `coalesce(wmo_wind, usa_wind)` — WMO values are absent in real-time data, so the US agency's knots win today |
 | `metric_unit` | always `kts` |
-| `danger_rating` | the Saffir-Simpson label of `usa_sshs` (`category 5` … `category 1`, `tropical storm`, `tropical depression`, `disturbance`, `subtropical`, `post-tropical`, `unknown`) |
+| `danger_rating` | the Saffir-Simpson class of `usa_sshs` mapped onto the shared severity scale — categories 4–5 → `extreme`, 3 → `high`, 1–2 → `medium`, a tropical storm and every weaker system → `low`; a `NULL` or unmapped class (including `unknown`, `-5`) rates `no_rating`. The source's own wording (`category 5` … `category 1`, `tropical storm`, `tropical depression`, `disturbance`, `subtropical`, `post-tropical`) stays available as `other_metrics.saffir_simpson` |
 | `other_metrics` | `{"pressure": …, "pressure_unit": "mb", "speed": …, "speed_unit": "kts", "direction": …, "direction_unit": "degrees", "gust": …, "gust_unit": "kts", "dist2land": …, "dist2land_unit": "km", "landfall": …, "landfall_unit": "km"}` — `usa_pres`, `storm_speed`, `storm_dir`, `usa_gust`, `dist2land` / `landfall`; every measurement is paired with its `<name>_unit` companion key, and one the position does not report is omitted together with its unit; `NULL` when it reports none |
 | `event_start` / `event_end` | `iso_time` — one row = one track position |
 | `last_latitude` / `last_longitude` | `lat` / `lon` of the maximum `iso_time` per `sid` — the storm's latest position |
@@ -195,7 +195,8 @@ The source knows no country, so GEO_Download answers it at download time: every 
 | `event_name` | `incident_name`, `NULL` when blank |
 | `event_category` | always `fire` |
 | `event_subcategory` | `fire_type`: `WF` → `wildfire`, `RX` → `prescribed fire`; `NULL` when the source states no type |
-| `event_description` / `danger_rating` | `NULL` — the perimeter layer carries no advisory prose or alert level |
+| `event_description` | `NULL` — the perimeter layer carries no advisory prose |
+| `danger_rating` | `no_rating` — the perimeter layer carries no alert level |
 | `latitude` / `longitude` | the feature centroid of the perimeter |
 | `country_code` | always `US` — the layer only publishes US perimeters |
 | `state_province` | `state` when present (the 2026-09-18 vintage on), else the stamped `geocode_state` column, `NULL` when neither resolves |
@@ -222,7 +223,7 @@ The jurisdiction's full name ships with every source row — GEO_Download resolv
 | `event_name` | `"<river_name> discharge"` (`Amazon discharge`), `NULL` when the river name is blank |
 | `event_category` | always `flood` |
 | `event_subcategory` / `event_description` | `NULL` — the daily value carries no subtype or description |
-| `danger_rating` | the highest reference level the day's discharge **exceeded** against the river's own baseline percentiles (the reference's `discharge_p99_m3s` / `discharge_p95_m3s` columns): `Q99` strictly above `discharge_p99_m3s`, `Q95` strictly above `discharge_p95_m3s`, `NULL` at or below — `threshold_percentile` (0.95) is the floor, so a day the flood flag does not fire for always rates `NULL`, as does a river the threshold reference does not cover; the comparison is strict, so a flat baseline (every day sitting exactly on its own `Q95`, e.g. an all-zero series) is never flagged |
+| `danger_rating` | the flood danger of the day on the shared severity scale, judged against the river's own baseline percentiles (the reference's `discharge_p99_m3s` / `discharge_p95_m3s` columns): `extreme` strictly above `discharge_p99_m3s`, `high` strictly above `discharge_p95_m3s`, `none` at or below — `threshold_percentile` (0.95) is the floor, so the ladder never fires for a day the flood flag does not fire for — and `no_rating` when the row cannot be rated at all: a river the threshold reference does not cover, a run before the file was built, or a row without a discharge. The comparison is strict, so a flat baseline (every day sitting exactly on its own `Q95`, e.g. an all-zero series) rates `none` |
 | `latitude` / `longitude` | the `rivers.json` reference point of the river (stable per river; the GloFAS cell actually used is the nearest 0.05°/~5 km grid cell) |
 | `country_code` | the source `country` name mapped through the script's 54-entry ISO map (`USA` → `US`, `UK` → `GB`, `DRC` → `CD`); an unknown name falls back to the stamped `geocode_country` column, an empty value resolves to `ZZ` |
 | `state_province` | the stamped `geocode_state` column of the river's reference point, `NULL` when empty |
@@ -233,12 +234,12 @@ The jurisdiction's full name ships with every source row — GEO_Download resolv
 | `event_start` | `date` itself at midnight — the GMT+0 day of the 24-h mean |
 | `event_end` | `NULL` — a daily value has no end |
 | `last_latitude` / `last_longitude` | `NULL` — the reference point is fixed, there is no latest position |
-| `other_metrics` | the river's threshold reference — `{"discharge_p50": …, "discharge_p50_unit": "m³/s", …, "discharge_p99": …, "discharge_p99_unit": "m³/s", "threshold_percentile": 0.95, "threshold", "threshold_unit": "m³/s", "exceedance_ratio", "threshold_exceeded", "baseline_days", "baseline_start", "baseline_end"}` — plus, on forecast days, the GloFAS ensemble spread `{"ensemble_mean": …, "ensemble_mean_unit": "m³/s", "ensemble_median", "ensemble_p25", "ensemble_p75"}` with their own `_unit` companions; every measurement carries its unit in a separate `<name>_unit` key (`m³/s`) rather than inside the key name, and a unit key never outlives its value; keys the row cannot answer are dropped together with their group (no reference row → no percentiles, baseline or threshold; analysis day → no ensemble) and a row with nothing to say is `NULL` rather than `{}` (the lead time `date - file_date` remains derivable) |
+| `other_metrics` | the river's threshold reference — `{"discharge_p50": …, "discharge_p50_unit": "m³/s", …, "discharge_p99": …, "discharge_p99_unit": "m³/s", "threshold_percentile": 0.95, "threshold", "threshold_unit": "m³/s", "exceedance_ratio", "threshold_exceeded", "exceedance_level", "baseline_days", "baseline_start", "baseline_end"}` — plus, on forecast days, the GloFAS ensemble spread `{"ensemble_mean": …, "ensemble_mean_unit": "m³/s", "ensemble_median", "ensemble_p25", "ensemble_p75"}` with their own `_unit` companions; `exceedance_level` keeps the source's own wording of the level the discharge reached (`Q95` / `Q99`), omitted when the day exceeded none, while `danger_rating` holds the same fact on the shared scale; every measurement carries its unit in a separate `<name>_unit` key (`m³/s`) rather than inside the key name, and a unit key never outlives its value; keys the row cannot answer are dropped together with their group (no reference row → no percentiles, baseline or threshold; analysis day → no ensemble) and a row with nothing to say is `NULL` rather than `{}` (the lead time `date - file_date` remains derivable) |
 | `file_date` | `file_date` |
 
 Each downloaded file holds the analysis day plus the next day's forecast (222 rows = 111 rivers × 2 days — the current CSVs hold exactly that: 111 rivers, two `date` values each, out of the candidates listed in `rivers.json`; only rivers that returned discharge data are written), so a `(river, date)` pair appears in two files — yesterday's forecast is today's analysis — and the ETL keeps every snapshot as its own row; `(river, date, file_date)` is unique, so the shared [deduplication step](#deduplication) finds nothing to remove (its river-day key stays as a safety net). The country map runs in-script; the country fallback and the subdivision come from the `geocode_country` / `geocode_state` columns GEO_Download stamps into every downloaded file at download time, so this ETL performs no lookup and needs no network.
 
-Besides the source, the script left-joins the threshold reference CSV `data/openmeteo_discharge_thresholds.csv` on `river_name` + `country` (broadcast — one row per river, built by GEO_Download's `run_openmeteo_thresholds.py` from the GloFAS baseline, which `run_download.py` creates when the file is missing) and drops the reference's own `latitude`/`longitude`, so the source row keeps its coordinates; a river missing from the reference — or a run before the file was built — leaves `danger_rating` and the threshold keys `NULL` instead of failing. The GloFAS ensemble statistics ship only on forecast days (`date` after the analysis day), so `other_metrics` on an analysis day carries the reference alone. The percentile levels come from `percentile_levels` in `config.json` (`50 / 90 / 95 / 99`) and the ensemble keys from `ensemble_levels` (`mean / median / p25 / p75`); `threshold_percentile` picks which of those levels starts the danger ladder and must name one of them.
+Besides the source, the script left-joins the threshold reference CSV `data/openmeteo_discharge_thresholds.csv` on `river_name` + `country` (broadcast — one row per river, built by GEO_Download's `run_openmeteo_thresholds.py` from the GloFAS baseline, which `run_download.py` creates when the file is missing) and drops the reference's own `latitude`/`longitude`, so the source row keeps its coordinates; a river missing from the reference — or a run before the file was built — rates `danger_rating` `no_rating` and leaves the threshold keys `NULL` instead of failing. The GloFAS ensemble statistics ship only on forecast days (`date` after the analysis day), so `other_metrics` on an analysis day carries the reference alone. The percentile levels come from `percentile_levels` in `config.json` (`50 / 90 / 95 / 99`) and the ensemble keys from `ensemble_levels` (`mean / median / p25 / p75`); `threshold_percentile` picks which of those levels starts the danger ladder and must name one of them.
 
 ## usgs_earthquake_etl
 
@@ -263,7 +264,7 @@ Besides the source, the script left-joins the threshold reference CSV `data/open
 | `event_start` | `time` — the rupture origin time (millisecond precision) |
 | `event_end` | `NULL` — an instant has no end |
 | `last_latitude` / `last_longitude` | `NULL` — the epicentre is fixed |
-| `danger_rating` | `NULL` — `status` is QC, not severity |
+| `danger_rating` | `no_rating` — `status` is QC, not severity; the feed carries no alert level |
 | `file_date` | `file_date` |
 
 Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `magError`, `magNst`, `updated`, `locationSource`, `magSource`. The country parse runs in-script and needs no network for ~99% of rows — the ~93 places without a usable suffix (and the rows with a blank `net`) read the `geocode_country` / `geocode_state` columns GEO_Download stamped into the CSVs at download time, so GEO_ETL performs no lookup of its own.
@@ -290,7 +291,7 @@ Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `ma
 | `event_start` | `date` at midnight — the source reports a day, not a datetime |
 | `event_end` | `NULL` — a daily mean has no end |
 | `last_latitude` / `last_longitude` | `NULL` — the gauge is fixed |
-| `danger_rating` | `flood_category` of the day's peak stage verbatim (`major`, `moderate`, `minor`, `action`); `no_flooding` — and an empty category — rate `NULL` |
+| `danger_rating` | the NWS flood category of the day's peak stage mapped onto the shared severity scale — `no_flooding` → `none`, `action` → `low`, `minor` → `medium`, `moderate` → `high`, `major` → `extreme`; an empty, `NULL` or unknown category rates `no_rating` |
 | `other_metrics` | the gauge's peak against the NWS reference — `{"gauge_height": …, "gauge_height_unit": "ft", "nws_gauge_id": "BRKM2", "action_stage": …, "action_stage_unit": "ft", …, "major_stage": …, "major_stage_unit": "ft"}` — the day's peak gauge height, the NWS gauge id and the four flood-stage thresholds, every measurement carrying its unit in a separate `<name>_unit` key (`ft`) rather than inside the key name; `gauge_height` (with its unit) is omitted without a peak reading, the thresholds without a covering reference row, and a row with nothing to say is `NULL` |
 | `file_date` | `file_date` |
 
@@ -317,7 +318,7 @@ Dropped from the ETL: `parameter_code` (its value *is* the discharge metric) and
 | `metric_name` | always `vei` |
 | `metric_value` | the Volcanic Explosivity Index of the volcano's largest significant eruption in the NCEI/WDS Significant Volcanic Eruptions Database (Kīlauea → `4`); `NULL` for a volcano NCEI does not list (e.g. Great Sitkin) |
 | `metric_unit` | `VEI` alongside a value, `NULL` without one |
-| `danger_rating` | the same VEI as a readable class (`VEI 4`), `NULL` when NCEI has no record — an unknown VEI must not read as `VEI 0` |
+| `danger_rating` | the notice's alert level **and** aviation color code, both mapped onto the shared severity scale — `NORMAL`/`GREEN` → `none`, `ADVISORY`/`YELLOW` → `low`, `WATCH`/`ORANGE` → `high`, `WARNING`/`RED` → `extreme` — and the harsher of the two answers wins; a notice with neither a known alert level nor a known color code rates `no_rating`. The VEI is **not** a rating of the notice; it stays in `metric_value` |
 | `event_start` | `notice_date` — when the notice was issued |
 | `event_end` | `NULL` — a notice is an instant |
 | `last_latitude` / `last_longitude` | `NULL` — the volcano is fixed |
@@ -326,7 +327,7 @@ Dropped from the ETL: `parameter_code` (its value *is* the discharge metric) and
 
 Dropped from the ETL: `observatory`, `notice_type`, `notice_url`, `notice_data_url` — the stamped detail columns carry the enrichment instead (`notice_type` only remains as the fallback for `event_subcategory`) and the URLs are document references rather than data.
 
-`color_code`, `alert_level`, `casualties` and `damage` are **not** dropped: they live in `other_metrics` because `danger_rating` now carries the VEI. The alert-level terms and the Aviation Color Code are **two independent scales** (USGS: a `NORMAL`…`WARNING` change issues a VAN, a `GREEN`…`RED` change issues a VONA), so both are read from `other_metrics` to detect an escalation, and the NCEI death toll and damage total travel with their units (`people`, `million USD`) so neither can be misread as a bare number. The volcano number and the notice id give the row a stable volcano key and a globally unique notice key.
+`color_code`, `alert_level`, `casualties` and `damage` are **not** dropped: they stay in `other_metrics` as the feed's own words, next to the harmonized `danger_rating` they are mapped from. The alert-level terms and the Aviation Color Code are **two independent scales** (USGS: a `NORMAL`…`WARNING` change issues a VAN, a `GREEN`…`RED` change issues a VONA), so both are read from `other_metrics` to detect an escalation, and the NCEI death toll and damage total travel with their units (`people`, `million USD`) so neither can be misread as a bare number. The volcano number and the notice id give the row a stable volcano key and a globally unique notice key.
 
 The coordinates, region, status line, full notice type **and the NCEI eruption numbers** (`vei`, `casualties`, `damage` — the maximum VEI, total deaths and total damage in millions of USD over all of the volcano's significant eruptions) arrive with every row: the GEO_Download downloader resolves the notice details through `data/usgs_volcano_notices.csv` and the eruption record through `data/usgs_volcano_ncei_eruptions.csv` at download time and stamps them into the CSVs, and it stamps the `geocode_state` column the same way (strict on fetch failure — a failed lookup raises and fails the download instead of leaving holes, successful answers are kept for every later run). This ETL passes all of it straight through: no lookup file, no API call, no driver-side map.
 
@@ -353,7 +354,7 @@ The nine tables to stack and the target come from `datasets.single_etl.union_etl
 |--------|--------------------|
 | `source_name` | which of the nine tables the row came from — one distinct label per table (`AVALANCHE_ORG`, `EONET`, `GDACS`, `IBTRACS`, `NIFC`, `OPENMETEO`, `USGS_EARTHQUAKE`, `USGS_NWIS`, `USGS_VOLCANO`); this is also the per-source incremental key |
 | `event_category`, `event_subcategory`, `metric_name`, `metric_unit` | the source's own labels — kept per source, not harmonised |
-| `danger_rating`, `other_metrics` | the source's own scale and JSON metrics (units included) |
+| `danger_rating`, `other_metrics` | the shared severity scale every source is mapped onto (`no_rating` … `extreme`) and the source's own JSON metrics (units included) |
 | the remaining columns | unchanged from the source row |
 
 Load types behave as in the [table above](#single-etl-job): the target's latest `file_date` decides between `HISTORICAL` and `INCREMENTAL`, but the `INCREMENTAL` filter is **per source table** — each of the nine sources is filtered with its own `file_date > <latest file_date among the target rows carrying that source's own source_name>`. The labels are unique per table (the three USGS tables used to share `USGS`; they are now `USGS_EARTHQUAKE`, `USGS_NWIS` and `USGS_VOLCANO`), which is what makes the per-source threshold exact. A source that catches up after an outage therefore still delivers its older files, and a source with no rows in the union yet is stacked in full. When no source row is newer the run loads nothing:

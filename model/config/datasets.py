@@ -19,6 +19,7 @@ from typing import Literal, TypeVar
 from pydantic import BaseModel, ConfigDict
 
 from model.config.app_config import CONFIG_PATH
+from model.enums import DangerRating
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -53,7 +54,21 @@ class SingleEtlDatasetConfig(BaseModel):
     source_name: str
 
 
-class AvalancheOrgEtlConfig(SingleEtlDatasetConfig):
+class DangerRatedEtlConfig(SingleEtlDatasetConfig):
+    """Base config for a script that rates its rows on the shared severity scale.
+
+    Attributes:
+        danger_rating_map: The source's native value → one of the
+            :class:`~model.enums.DangerRating` words (``none`` … ``extreme``).
+            A value outside the scale fails validation, so a typo in
+            ``config.json`` fails at import; a native value the map does not
+            list is rated ``no_rating`` by the script.
+    """
+
+    danger_rating_map: dict[str, DangerRating]
+
+
+class AvalancheOrgEtlConfig(DangerRatedEtlConfig):
     """Constants for ``single_etl/avalanche_org_etl.py``."""
 
     country_code: str
@@ -68,14 +83,14 @@ class EonetEventEtlConfig(SingleEtlDatasetConfig):
     category_map: dict[str, str]
 
 
-class GdacsEventEtlConfig(SingleEtlDatasetConfig):
+class GdacsEventEtlConfig(DangerRatedEtlConfig):
     """Constants for ``single_etl/gdacs_event_etl.py``."""
 
     category_map: dict[str, str]
     country_code_map: dict[str, str]
 
 
-class IbtracsCycloneEtlConfig(SingleEtlDatasetConfig):
+class IbtracsCycloneEtlConfig(DangerRatedEtlConfig):
     """Constants for ``single_etl/ibtracs_cyclone_etl.py``."""
 
     event_category: str
@@ -100,7 +115,7 @@ class NifcFireEtlConfig(SingleEtlDatasetConfig):
     fire_type_map: dict[str, str]
 
 
-class OpenMeteoFloodEtlConfig(SingleEtlDatasetConfig):
+class OpenMeteoFloodEtlConfig(DangerRatedEtlConfig):
     """Constants for ``single_etl/openmeteo_flood_etl.py``."""
 
     subsource_name: str
@@ -129,7 +144,7 @@ class UsgsEarthquakeEtlConfig(SingleEtlDatasetConfig):
     country_code_map: dict[str, str]
 
 
-class UsgsNwisEtlConfig(SingleEtlDatasetConfig):
+class UsgsNwisEtlConfig(DangerRatedEtlConfig):
     """Constants for ``single_etl/usgs_nwis_etl.py``."""
 
     event_category: str
@@ -141,12 +156,18 @@ class UsgsNwisEtlConfig(SingleEtlDatasetConfig):
     qualifier_names: dict[str, str]
     flood_categories_file: str
     flood_levels: list[str]
-    no_flooding_category: str
     stage_unit: str
 
 
-class UsgsVolcanoEtlConfig(SingleEtlDatasetConfig):
-    """Constants for ``single_etl/usgs_volcano_etl.py``."""
+class UsgsVolcanoEtlConfig(DangerRatedEtlConfig):
+    """Constants for ``single_etl/usgs_volcano_etl.py``.
+
+    Attributes:
+        color_danger_rating_map: Aviation color code → the shared severity
+            scale, the companion of ``danger_rating_map`` (the USGS alert
+            level). The script rates a notice with the harsher of the two —
+            the scales are independent and either one alone can be missing.
+    """
 
     event_category: str
     metric_name: str
@@ -157,6 +178,7 @@ class UsgsVolcanoEtlConfig(SingleEtlDatasetConfig):
     vnum_unit: str
     casualties_unit: str
     damage_unit: str
+    color_danger_rating_map: dict[str, DangerRating]
 
 
 class UnionEtlConfig(BaseModel):

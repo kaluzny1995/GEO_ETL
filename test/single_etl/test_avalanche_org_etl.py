@@ -1,6 +1,7 @@
 import datetime as dt
 import json
 
+import pytest
 from pyspark.sql import Row
 
 from model.etl.avalanche_org_etl import AvalancheOrgEtl
@@ -70,21 +71,46 @@ class TestConvert:
         assert row.last_latitude is None and row.last_longitude is None
         assert row.file_date == "2026-01-10"
 
-    def test_unrated_zone_gets_null_rating(self, spark_session):
+    @pytest.mark.parametrize(
+        ("danger_level", "danger_text", "expected_rating"),
+        [
+            (1, "low", "low"),
+            (2, "moderate", "medium"),
+            (3, "considerable", "high"),
+            (4, "high", "high"),
+            (5, "extreme", "extreme"),
+            (-1, "no rating", "no_rating"),
+            (-1, "no_rating", "no_rating"),
+            (-1, "", "no_rating"),
+        ],
+    )
+    def test_the_rating_is_the_napads_level_on_the_shared_scale(
+        self, spark_session, danger_level, danger_text, expected_rating
+    ):
+        (row,) = _convert(spark_session, _source_row(danger_level=danger_level, danger_rating=danger_text))
+
+        assert row.danger_rating == expected_rating
+
+    def test_unrated_zone_rates_no_rating(self, spark_session):
         (row,) = _convert(spark_session, _source_row(danger_level=-1, danger_rating="no rating"))
 
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
         assert row.metric_value is None
 
-    def test_unrated_zone_with_underscored_rating_gets_null(self, spark_session):
+    def test_unrated_zone_with_underscored_rating_rates_no_rating(self, spark_session):
         (row,) = _convert(spark_session, _source_row(danger_level=-1, danger_rating="no_rating"))
 
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
 
-    def test_blank_rating_gets_null(self, spark_session):
+    def test_blank_rating_rates_no_rating(self, spark_session):
         (row,) = _convert(spark_session, _source_row(danger_level=-1, danger_rating=""))
 
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
+
+    def test_a_level_the_map_does_not_know_rates_no_rating(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(danger_level=7, danger_rating="something else"))
+
+        assert row.danger_rating == "no_rating"
 
     def test_other_metrics_keep_the_warning_and_the_season_state(self, spark_session):
         (row,) = _convert(
@@ -102,7 +128,7 @@ class TestConvert:
     def test_other_metrics_keep_the_no_rating_sentinel(self, spark_session):
         (row,) = _convert(spark_session, _source_row(danger_level=-1, danger_rating="no rating", off_season=True))
 
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
         assert json.loads(row.other_metrics) == {
             "danger_level": -1,
             "danger_level_unit": "NAPADS level",

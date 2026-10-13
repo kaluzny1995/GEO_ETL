@@ -23,6 +23,7 @@ from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
 from model.config.datasets import UsgsEarthquakeEtlConfig, load_dataset
+from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", UsgsEarthquakeEtlConfig)
@@ -200,7 +201,7 @@ class UsgsEarthquakeEtlScript(SingleEtlScript):
             F.lit(_cfg.metric_name).alias("metric_name"),
             F.coalesce(F.col("mag"), F.lit(0.0)).alias("metric_value"),
             F.col("mag_type").alias("metric_unit"),
-            F.lit(None).cast("string").alias("danger_rating"),
+            F.lit(DangerRating.NO_RATING).alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("time").alias("event_start"),
             F.lit(None).cast("timestamp").alias("event_end"),

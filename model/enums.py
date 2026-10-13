@@ -29,3 +29,33 @@ class LoadType(enum.Enum):
 
     HISTORICAL = "HISTORICAL"
     INCREMENTAL = "INCREMENTAL"
+
+
+class DangerRating(enum.StrEnum):
+    """Harmonized severity scale every ``*_etl`` script writes into ``danger_rating``.
+
+    The nine sources report their severity on their own scales (NAPADS levels,
+    GDACS alert levels, Saffir-Simpson classes, discharge percentiles, NWS flood
+    categories, USGS alert levels); each script maps its native scale onto these
+    words, so ``geo.union_etl`` (and every ``*_etl`` table) carries one vocabulary
+    that can be compared across sources. It is a ``StrEnum`` because the words are
+    used as data — they travel through ``config.json``, Spark literals and the
+    ``danger_rating`` column itself.
+
+    Attributes:
+        NO_RATING: The source cannot rate the row (no rating product, unrated
+            off-season zone, missing reference or unknown code) — the value that
+            used to be ``NULL``.
+        NONE: The row is rated and reports no danger at all.
+        LOW: Minor danger.
+        MEDIUM: Moderate danger.
+        HIGH: Serious danger.
+        EXTREME: The most severe class the scale reserves for catastrophic conditions.
+    """
+
+    NO_RATING = "no_rating"
+    NONE = "none"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    EXTREME = "extreme"

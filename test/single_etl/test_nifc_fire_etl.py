@@ -69,7 +69,7 @@ class TestConvert:
         assert row.metric_name == "area"
         assert row.metric_value == 1500.5
         assert row.metric_unit == "acres"
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
         assert row.other_metrics == '{"percent_contained":45,"percent_contained_unit":"%"}'
         assert row.event_start == dt.datetime(2026, 8, 10, 17, 1, 9)
         assert row.event_end is None

@@ -28,6 +28,7 @@ from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
 from model.config.datasets import UsgsVolcanoEtlConfig, load_dataset
+from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", UsgsVolcanoEtlConfig)
@@ -83,14 +84,34 @@ def _metric_value() -> Column:
 
 
 def _danger_rating() -> Column:
-    """The VEI as a readable class (``VEI 4``), ``NULL`` when NCEI has no record.
+    """The notice's alert level and aviation color code on the shared severity scale.
+
+    The feed's two scales are independent (a ``NORMAL`` alert can sit next to a
+    stale ``ORANGE`` color, and either one alone can be missing), so both are
+    mapped — `_cfg.danger_rating_map` for the USGS alert level, the companion
+    `_cfg.color_danger_rating_map` for the Aviation Color Code — and the harsher
+    of the two answers wins.
 
     Returns:
-        e.g. ``VEI 4`` for Kīlauea; ``NULL`` for a volcano NCEI does not
-        list — an unknown VEI must not read as ``VEI 0``.
+        ``none`` (``NORMAL``/``GREEN``), ``low`` (``ADVISORY``/``YELLOW``),
+        ``high`` (``WATCH``/``ORANGE``) or ``extreme``
+        (``WARNING``/``RED``); ``no_rating`` when the notice carries neither a
+        known alert level nor a known color code. The VEI is not a rating of
+        this notice — it stays in ``metric_value``.
     """
-    vei = F.col("vei")
-    return F.when(vei.isNotNull(), F.concat_ws(" ", F.lit(_cfg.metric_unit), vei.cast("string")))
+    ranks = {rating.value: rank for rank, rating in enumerate(DangerRating)}
+
+    def _ranked(mapping: dict[str, DangerRating], column: str) -> Column:
+        pairs = [(key, ranks[value.value]) for key, value in mapping.items()]
+        known = F.create_map(*[F.lit(item) for pair in pairs for item in pair])
+        return F.coalesce(known[F.lower(F.trim(F.col(column)))], F.lit(0))
+
+    rank = F.greatest(
+        _ranked(_cfg.danger_rating_map, "alert_level"),
+        _ranked(_cfg.color_danger_rating_map, "color_code"),
+    )
+    scale = F.array(*[F.lit(rating) for rating in DangerRating])
+    return scale[rank]
 
 
 def _state_province(state: Column) -> Column:
@@ -133,8 +154,9 @@ def _other_metrics() -> Column:
         ``<name>_unit`` companion (``ignoreNullFields`` drops the
         ``NULL``). ``color_code`` (the Aviation Color Code, a scale of its
         own — it can move while ``alert_level`` does not) and
-        ``alert_level`` both live here because ``danger_rating`` now
-        carries the VEI; ``casualties`` (total deaths) and ``damage``
+        ``alert_level`` both live here as the feed's raw words while
+        ``danger_rating`` mirrors them on the shared severity scale;
+        ``casualties`` (total deaths) and ``damage``
         (total damage, millions of USD) come from the NCEI/WDS eruption
         record and their units travel with them.
     """
@@ -178,7 +200,8 @@ class UsgsVolcanoEtlScript(SingleEtlScript):
         VEI (``metric_name`` from the config), and the aviation color code,
         the USGS alert level, the Smithsonian volcano number, the notice
         identifier and the NCEI casualty/damage totals travel in
-        :func:`_other_metrics`.
+        :func:`_other_metrics`; ``danger_rating`` maps the alert level and
+        the color code onto the shared severity scale.
 
         Args:
             df: Rows read from :attr:`SOURCE_TABLE`.

@@ -98,7 +98,7 @@ class TestConvert:
         assert row.metric_name == "wind speed"
         assert row.metric_value == 65.0
         assert row.metric_unit == "kts"
-        assert row.danger_rating == "category 1"
+        assert row.danger_rating == "medium"
         assert row.event_start == dt.datetime(2026, 9, 1, 21, 0, 0)
         assert row.event_end == dt.datetime(2026, 9, 1, 21, 0, 0)
         assert row.last_latitude == 29.9 and row.last_longitude == -93.9
@@ -161,18 +161,30 @@ class TestConvert:
     @pytest.mark.parametrize(
         ("usa_sshs", "expected_rating"),
         [
-            (5, "category 5"),
-            (1, "category 1"),
-            (0, "tropical storm"),
-            (-1, "tropical depression"),
-            (-3, "disturbance"),
-            (None, None),
+            (5, "extreme"),
+            (4, "extreme"),
+            (3, "high"),
+            (2, "medium"),
+            (1, "medium"),
+            (0, "low"),
+            (-1, "low"),
+            (-3, "low"),
+            (None, "no_rating"),
+            (-5, "no_rating"),
+            (9, "no_rating"),
         ],
     )
-    def test_danger_rating_is_the_saffir_simpson_label(self, spark_session, usa_sshs, expected_rating):
+    def test_danger_rating_is_the_saffir_simpson_class_on_the_shared_scale(
+        self, spark_session, usa_sshs, expected_rating
+    ):
         (row,) = _convert(spark_session, _source_row(usa_sshs=usa_sshs))
 
         assert row.danger_rating == expected_rating
+
+    def test_the_source_keeps_its_own_saffir_simpson_wording_in_other_metrics(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(usa_sshs=1))
+
+        assert json.loads(row.other_metrics)["saffir_simpson"] == "category 1"
 
     def test_wmo_wind_wins_over_the_us_agency_value(self, spark_session):
         (row,) = _convert(spark_session, _source_row(wmo_wind=70, usa_wind=65))
@@ -194,6 +206,7 @@ class TestConvert:
         (row,) = _convert(spark_session, _source_row(usa_gust=130))
 
         assert json.loads(row.other_metrics) == {
+            "saffir_simpson": "category 1",
             "pressure": 985,
             "pressure_unit": "mb",
             "speed": 8,
@@ -221,6 +234,22 @@ class TestConvert:
         (row,) = _convert(
             spark_session,
             _source_row(usa_pres=None, storm_speed=None, storm_dir=None, usa_gust=None, dist2land=None, landfall=None),
+        )
+
+        assert json.loads(row.other_metrics) == {"saffir_simpson": "category 1"}
+
+    def test_other_metrics_are_null_when_the_point_reports_nothing(self, spark_session):
+        (row,) = _convert(
+            spark_session,
+            _source_row(
+                usa_sshs=None,
+                usa_pres=None,
+                storm_speed=None,
+                storm_dir=None,
+                usa_gust=None,
+                dist2land=None,
+                landfall=None,
+            ),
         )
 
         assert row.other_metrics is None

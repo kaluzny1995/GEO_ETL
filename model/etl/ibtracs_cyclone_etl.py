@@ -33,17 +33,20 @@ class IbtracsCycloneEtl(EventEtl):
       ``coalesce(wmo_wind, usa_wind)`` (the WMO agency value when present,
       the US one otherwise — WMO values are absent in real-time data);
       ``metric_unit`` — ``kts``.
-    * ``danger_rating`` — the Saffir-Simpson label of ``usa_sshs``
-      (``category 4``, ``tropical storm``, ``tropical depression``,
-      ``disturbance``).
-    * ``other_metrics`` — JSON object pairing every measurement with its
+    * ``danger_rating`` — the Saffir-Simpson class of ``usa_sshs`` mapped onto
+      the shared scale (categories 4 and 5 → ``extreme``, 3 → ``high``,
+      1 and 2 → ``medium``, a tropical storm and weaker → ``low``);
+      ``no_rating`` when the source reports no usable class.
+    * ``other_metrics`` — the source's own Saffir-Simpson wording
+      (``saffir_simpson``: ``category 4``, ``tropical storm``, …) and a JSON
+      object pairing every measurement with its
       unit companion key: ``pressure`` / ``pressure_unit`` (``usa_pres``,
       mb), ``speed`` / ``speed_unit`` (``storm_speed``, kts), ``direction``
       / ``direction_unit`` (``storm_dir``, degrees), ``gust`` /
       ``gust_unit`` (``usa_gust``, kts), ``dist2land`` /
       ``dist2land_unit`` and ``landfall`` / ``landfall_unit`` (km); a
       measurement the point does not report is omitted together with its
-      unit, ``NULL`` when it reports none.
+      unit, ``NULL`` when it reports neither a class nor a measurement.
     * ``event_description`` — ``NULL`` (a best track carries no advisory
       prose).
     * ``event_start`` / ``event_end`` — the position's

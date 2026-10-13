@@ -28,7 +28,7 @@ class EonetEventEtl(EventEtl):
       (ice), ``magnitude`` for any other category; ``metric_value`` /
       ``metric_unit`` — ``magnitude_value`` / ``magnitude_unit``.
     * ``other_metrics`` — ``{"geometry_count": n}`` (the event's geometry points).
-    * ``danger_rating`` — ``NULL`` (EONET carries no rating).
+    * ``danger_rating`` — ``no_rating`` (EONET carries no rating).
     * ``event_start`` — ``event_date``; ``event_end`` —
       ``last_date``; ``last_latitude`` / ``last_longitude`` — the latest position.
     """

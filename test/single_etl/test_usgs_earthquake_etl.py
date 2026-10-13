@@ -77,7 +77,7 @@ class TestConvert:
         assert row.metric_name == "magnitude"
         assert row.metric_value == 0.52
         assert row.metric_unit == "ml"
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
         assert row.other_metrics == '{"depth":15.95,"depth_unit":"km","nst":15,"nst_unit":"stations"}'
         assert row.event_start == dt.datetime(2026, 9, 1, 23, 58, 46, 50000)
         assert row.event_end is None

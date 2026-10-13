@@ -31,20 +31,30 @@ from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
 from model.config.datasets import AvalancheOrgEtlConfig, load_dataset
+from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", AvalancheOrgEtlConfig)
 
 
 def _danger_rating() -> Column:
-    """The zone's danger rating, or ``NULL`` while the zone is unrated.
+    """The zone's NAPADS level mapped onto the shared severity scale.
 
     The source marks unrated zones with ``danger_level = -1`` and a rating text
-    of ``no rating``; neither is a rating, so both map to ``NULL``.
+    of ``no rating``; neither is a rating, so both — and a zone the map does not
+    know — rate ``no_rating`` instead of ``NULL``.
+
+    Returns:
+        ``low`` (level 1), ``medium`` (2), ``high`` (3 and 4) and ``extreme``
+        (5) from `_cfg.danger_rating_map`; ``no_rating`` while the zone is
+        unrated (``danger_level`` ``NULL`` or ≤ 0, or a rating text of ``""`` /
+        ``no rating`` / ``no_rating``) or when the level is outside the map.
     """
-    rating = F.trim(F.col("danger_rating"))
-    unrated = (F.col("danger_level") <= 0) | (F.lower(rating).isin("", "no rating", "no_rating"))
-    return F.when(~unrated, rating)
+    rating = F.lower(F.coalesce(F.trim(F.col("danger_rating")), F.lit("")))
+    level = F.col("danger_level")
+    unrated = level.isNull() | (level <= 0) | rating.isin("", "no rating", "no_rating")
+    known = F.create_map(*[F.lit(item) for pair in _cfg.danger_rating_map.items() for item in pair])
+    return F.coalesce(F.when(~unrated, known[level.cast("string")]), F.lit(DangerRating.NO_RATING))
 
 
 def _other_metrics() -> Column:
@@ -90,8 +100,9 @@ class AvalancheOrgEtlScript(SingleEtlScript):
         Every zone carries its polygon centroid as ``latitude``/``longitude``
         (``NULL`` when the source row has no coordinates, i.e. the download found
         no usable geometry). A danger level is a rating, not a measurement, so
-        ``metric_value`` and ``metric_unit`` stay ``NULL`` and unrated zones
-        (``danger_level = -1``) additionally get a ``NULL`` ``danger_rating``.
+        ``metric_value`` and ``metric_unit`` stay ``NULL``; ``danger_rating``
+        carries the NAPADS level mapped onto the shared severity scale, and
+        unrated zones (``danger_level = -1``) rate ``no_rating``.
         The rating's scale index, the avalanche-warning product and the season
         state travel in :func:`_other_metrics`, so a danger transition or a
         warning issuance can be detected from the target table alone.

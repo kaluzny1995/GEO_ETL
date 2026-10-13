@@ -34,6 +34,7 @@ from pyspark.sql.types import DoubleType, StringType, StructField, StructType
 
 from model.config import AppConfig
 from model.config.datasets import UsgsNwisEtlConfig, load_dataset
+from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", UsgsNwisEtlConfig)
@@ -145,21 +146,18 @@ def _state_province(geocode_state: Column) -> Column:
 
 
 def _danger_rating() -> Column:
-    """The NWS flood category the day's peak stage reached, else ``NULL``.
+    """The NWS flood category of the day's peak stage mapped onto the shared severity scale.
 
     Returns:
-        ``"major"`` for a peak at or above the gauge's major stage, then
-        ``"moderate"``, ``"minor"``, ``"action"`` — the category the
-        downloader labelled the row with, compared against the gauge's own
-        thresholds. A peak below every threshold (``no_flooding``), a gauge
-        the NWS reference does not cover and a day without a stage all rate
-        ``NULL``, the convention the other sources use for "nothing to
-        warn about".
+        ``none`` for ``no_flooding`` (the gauge is rated and nothing is
+        expected), then ``low`` for ``action``, ``medium`` for ``minor``,
+        ``high`` for ``moderate`` and ``extreme`` for ``major`` from
+        `_cfg.danger_rating_map`; ``no_rating`` when the row carries no
+        category the map knows — an empty category, ``NULL`` or an unexpected
+        code (the NWS could not classify the day) — never ``NULL`` itself.
     """
-    category = F.trim(F.col("flood_category"))
-    return F.when((category != "") & (category != _cfg.no_flooding_category), category).otherwise(
-        F.lit(None).cast("string")
-    )
+    known = F.create_map(*[F.lit(item) for pair in _cfg.danger_rating_map.items() for item in pair])
+    return F.coalesce(known[F.lower(F.trim(F.col("flood_category")))], F.lit(DangerRating.NO_RATING))
 
 
 def _value_and_unit(column: str, name: str) -> tuple[Column, Column]:

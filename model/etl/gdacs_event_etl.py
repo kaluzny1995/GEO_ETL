@@ -29,7 +29,9 @@ class GdacsEventEtl(EventEtl):
       everywhere FL and VO report one) mapped to ``NULL``; ``metric_unit`` —
       ``severity_unit`` (``M``, ``km/h``, ``ha``, ``km2``), ``NULL`` when
       blank.
-    * ``danger_rating`` — ``alert_level`` (``Green`` / ``Orange`` / ``Red``).
+    * ``danger_rating`` — ``alert_level`` (``Green`` / ``Orange`` / ``Red``)
+      mapped onto the shared scale (``none`` / ``medium`` / ``high``);
+      ``no_rating`` when the row carries no alert level the map knows.
     * ``other_metrics`` / ``event_description`` / ``last_latitude`` /
       ``last_longitude`` — ``NULL`` (GDACS carries none).
     * ``event_start`` — ``from_date``; ``event_end`` —

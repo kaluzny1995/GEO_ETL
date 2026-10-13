@@ -69,7 +69,7 @@ class TestConvert:
         assert row.metric_name == "wind speed"
         assert row.metric_value == 55.5552
         assert row.metric_unit == "km/h"
-        assert row.danger_rating == "Green"
+        assert row.danger_rating == "none"
         assert row.other_metrics is None
         assert row.event_start == dt.datetime(2026, 9, 29, 15, 0, 0)
         assert row.event_end == dt.datetime(2026, 9, 29, 21, 0, 0)
@@ -118,7 +118,7 @@ class TestConvert:
         assert row.metric_name == "magnitude"
         assert row.metric_value == 4.5
         assert row.metric_unit == "M"
-        assert row.danger_rating == "Green"
+        assert row.danger_rating == "none"
         assert row.event_start == row.event_end == dt.datetime(2026, 9, 29, 21, 50, 29)
 
     def test_wildfire_mapping(self, spark_session):
@@ -169,7 +169,25 @@ class TestConvert:
         assert row.metric_name == "area"
         assert row.metric_value == 1264372.0
         assert row.metric_unit == "km2"
-        assert row.danger_rating == "Orange"
+        assert row.danger_rating == "medium"
+
+    @pytest.mark.parametrize(
+        ("alert_level", "expected_rating"),
+        [
+            ("Green", "none"),
+            ("Orange", "medium"),
+            ("Red", "high"),
+            ("red", "high"),
+            ("  Red  ", "high"),
+            ("", "no_rating"),
+            (None, "no_rating"),
+            ("Purple", "no_rating"),
+        ],
+    )
+    def test_the_alert_level_is_mapped_onto_the_shared_scale(self, spark_session, alert_level, expected_rating):
+        (row,) = _convert(spark_session, _source_row(alert_level=alert_level))
+
+        assert row.danger_rating == expected_rating
 
     @pytest.mark.parametrize(
         ("event_type", "severity_unit", "severity_text", "expected_category"),

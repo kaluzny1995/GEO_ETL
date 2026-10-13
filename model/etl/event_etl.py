@@ -16,8 +16,12 @@ Field conventions (identical for every source, so the tables can be merged):
 * ``metric_name`` — the single most important measurement of the source (``magnitude``,
   …); ``metric_value`` / ``metric_unit`` stay ``NULL`` until the source actually
   reports a value.
-* ``danger_rating`` — the same measurement expressed as a severity label;
-  ``NULL`` when the source has no rating.
+* ``danger_rating`` — the row's severity on the shared scale every source is
+  mapped onto: ``no_rating`` (the source cannot rate the row), ``none`` (rated,
+  no danger), ``low``, ``medium``, ``high``, ``extreme`` — the words of
+  :class:`model.enums.DangerRating`, so the merged ``union_etl`` is comparable
+  across sources. The scripts never write ``NULL``; the column stays nullable
+  only so rows loaded by older versions of the ETL keep loading.
 * ``other_metrics`` — remaining metrics as a JSON object string, e.g.
   ``{"affected_area": "120 km2", "deaths": "3 persons"}``; a numeric measurement
   carries its unit in a companion ``<name>_unit`` key (``{"pressure": 985,

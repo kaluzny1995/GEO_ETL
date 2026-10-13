@@ -38,8 +38,9 @@ class UsgsEarthquakeEtl(EventEtl):
     * ``event_start`` — ``time`` (the rupture origin time, millisecond
       precision, always present); ``event_end`` — ``NULL`` (an instant has
       no end).
-    * ``danger_rating`` / ``last_latitude`` /
-      ``last_longitude`` — ``NULL`` (``status`` is QC, not severity; the
+    * ``danger_rating`` — ``no_rating`` (``status`` is QC, not severity — the
+      feed carries no alert level); ``last_latitude`` /
+      ``last_longitude`` — ``NULL`` (the
       epicentre is fixed).
     * ``file_date`` — the snapshot day the event was downloaded for.
     """

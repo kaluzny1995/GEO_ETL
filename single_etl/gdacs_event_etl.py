@@ -26,6 +26,7 @@ from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
 from model.config.datasets import GdacsEventEtlConfig, load_dataset
+from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", GdacsEventEtlConfig)
@@ -133,6 +134,20 @@ def _place_location() -> Column:
     return F.when(trimmed != "", trimmed).otherwise(F.lit(None).cast("string"))
 
 
+def _danger_rating() -> Column:
+    """The alert level mapped onto the shared severity scale (`_cfg.danger_rating_map`).
+
+    Returns:
+        ``none`` for ``Green`` (no significant impact expected), ``medium`` for
+        ``Orange`` and ``high`` for ``Red``; ``no_rating`` when the row carries
+        no alert level the map knows (blank, ``NULL`` or an unexpected code) —
+        the value never comes back ``NULL``, so ``no_rating`` marks the rows
+        GDACS does not rate.
+    """
+    known = F.create_map(*[F.lit(item) for pair in _cfg.danger_rating_map.items() for item in pair])
+    return F.coalesce(known[F.lower(F.trim(F.col("alert_level")))], F.lit(DangerRating.NO_RATING))
+
+
 class GdacsEventEtlScript(SingleEtlScript):
     """GDACS → ``geo.gdacs_event_etl`` (canonical event structure)."""
 
@@ -172,7 +187,7 @@ class GdacsEventEtlScript(SingleEtlScript):
             _metric_name(category).alias("metric_name"),
             _metric_value().alias("metric_value"),
             _metric_unit().alias("metric_unit"),
-            F.col("alert_level").alias("danger_rating"),
+            _danger_rating().alias("danger_rating"),
             F.lit(None).cast("string").alias("other_metrics"),
             F.col("from_date").alias("event_start"),
             F.col("to_date").alias("event_end"),

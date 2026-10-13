@@ -13,11 +13,13 @@ Next to the plain table the script joins the threshold reference CSV
 ``data/openmeteo_discharge_thresholds.csv`` (built by GEO_Download's
 ``run_openmeteo_thresholds.py``) on ``river_name`` + ``country``, so a row
 can say more than "the discharge was X": ``other_metrics`` carries the
-river's baseline percentiles, the configured flood threshold and the
-ratio the day's discharge stands in it, and ``danger_rating`` labels the
-reference levels the day's discharge exceeded (``Q95``, ``Q99``). A river
-the reference does not cover (or a missing file) simply keeps both
-``NULL``.
+river's baseline percentiles, the configured flood threshold, the ratio the
+day's discharge stands in it and the reference level it exceeded in the
+source's own wording (``Q95``, ``Q99``), and ``danger_rating`` maps that onto
+the shared severity scale (``extreme`` above ``Q99``, ``high`` above ``Q95``,
+``none`` at or below the threshold). A river the reference does not cover (or
+a missing file) rates ``no_rating`` — it keeps both the scale word and the
+threshold keys out of the claim that the river is safe.
 
 Run::
 
@@ -37,6 +39,7 @@ from pyspark.sql.types import DoubleType, IntegerType, StringType, StructField, 
 
 from model.config import AppConfig
 from model.config.datasets import OpenMeteoFloodEtlConfig, load_dataset
+from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", OpenMeteoFloodEtlConfig)
@@ -167,9 +170,10 @@ def _other_metrics() -> Column:
         "m³/s", …, "discharge_p99": 226985.0, "discharge_p99_unit":
         "m³/s", "threshold_percentile": 0.95, "threshold": 215774.0,
         "threshold_unit": "m³/s", "exceedance_ratio": 0.26,
-        "threshold_exceeded": false, "baseline_days": 10870,
-        "baseline_start": "1997-01-01", "baseline_end": "2026-10-05",
-        "ensemble_mean": 55094.71, "ensemble_mean_unit": "m³/s", …}``.
+        "threshold_exceeded": false, "exceedance_level": "Q95",
+        "baseline_days": 10870, "baseline_start": "1997-01-01",
+        "baseline_end": "2026-10-05", "ensemble_mean": 55094.71,
+        "ensemble_mean_unit": "m³/s", …}``.
 
         The four ``discharge_p{50,90,95,99}`` percentiles and the
         ``baseline_*`` provenance come from the reference (all omitted for
@@ -178,7 +182,10 @@ def _other_metrics() -> Column:
         ``exceedance_ratio`` is the day's discharge divided by it
         (``threshold_exceeded`` is the same test as a flag: strictly above
         1 — a flat baseline that sits exactly on the threshold is never
-        exceeded). The ``ensemble_*`` keys are the GloFAS ensemble
+        exceeded). ``exceedance_level`` keeps the source's own wording of the
+        level the discharge reached (``Q95``/``Q99``), omitted when the day
+        exceeded none — ``danger_rating`` holds the same fact on the shared
+        severity scale. The ``ensemble_*`` keys are the GloFAS ensemble
         statistics of the day, present on forecast days only. Every
         measurement carries ``metric_unit`` (``m³/s``) in its own
         ``<name>_unit`` companion key rather than in the key name, and
@@ -201,6 +208,7 @@ def _other_metrics() -> Column:
         F.when(has_threshold, F.lit(_cfg.metric_unit)).alias("threshold_unit"),
         F.when(has_threshold, discharge / F.col(threshold_column)).alias("exceedance_ratio"),
         F.when(has_threshold, discharge > F.col(threshold_column)).alias("threshold_exceeded"),
+        F.when(has_threshold & discharge.isNotNull(), _exceedance_level()).alias("exceedance_level"),
         F.col("baseline_days"),
         F.col("baseline_start"),
         F.col("baseline_end"),
@@ -213,25 +221,89 @@ def _other_metrics() -> Column:
     return F.when(_discharge_present(), F.to_json(payload)).otherwise(F.lit(None).cast("string"))
 
 
-def _danger_rating() -> Column:
-    """The highest reference level the day's discharge exceeded, else ``NULL``.
+def _ladder_levels() -> list[int]:
+    """The reference levels the danger ladder tests, ascending, floored by ``threshold_percentile``.
 
     Returns:
-        ``"Q99"`` for a discharge strictly above the river's ``Q99``,
-        ``"Q95"`` for one strictly above ``Q95`` — the configured threshold
-        sets the floor, so a day the flood flag does not fire for always
-        rates ``NULL``. The comparison is strict: a river whose baseline is
-        flat (every day sits exactly on its own Q95, e.g. an all-zero
-        GloFAS series) is never flagged. Without a threshold reference
-        (river unknown to the CSV, or the file missing) every day rates
-        ``NULL``.
+        The configured ``percentile_levels`` at or above the configured
+        threshold (``0.95`` → ``[95, 99]``), so the ladder only ever fires for
+        a discharge the flood flag fires for.
+    """
+    return [level for level in sorted(_cfg.percentile_levels) if level >= _threshold_level()]
+
+
+def _danger_word(level: int) -> DangerRating:
+    """The shared-scale word `_cfg.danger_rating_map` gives a reference level.
+
+    Args:
+        level: Percentile level of the reference (``95``).
+
+    Returns:
+        The configured word (``high`` for ``95``).
+
+    Raises:
+        ValueError: When ``danger_rating_map`` in ``config.json`` does not name
+            that level — checked whenever the ladder is built, the same
+            contract :func:`_threshold_column` enforces for the reference CSV.
+    """
+    try:
+        return _cfg.danger_rating_map[str(level)]
+    except KeyError as exc:
+        raise ValueError(
+            f"danger_rating_map has no word for reference level {level} "
+            f"(configured levels: {', '.join(_cfg.danger_rating_map)})"
+        ) from exc
+
+
+def _exceeded(labels: dict[int, str]) -> Column:
+    """The highest reference level the day's discharge exceeded, rendered with *labels*.
+
+    Args:
+        labels: Reference level → the word to report for that level.
+
+    Returns:
+        The word of the highest exceeded level; ``NULL`` when the discharge is
+        strictly above none of them or the row carries no discharge. The
+        comparison is strict: a river whose baseline is flat — every day sits
+        exactly on its own reference level, e.g. an all-zero GloFAS series — is
+        never exceeded.
     """
     discharge = F.col("discharge_m3s")
     rating = F.lit(None).cast("string")
-    ladder = [level for level in sorted(_cfg.percentile_levels) if level >= _threshold_level()]
-    for level in ladder:
-        rating = F.when(discharge > F.col(_threshold_column(level)), F.lit(f"Q{level}")).otherwise(rating)
+    for level in _ladder_levels():
+        rating = F.when(discharge > F.col(_threshold_column(level)), F.lit(labels[level])).otherwise(rating)
     return rating
+
+
+def _exceedance_level() -> Column:
+    """The reference level the day's discharge exceeded, in the source's own wording.
+
+    Returns:
+        ``"Q99"`` for a discharge strictly above the river's ``Q99``,
+        ``"Q95"`` for one strictly above its ``Q95``, ``NULL`` at or below the
+        configured threshold — the wording that travels in ``other_metrics``
+        next to the harmonized :func:`_danger_rating`.
+    """
+    return _exceeded({level: f"Q{level}" for level in _ladder_levels()})
+
+
+def _danger_rating() -> Column:
+    """The day's flood danger on the shared severity scale.
+
+    Returns:
+        ``extreme`` for a discharge strictly above the river's ``Q99``,
+        ``high`` for one strictly above its ``Q95`` — the configured
+        ``threshold_percentile`` sets the floor, so the ladder matches the
+        flood flag — ``none`` for a rated river at or below it (the row says
+        "no flood danger", not "unknown"), and ``no_rating`` when the row
+        cannot be rated at all: a river the threshold reference does not cover,
+        a run before the file was built, or a row without a discharge.
+    """
+    rated = F.col(_threshold_column(_threshold_level())).isNotNull() & F.col("discharge_m3s").isNotNull()
+    words = {level: _danger_word(level).value for level in _ladder_levels()}
+    return F.when(rated, F.coalesce(_exceeded(words), F.lit(DangerRating.NONE))).otherwise(
+        F.lit(DangerRating.NO_RATING)
+    )
 
 
 class OpenMeteoFloodEtlScript(SingleEtlScript):

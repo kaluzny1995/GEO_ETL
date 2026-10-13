@@ -99,7 +99,14 @@
         "country_code": "US",
         "event_category": "avalanche",
         "metric_name": "magnitude",
-        "danger_level_unit": "NAPADS level"
+        "danger_level_unit": "NAPADS level",
+        "danger_rating_map": {
+          "1": "low",
+          "2": "medium",
+          "3": "high",
+          "4": "high",
+          "5": "extreme"
+        }
       },
       "eonet_event_etl": {
         "source_table": "eonet_event",
@@ -219,6 +226,11 @@
           "ZAF": "ZA",
           "ZMB": "ZM",
           "ZWE": "ZW"
+        },
+        "danger_rating_map": {
+          "green": "none",
+          "orange": "medium",
+          "red": "high"
         }
       },
       "ibtracs_cyclone_etl": {
@@ -286,6 +298,18 @@
           "-3": "disturbance",
           "-4": "post-tropical",
           "-5": "unknown"
+        },
+        "danger_rating_map": {
+          "5": "extreme",
+          "4": "extreme",
+          "3": "high",
+          "2": "medium",
+          "1": "medium",
+          "0": "low",
+          "-1": "low",
+          "-2": "low",
+          "-3": "low",
+          "-4": "low"
         }
       },
       "nifc_fire_etl": {
@@ -325,6 +349,10 @@
           "p25",
           "p75"
         ],
+        "danger_rating_map": {
+          "95": "high",
+          "99": "extreme"
+        },
         "country_code_map": {
           "Afghanistan": "AF",
           "Argentina": "AR",
@@ -581,7 +609,6 @@
           "moderate",
           "major"
         ],
-        "no_flooding_category": "no_flooding",
         "stage_unit": "ft",
         "event_name_prefix": "Streamflow - ",
         "event_name_fallback": "Streamflow",
@@ -598,6 +625,13 @@
           "Ssn": "monitored seasonally",
           "ZFL": "zero flow",
           "***": "value unavailable"
+        },
+        "danger_rating_map": {
+          "no_flooding": "none",
+          "action": "low",
+          "minor": "medium",
+          "moderate": "high",
+          "major": "extreme"
         }
       },
       "usgs_volcano_etl": {
@@ -612,7 +646,19 @@
         "event_name_fallback": "Volcano",
         "vnum_unit": "Smithsonian GVP",
         "casualties_unit": "people",
-        "damage_unit": "million USD"
+        "damage_unit": "million USD",
+        "danger_rating_map": {
+          "normal": "none",
+          "advisory": "low",
+          "watch": "high",
+          "warning": "extreme"
+        },
+        "color_danger_rating_map": {
+          "green": "none",
+          "yellow": "low",
+          "orange": "high",
+          "red": "extreme"
+        }
       },
       "union_etl": {
         "target_table": "union_etl",

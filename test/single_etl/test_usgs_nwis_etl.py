@@ -105,7 +105,7 @@ class TestConvert:
         assert row.metric_name == "discharge"
         assert row.metric_value == 1450.0
         assert row.metric_unit == "ft3/s"
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
         assert row.other_metrics is None
         assert row.event_start == dt.datetime(2026, 9, 1)
         assert row.event_end is None
@@ -200,16 +200,18 @@ class TestConvert:
     @pytest.mark.parametrize(
         ("flood_category", "expected_rating"),
         [
-            ("no_flooding", None),
-            ("action", "action"),
-            ("minor", "minor"),
-            ("moderate", "moderate"),
-            ("major", "major"),
-            ("", None),
-            (None, None),
+            ("no_flooding", "none"),
+            ("action", "low"),
+            ("minor", "medium"),
+            ("moderate", "high"),
+            ("major", "extreme"),
+            (" Major ", "extreme"),
+            ("", "no_rating"),
+            (None, "no_rating"),
+            ("unknown category", "no_rating"),
         ],
     )
-    def test_the_rating_is_the_flood_category_of_the_peak(self, spark_session, flood_category, expected_rating):
+    def test_the_rating_is_the_flood_category_on_the_shared_scale(self, spark_session, flood_category, expected_rating):
         (row,) = _convert(spark_session, _source_row(gauge_height=7.8, flood_category=flood_category))
 
         assert row.danger_rating == expected_rating
@@ -220,16 +222,16 @@ class TestConvert:
         assert script.flood_categories_path.endswith(module._cfg.flood_categories_file)
         assert script.flood_categories_path != _NO_REFERENCE
 
-    def test_a_day_without_a_stage_or_a_reference_keeps_both_columns_null(self, spark_session):
+    def test_a_day_without_a_stage_or_a_reference_rates_no_rating(self, spark_session):
         (row,) = _convert(spark_session, _source_row())
 
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
         assert row.other_metrics is None
 
     def test_a_missing_reference_file_still_reports_the_peak(self, spark_session):
         (row,) = _convert(spark_session, _source_row(gauge_height=2.94, flood_category="no_flooding"))
 
-        assert row.danger_rating is None
+        assert row.danger_rating == "none"
         assert json.loads(row.other_metrics) == {"gauge_height": 2.94, "gauge_height_unit": "ft"}
 
 
@@ -259,7 +261,7 @@ class TestFloodCategoryReference:
         (row,) = _convert(spark_session, _source_row(gauge_height=7.8, flood_category="minor"), script=script)
 
         assert json.loads(row.other_metrics) == {"gauge_height": 7.8, "gauge_height_unit": "ft"}
-        assert row.danger_rating == "minor"
+        assert row.danger_rating == "medium"
 
     def test_a_reference_without_a_stage_of_its_own_reports_the_thresholds(self, spark_session, tmp_path):
         script = UsgsNwisEtlScript(flood_categories_path=_reference_csv(tmp_path))
@@ -281,7 +283,7 @@ class TestFloodCategoryReference:
         (row,) = _convert(spark_session, _source_row(), script=script)
 
         assert row.other_metrics is None
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
 
     def test_no_unit_is_carried_inside_a_key_name(self, spark_session, tmp_path):
         script = UsgsNwisEtlScript(flood_categories_path=_reference_csv(tmp_path))

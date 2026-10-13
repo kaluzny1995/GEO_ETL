@@ -34,9 +34,10 @@ class NifcFireEtl(EventEtl):
     * ``other_metrics`` — ``{"percent_contained": …,
       "percent_contained_unit": "%"}``, always present: a missing
       ``percent_contained`` counts as ``0`` (nothing reported yet).
-    * ``danger_rating`` / ``event_description`` / ``event_end`` /
+    * ``danger_rating`` — ``no_rating`` (the perimeter layer carries no alert
+      level); ``event_description`` / ``event_end`` /
       ``last_latitude`` / ``last_longitude`` — ``NULL`` (the
-      perimeter layer carries no alert level, advisory prose, fire-out
+      perimeter layer carries no advisory prose, fire-out
       datetime or latest position).
     * ``event_start`` — ``created_on`` (always present).
     """

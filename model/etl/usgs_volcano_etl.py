@@ -36,17 +36,21 @@ class UsgsVolcanoEtl(EventEtl):
       largest significant-eruption VEI as a number (Kīlauea → ``4``), read
       from the plain table's NCEI/WDS eruption record; ``NULL`` for a
       volcano NCEI does not list (e.g. Great Sitkin); ``metric_unit`` —
-      ``VEI`` alongside a value, ``NULL`` without one; ``danger_rating`` —
-      the same VEI as a readable class (``VEI 4``), ``NULL`` when NCEI has
-      no record.
+      ``VEI`` alongside a value, ``NULL`` without one.
+    * ``danger_rating`` — the notice's alert level and aviation color code
+      mapped onto the shared scale: ``none`` (``NORMAL`` / ``GREEN``),
+      ``low`` (``ADVISORY`` / ``YELLOW``), ``high`` (``WATCH`` / ``ORANGE``),
+      ``extreme`` (``WARNING`` / ``RED``) — the harsher of the two answers —
+      ``no_rating`` when the notice carries neither a known alert level nor a
+      known color code.
     * ``event_start`` — ``notice_date`` (when the notice was issued, full
       precision); ``event_end`` — ``NULL`` (a notice is an instant).
     * ``other_metrics`` — ``{"color_code": …, "alert_level": …, "vnum":
       …, "vnum_unit": "Smithsonian GVP", "notice_identifier": …,
       "casualties": 5411, "casualties_unit": "people", "damage": 385.5,
       "damage_unit": "million USD"}``: the Aviation Color Code and the
-      USGS alert level (both live here now that ``danger_rating`` carries
-      the VEI), the Smithsonian GVP volcano number with its
+      USGS alert level — the feed's raw words, kept next to the harmonized
+      ``danger_rating`` they are mapped from, the Smithsonian GVP volcano number with its
       ``<name>_unit`` companion, the unique notice id and the NCEI/WDS
       eruption totals — total deaths and total damage in millions of USD —
       each with its ``<name>_unit`` companion; a value the source does not

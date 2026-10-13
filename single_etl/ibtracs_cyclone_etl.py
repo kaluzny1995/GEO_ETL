@@ -30,6 +30,7 @@ from pyspark.sql import Column, DataFrame, Window
 from pyspark.sql import functions as F
 
 from model.config.datasets import IbtracsCycloneEtlConfig, load_dataset
+from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", IbtracsCycloneEtlConfig)
@@ -106,16 +107,32 @@ def _metric_value() -> Column:
     return F.coalesce(F.col("wmo_wind"), F.col("usa_wind")).cast("double")
 
 
-def _danger_rating() -> Column:
-    """The Saffir-Simpson label of ``usa_sshs``.
+def _sshs_label() -> Column:
+    """The Saffir-Simpson label of ``usa_sshs`` (`_cfg.sshs_labels`), ``NULL`` when it has no class.
 
     Returns:
         ``category 5`` … ``category 1``, ``tropical storm``,
         ``tropical depression``, ``disturbance`` and the remaining classes of
-        `_cfg.sshs_labels`; ``NULL`` when the source reports no class.
+        `_cfg.sshs_labels`; ``NULL`` when the source reports no class (the
+        native wording the source itself uses — it travels in ``other_metrics``,
+        while :func:`_danger_rating` holds the shared scale).
     """
     labels = F.create_map(*[F.lit(item) for pair in _cfg.sshs_labels.items() for item in pair])
     return labels[F.col("usa_sshs").cast("string")]
+
+
+def _danger_rating() -> Column:
+    """The Saffir-Simpson class of ``usa_sshs`` mapped onto the shared severity scale.
+
+    Returns:
+        ``extreme`` for categories 4 and 5, ``high`` for category 3, ``medium``
+        for categories 1 and 2, ``low`` for a tropical storm and every weaker
+        system, and ``no_rating`` when the source reports no usable class —
+        ``usa_sshs`` ``NULL``, the ``unknown`` class (``-5``) or a code
+        `_cfg.danger_rating_map` does not list.
+    """
+    known = F.create_map(*[F.lit(item) for pair in _cfg.danger_rating_map.items() for item in pair])
+    return F.coalesce(known[F.col("usa_sshs").cast("string")], F.lit(DangerRating.NO_RATING))
 
 
 def _unit_when_present(column: str, unit: str) -> Column:
@@ -133,19 +150,22 @@ def _unit_when_present(column: str, unit: str) -> Column:
 
 
 def _other_metrics() -> Column:
-    """The remaining measurements of the point as a JSON object string.
+    """The point's Saffir-Simpson class and remaining measurements as a JSON object string.
 
     Returns:
-        ``{"pressure": …, "pressure_unit": …, "speed": …, "speed_unit": …,
-        "direction": …, "direction_unit": …, "gust": …, "gust_unit": …,
-        "dist2land": …, "dist2land_unit": …, "landfall": …,
-        "landfall_unit": …}`` — every measurement paired with its
-        ``<name>_unit`` companion key (``mb``, ``kts``, ``degrees``,
-        ``km``); measurements the point does not report are omitted
-        together with their unit, ``NULL`` when it reports none.
+        ``{"saffir_simpson": "category 1", "pressure": …, "pressure_unit": …,
+        "speed": …, "speed_unit": …, "direction": …, "direction_unit": …,
+        "gust": …, "gust_unit": …, "dist2land": …, "dist2land_unit": …,
+        "landfall": …, "landfall_unit": …}`` — ``saffir_simpson`` keeps the
+        source's own class wording (the shared severity scale in
+        ``danger_rating`` merges categories 1+2 and 4+5), and every measurement
+        is paired with its ``<name>_unit`` companion key (``mb``, ``kts``,
+        ``degrees``, ``km``); measurements the point does not report are omitted
+        together with their unit, ``NULL`` when it reports none of them.
     """
     metrics = F.to_json(
         F.struct(
+            _sshs_label().alias("saffir_simpson"),
             F.col("usa_pres").alias("pressure"),
             _unit_when_present("usa_pres", "mb").alias("pressure_unit"),
             F.col("storm_speed").alias("speed"),

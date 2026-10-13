@@ -77,7 +77,7 @@ class TestConvert:
         assert row.metric_name == "vei"
         assert row.metric_value is None
         assert row.metric_unit is None
-        assert row.danger_rating is None
+        assert row.danger_rating == "high"
         assert json.loads(row.other_metrics) == {
             "color_code": "ORANGE",
             "alert_level": "WATCH",
@@ -91,21 +91,39 @@ class TestConvert:
         assert row.file_date == "2026-09-29"
 
     @pytest.mark.parametrize(
-        ("vei", "expected_value", "expected_rating"),
-        [
-            (0, 0.0, "VEI 0"),
-            (1, 1.0, "VEI 1"),
-            (2, 2.0, "VEI 2"),
-            (4, 4.0, "VEI 4"),
-            (8, 8.0, "VEI 8"),
-            (None, None, None),
-        ],
+        ("vei", "expected_value"),
+        [(0, 0.0), (1, 1.0), (2, 2.0), (4, 4.0), (8, 8.0), (None, None)],
     )
-    def test_metric_value_is_the_vei(self, spark_session, vei, expected_value, expected_rating):
+    def test_metric_value_is_the_vei(self, spark_session, vei, expected_value):
         (row,) = _convert(spark_session, _source_row(vei=vei))
 
         assert row.metric_name == "vei"
         assert row.metric_value == expected_value
+
+    @pytest.mark.parametrize(
+        ("alert_level", "color_code", "expected_rating"),
+        [
+            ("NORMAL", "GREEN", "none"),
+            ("ADVISORY", "YELLOW", "low"),
+            ("WATCH", "ORANGE", "high"),
+            ("WARNING", "RED", "extreme"),
+            ("NORMAL", "RED", "extreme"),
+            ("WARNING", "GREEN", "extreme"),
+            ("WATCH", "GREEN", "high"),
+            ("NORMAL", "ORANGE", "high"),
+            ("normal", "red", "extreme"),
+            ("", "", "no_rating"),
+            (None, None, "no_rating"),
+            ("bogus", "bogus", "no_rating"),
+            ("NORMAL", "bogus", "none"),
+            ("bogus", "ORANGE", "high"),
+        ],
+    )
+    def test_the_notice_rates_on_the_harsher_of_its_two_scales(
+        self, spark_session, alert_level, color_code, expected_rating
+    ):
+        (row,) = _convert(spark_session, _source_row(alert_level=alert_level, color_code=color_code))
+
         assert row.danger_rating == expected_rating
 
     @pytest.mark.parametrize(("vei", "expected_unit"), [(4, "VEI"), (None, None)])
@@ -117,7 +135,7 @@ class TestConvert:
     def test_alert_and_color_codes_travel_in_other_metrics(self, spark_session):
         (row,) = _convert(spark_session, _ncei_row(alert_level="WATCH", color_code="RED"))
 
-        assert row.danger_rating == "VEI 4"
+        assert row.danger_rating == "extreme"
         assert row.metric_value == 4.0
         other = json.loads(row.other_metrics)
         assert other["color_code"] == "RED"
@@ -281,4 +299,4 @@ class TestConvert:
         assert row.event_description is None
         assert row.place_location == "Great Sitkin"
         assert row.metric_value is None
-        assert row.danger_rating is None
+        assert row.danger_rating == "high"

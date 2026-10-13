@@ -109,7 +109,7 @@ class TestConvert:
         assert row.metric_name == "discharge"
         assert row.metric_value == 77982.05
         assert row.metric_unit == "m³/s"
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
         assert row.other_metrics is None
         assert row.event_start == dt.datetime(2026, 9, 1, 0, 0)
         assert row.event_end is None
@@ -197,13 +197,14 @@ class TestConvert:
 
 
 class TestThresholdReference:
-    def test_below_the_threshold_rates_null_and_still_reports_the_ratio(self, spark_session, tmp_path):
+    def test_below_the_threshold_rates_none_and_still_reports_the_ratio(self, spark_session, tmp_path):
         script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))
 
         (row,) = _convert(spark_session, _source_row(), script=script)
         metrics = json.loads(row.other_metrics)
 
-        assert row.danger_rating is None
+        assert row.danger_rating == "none"
+        assert "exceedance_level" not in metrics
         assert metrics["threshold_percentile"] == 0.95
         assert metrics["threshold"] == 215774.0
         assert metrics["threshold_unit"] == "m³/s"
@@ -220,17 +221,17 @@ class TestThresholdReference:
         assert not any(key.endswith("_m3s") for key in metrics)
 
     @pytest.mark.parametrize(
-        ("discharge_m3s", "expected_rating", "expected_exceeded"),
+        ("discharge_m3s", "expected_rating", "expected_exceeded", "expected_level"),
         [
-            (215774.0, None, False),  # exactly the configured threshold — not exceeded
-            (215775.0, "Q95", True),
-            (226985.0, "Q95", True),  # exactly Q99 — not exceeded there, so the ladder stops at Q95
-            (226986.0, "Q99", True),
-            (215773.0, None, False),
+            (215774.0, "none", False, None),  # exactly the configured threshold — not exceeded
+            (215775.0, "high", True, "Q95"),
+            (226985.0, "high", True, "Q95"),  # exactly Q99 — not exceeded there, so the ladder stops at Q95
+            (226986.0, "extreme", True, "Q99"),
+            (215773.0, "none", False, None),
         ],
     )
     def test_the_rating_is_the_highest_level_the_day_exceeded(
-        self, spark_session, tmp_path, discharge_m3s, expected_rating, expected_exceeded
+        self, spark_session, tmp_path, discharge_m3s, expected_rating, expected_exceeded, expected_level
     ):
         script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))
 
@@ -239,14 +240,22 @@ class TestThresholdReference:
 
         assert row.danger_rating == expected_rating
         assert metrics["threshold_exceeded"] is expected_exceeded
+        assert metrics.get("exceedance_level") == expected_level
 
-    def test_a_river_the_reference_does_not_cover_keeps_both_columns_null(self, spark_session, tmp_path):
+    def test_a_river_the_reference_does_not_cover_rates_no_rating(self, spark_session, tmp_path):
         script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))
 
         (row,) = _convert(spark_session, _source_row(country="Atlantis"), script=script)
 
-        assert row.danger_rating is None
+        assert row.danger_rating == "no_rating"
         assert row.other_metrics is None
+
+    def test_a_rated_river_without_a_discharge_rates_no_rating(self, spark_session, tmp_path):
+        script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))
+
+        (row,) = _convert(spark_session, _source_row(discharge_m3s=None), script=script)
+
+        assert row.danger_rating == "no_rating"
 
     def test_a_different_country_with_the_same_river_name_is_a_different_river(self, spark_session, tmp_path):
         script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))

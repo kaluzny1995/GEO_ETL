@@ -34,10 +34,11 @@ class UsgsNwisEtl(EventEtl):
     * ``event_start`` — ``date`` at midnight (the
       source reports a day, not a datetime); ``event_end`` — ``NULL`` (a
       daily mean has no end).
-    * ``danger_rating`` — the NWS flood category the day's peak stage
-      reached (``action`` … ``major``, from ``flood_category``); ``NULL``
-      for a peak below every threshold (``no_flooding``), an uncovered
-      gauge and a day without a stage.
+    * ``danger_rating`` — the NWS flood category of the day's peak stage
+      mapped onto the shared scale (``no_flooding`` → ``none``, ``action`` →
+      ``low``, ``minor`` → ``medium``, ``moderate`` → ``high``, ``major`` →
+      ``extreme``); ``no_rating`` for an empty or unknown category — an
+      uncovered gauge and a day without a stage.
     * ``other_metrics`` — ``gauge_height`` (the day's peak) beside the
       gauge's NWS ``action``/``minor``/``moderate``/``major`` stage
       thresholds and its ``nws_gauge_id``, from the flood-category

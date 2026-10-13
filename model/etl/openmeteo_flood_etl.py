@@ -32,16 +32,18 @@ class OpenMeteoFloodEtl(EventEtl):
     * ``event_start`` — ``date`` itself at midnight: the GMT+0 day of the
       GloFAS 24-h mean (always present); ``event_end`` — ``NULL`` (a daily
       value has no end).
-    * ``danger_rating`` — the highest reference level the discharge
-      exceeded (``Q99``, then ``Q95`` down to the level
-      ``threshold_percentile`` names in ``config.json``), ``NULL`` at or
-      below it: the flood rating of the day against the river's own
-      baseline, and a strict one — a flat baseline never rates a day.
+    * ``danger_rating`` — the flood danger of the day on the shared scale:
+      ``extreme`` above the river's ``Q99``, ``high`` above its ``Q95``
+      (the ladder runs from the level ``threshold_percentile`` names in
+      ``config.json`` up), ``none`` at or below it, ``no_rating`` for a river
+      the threshold reference does not cover — and a strict ladder: a flat
+      baseline never rates a day.
     * ``other_metrics`` — the threshold reference the script joins on
       ``river_name`` + ``country`` (``discharge_p50`` … ``discharge_p99``
       with their ``<name>_unit`` companion keys, ``threshold_percentile``
       / ``threshold`` / ``threshold_unit`` / ``exceedance_ratio`` /
-      ``threshold_exceeded`` and the ``baseline_days`` /
+      ``threshold_exceeded`` / ``exceedance_level`` (the source's own
+      ``Q95`` / ``Q99`` wording) and the ``baseline_days`` /
       ``baseline_start`` / ``baseline_end`` provenance) plus the GloFAS
       ensemble statistics of the day (``ensemble_mean``,
       ``ensemble_median``, ``ensemble_p25``, ``ensemble_p75`` — forecast

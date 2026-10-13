@@ -22,6 +22,7 @@ from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 
 from model.config.datasets import EonetEventEtlConfig, load_dataset
+from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
 
 _cfg = load_dataset(__file__, "single_etl", EonetEventEtlConfig)
@@ -188,7 +189,7 @@ class EonetEventEtlScript(SingleEtlScript):
             _metric_name(category).alias("metric_name"),
             F.col("magnitude_value").alias("metric_value"),
             _metric_unit().alias("metric_unit"),
-            F.lit(None).cast("string").alias("danger_rating"),
+            F.lit(DangerRating.NO_RATING).alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("event_date").alias("event_start"),
             F.col("last_date").alias("event_end"),

@@ -1,4 +1,4 @@
-from model.enums import JobType, LoadType
+from model.enums import DangerRating, JobType, LoadType
 
 
 def test_job_type_create_value():
@@ -70,3 +70,42 @@ def test_load_type_invalid_value_raises():
 
     with pytest.raises(ValueError):
         LoadType("AUTO")
+
+
+def test_danger_rating_values():
+    assert DangerRating.NO_RATING.value == "no_rating"
+    assert DangerRating.NONE.value == "none"
+    assert DangerRating.LOW.value == "low"
+    assert DangerRating.MEDIUM.value == "medium"
+    assert DangerRating.HIGH.value == "high"
+    assert DangerRating.EXTREME.value == "extreme"
+
+
+def test_danger_rating_has_six_members_in_severity_order():
+    assert len(DangerRating) == 6
+    assert list(DangerRating) == [
+        DangerRating.NO_RATING,
+        DangerRating.NONE,
+        DangerRating.LOW,
+        DangerRating.MEDIUM,
+        DangerRating.HIGH,
+        DangerRating.EXTREME,
+    ]
+
+
+def test_danger_rating_is_a_string_enum():
+    assert isinstance(DangerRating.HIGH, str)
+    assert DangerRating.HIGH == "high"
+    assert f"{DangerRating.HIGH}" == "high"
+
+
+def test_danger_rating_from_value():
+    assert DangerRating("high") is DangerRating.HIGH
+    assert DangerRating("no_rating") is DangerRating.NO_RATING
+
+
+def test_danger_rating_invalid_value_raises():
+    import pytest
+
+    with pytest.raises(ValueError):
+        DangerRating("catastrophic")

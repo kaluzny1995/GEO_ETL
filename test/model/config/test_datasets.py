@@ -7,13 +7,16 @@ from pydantic import ValidationError
 
 from model.config.app_config import CONFIG_PATH
 from model.config.datasets import (
+    AvalancheOrgEtlConfig,
     EonetEventEtlConfig,
     GdacsEventEtlConfig,
     Raw2PlainDatasetConfig,
     UnionEtlConfig,
     UploadDatasetConfig,
+    UsgsVolcanoEtlConfig,
     load_dataset,
 )
+from model.enums import DangerRating
 
 DATASETS = {
     "upload": {"demo_upload": {"table_name": "demo_raw", "dataset_folder": "Demo"}},
@@ -130,3 +133,43 @@ class TestProjectConfig:
             else:
                 section = "upload"
             load_dataset(f"/x/{key}.py", section, cfg)
+
+
+class TestDangerRatedEtlConfig:
+    def test_project_avalanche_map_is_typed(self):
+        cfg = load_dataset("/x/avalanche_org_etl.py", "single_etl", AvalancheOrgEtlConfig)
+
+        assert cfg.danger_rating_map == {
+            "1": DangerRating.LOW,
+            "2": DangerRating.MEDIUM,
+            "3": DangerRating.HIGH,
+            "4": DangerRating.HIGH,
+            "5": DangerRating.EXTREME,
+        }
+
+    def test_project_volcano_has_a_map_per_scale(self):
+        cfg = load_dataset("/x/usgs_volcano_etl.py", "single_etl", UsgsVolcanoEtlConfig)
+
+        assert cfg.danger_rating_map["watch"] is DangerRating.HIGH
+        assert cfg.color_danger_rating_map["red"] is DangerRating.EXTREME
+
+    def test_an_unknown_word_in_the_map_is_rejected(self):
+        datasets = {
+            "single_etl": {
+                "demo_etl": {
+                    "source_table": "demo",
+                    "target_table": "demo_etl",
+                    "source_name": "DEMO",
+                    "category_map": {"A": "alpha"},
+                    "country_code_map": {"Xanadu": "XA"},
+                    "danger_rating_map": {"1": "catastrophic"},
+                }
+            }
+        }
+        path = _write_config(datasets)
+
+        try:
+            with pytest.raises(ValidationError):
+                load_dataset("/x/demo_etl.py", "single_etl", GdacsEventEtlConfig, path=path)
+        finally:
+            os.unlink(path)

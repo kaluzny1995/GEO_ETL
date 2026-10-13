@@ -15,8 +15,9 @@ class AvalancheOrgEtl(EventEtl):
     * ``event_category`` — ``avalanche``; ``event_subcategory`` — ``NULL`` (no subtypes).
     * ``metric_name`` — ``magnitude`` by convention; ``metric_value`` / ``metric_unit`` are
       always ``NULL``: a danger level is a rating, not a measurement.
-    * ``danger_rating`` — the zone's rating as text (``low`` … ``extreme``); unrated zones
-      (source ``danger_level = -1``, ``danger_rating = "no rating"``) get ``NULL``.
+    * ``danger_rating`` — the zone's NAPADS level mapped onto the shared scale
+      (``low`` … ``extreme``); unrated zones (source ``danger_level = -1``,
+      ``danger_rating = "no rating"``) get ``no_rating``.
     * ``other_metrics`` — ``{"danger_level": …, "danger_level_unit": "NAPADS level",
       "warning": "warning", "off_season": …}``: the raw scale index (``-1`` = no rating)
       with its ``<name>_unit`` companion, the avalanche-warning product (omitted while
