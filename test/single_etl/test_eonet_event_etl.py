@@ -155,8 +155,23 @@ class TestConvert:
         assert row.event_subcategory == "sea_lake_ice"
         assert row.metric_name == "surface"
         assert row.metric_value == 5.0
-        assert row.metric_unit == "NM^2"
+        assert row.metric_unit == "N/m²"
         assert row.place_location is None
+
+    def test_missing_magnitude_counts_as_zero(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(magnitude_value=None, magnitude_unit=None))
+
+        assert row.metric_value == 0.0
+        assert row.metric_unit is None
+
+    def test_ice_event_gets_the_si_unit_even_when_the_source_unit_is_blank(self, spark_session):
+        (row,) = _convert(
+            spark_session,
+            _source_row(category_id="seaLakeIce", magnitude_value=None, magnitude_unit=""),
+        )
+
+        assert row.metric_value == 0.0
+        assert row.metric_unit == "N/m²"
 
     def test_storm_without_a_type_keyword_has_no_subcategory(self, spark_session):
         (row,) = _convert(spark_session, _source_row(event_name="Storm System 42"))

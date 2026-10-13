@@ -19,5 +19,6 @@ class AvalancheOrgRaw(BaseModel):
     link: str
     latitude: str | None = None
     longitude: str | None = None
+    avalanche_size: str | None = None
     date: str
     file_date: str

@@ -35,6 +35,7 @@ class AvalancheOrgRaw2PlainScript(Raw2PlainScript):
             F.col("link"),
             F.col("latitude").cast("double"),
             F.col("longitude").cast("double"),
+            F.col("avalanche_size").cast("double"),
             F.to_date("date").alias("date"),
             F.col("file_date"),
         )

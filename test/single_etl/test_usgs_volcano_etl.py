@@ -75,8 +75,8 @@ class TestConvert:
         assert row.state_province == "ZZ"
         assert row.place_location == "Great Sitkin, Aleutians"
         assert row.metric_name == "vei"
-        assert row.metric_value is None
-        assert row.metric_unit is None
+        assert row.metric_value == 0.0
+        assert row.metric_unit == "VEI"
         assert row.danger_rating == "high"
         assert json.loads(row.other_metrics) == {
             "color_code": "ORANGE",
@@ -92,7 +92,7 @@ class TestConvert:
 
     @pytest.mark.parametrize(
         ("vei", "expected_value"),
-        [(0, 0.0), (1, 1.0), (2, 2.0), (4, 4.0), (8, 8.0), (None, None)],
+        [(0, 0.0), (1, 1.0), (2, 2.0), (4, 4.0), (8, 8.0), (None, 0.0)],
     )
     def test_metric_value_is_the_vei(self, spark_session, vei, expected_value):
         (row,) = _convert(spark_session, _source_row(vei=vei))
@@ -126,7 +126,7 @@ class TestConvert:
 
         assert row.danger_rating == expected_rating
 
-    @pytest.mark.parametrize(("vei", "expected_unit"), [(4, "VEI"), (None, None)])
+    @pytest.mark.parametrize(("vei", "expected_unit"), [(4, "VEI"), (None, "VEI")])
     def test_metric_unit_follows_the_vei(self, spark_session, vei, expected_unit):
         (row,) = _convert(spark_session, _source_row(vei=vei))
 
@@ -298,5 +298,5 @@ class TestConvert:
         assert row.state_province == "ZZ"
         assert row.event_description is None
         assert row.place_location == "Great Sitkin"
-        assert row.metric_value is None
+        assert row.metric_value == 0.0
         assert row.danger_rating == "high"

@@ -61,6 +61,7 @@ VALID_CASES = [
             "link": "https://bridgeportavalanchecenter.org/avalanche-forecast/",
             "latitude": 38.255931,
             "longitude": -119.451337,
+            "avalanche_size": 2.5,
             "date": dt.date(2026, 9, 20),
             "file_date": "2026-09-20",
         },
@@ -90,6 +91,7 @@ VALID_CASES = [
             "link": "https://bridgeportavalanchecenter.org/avalanche-forecast/",
             "latitude": "38.255931",
             "longitude": "-119.451337",
+            "avalanche_size": "2.5",
             "date": "2026-09-01",
             "file_date": "2026-09-01",
         },
@@ -721,9 +723,9 @@ VALID_CASES = [
             "country_code": "US",
             "state_province": "CO",
             "place_location": "Front Range",
-            "metric_name": "magnitude",
-            "metric_value": None,
-            "metric_unit": None,
+            "metric_name": "size",
+            "metric_value": 3.0,
+            "metric_unit": "destructive size class",
             "danger_rating": "considerable",
             "other_metrics": None,
             "event_start": dt.datetime(2026, 1, 10, 6, 0, 0),
@@ -1116,7 +1118,7 @@ OPTIONAL_CASES = [
             "date": dt.date(2026, 9, 20),
             "file_date": "2026-09-20",
         },
-        ["forecast_start", "forecast_end", "warning", "latitude", "longitude"],
+        ["forecast_start", "forecast_end", "warning", "latitude", "longitude", "avalanche_size"],
     ),
     (
         AvalancheOrgRaw,
@@ -1139,7 +1141,7 @@ OPTIONAL_CASES = [
             "date": "2026-09-01",
             "file_date": "2026-09-01",
         },
-        ["forecast_start", "forecast_end", "warning", "latitude"],
+        ["forecast_start", "forecast_end", "warning", "latitude", "avalanche_size"],
     ),
     (
         EonetEvent,
@@ -1854,8 +1856,8 @@ OPTIONAL_CASES = [
 
 # (model, expected Spark schema field count)
 COUNT_CASES = [
-    (AvalancheOrg, 17),
-    (AvalancheOrgRaw, 17),
+    (AvalancheOrg, 18),
+    (AvalancheOrgRaw, 18),
     (EonetEvent, 20),
     (EonetEventRaw, 20),
     (GdacsEvent, 20),
@@ -1910,6 +1912,7 @@ NAMES_CASES = [
             "link",
             "latitude",
             "longitude",
+            "avalanche_size",
             "date",
             "file_date",
         ],
@@ -1982,6 +1985,7 @@ NAMES_CASES = [
             "link",
             "latitude",
             "longitude",
+            "avalanche_size",
             "date",
             "file_date",
         ],
@@ -2040,8 +2044,14 @@ NAMES_CASES = [
 
 # (model, exact set of nullable Spark schema fields)
 NULLABLE_CASES = [
-    (AvalancheOrg, {"forecast_start", "forecast_end", "warning", "latitude", "longitude"}),
-    (AvalancheOrgRaw, {"forecast_start", "forecast_end", "warning", "latitude", "longitude"}),
+    (
+        AvalancheOrg,
+        {"forecast_start", "forecast_end", "warning", "latitude", "longitude", "avalanche_size"},
+    ),
+    (
+        AvalancheOrgRaw,
+        {"forecast_start", "forecast_end", "warning", "latitude", "longitude", "avalanche_size"},
+    ),
     (
         EonetEvent,
         {
@@ -2073,6 +2083,7 @@ NULLABLE_CASES = [
 # (model, field names, expected Spark type)
 TYPE_CASES = [
     (AvalancheOrg, ["latitude"], DoubleType),
+    (AvalancheOrg, ["avalanche_size"], DoubleType),
     (AvalancheOrg, ["forecast_start"], TimestampType),
     (AvalancheOrg, ["zone_id"], LongType),
     (AvalancheOrg, ["date"], DateType),

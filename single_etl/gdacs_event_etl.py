@@ -118,8 +118,14 @@ def _metric_name(category: Column) -> Column:
 
 
 def _metric_value() -> Column:
-    """``severity``, with ``0`` ("not defined" for floods and eruptions) mapped to ``NULL``."""
-    return F.when(F.col("severity") > 0, F.col("severity"))
+    """``severity``, with ``0`` ("not defined" for floods and eruptions) kept as ``0``.
+
+    Returns:
+        The hazard severity as a number; a ``0`` GDACS publishes for floods
+        and eruptions ("not defined") stays ``0`` rather than becoming
+        ``NULL``, so every row carries a value.
+    """
+    return F.coalesce(F.col("severity").cast("double"), F.lit(0.0))
 
 
 def _metric_unit() -> Column:
@@ -161,8 +167,9 @@ class GdacsEventEtlScript(SingleEtlScript):
         One row per event snapshot: the alpha-3 ``country_code`` of the source
         wins, blank and unknown codes resolve from the stamped
         ``geocode_country``, and the subdivision is the stamped ``geocode_state``.
-        Floods and eruptions define no severity (``severity = 0``), so their
-        metric value and unit stay ``NULL``.
+        Floods and eruptions define no severity (``severity = 0``); that
+        ``0`` stays in ``metric_value`` rather than becoming ``NULL``, and
+        their empty ``severity_unit`` leaves ``metric_unit`` ``NULL``.
 
         Args:
             df: Rows read from :attr:`SOURCE_TABLE`.

@@ -74,6 +74,7 @@ class AvalancheOrgEtlConfig(DangerRatedEtlConfig):
     country_code: str
     event_category: str
     metric_name: str
+    metric_unit: str
     danger_level_unit: str
 
 

@@ -13,8 +13,12 @@ class AvalancheOrgEtl(EventEtl):
     * ``event_name`` — ``NULL`` (a forecast has no event name), ``place_location`` — the
       forecast zone, ``state_province`` — the zone's 2-letter state code.
     * ``event_category`` — ``avalanche``; ``event_subcategory`` — ``NULL`` (no subtypes).
-    * ``metric_name`` — ``magnitude`` by convention; ``metric_value`` / ``metric_unit`` are
-      always ``NULL``: a danger level is a rating, not a measurement.
+    * ``metric_name`` — ``size`` by convention; ``metric_value`` —
+      the zone's expected avalanche size, the largest destructive size class
+      (``D1`` … ``D5``, half steps allowed) the forecast publishes as
+      ``avalanche_size``; ``metric_unit`` — ``destructive size class`` alongside
+      a value, ``NULL`` without one (the forecast publishes no problems:
+      off-season, unrated, or a day outside the live product's window).
     * ``danger_rating`` — the zone's NAPADS level mapped onto the shared scale
       (``low`` … ``extreme``); unrated zones (source ``danger_level = -1``,
       ``danger_rating = "no rating"``) get ``no_rating``.

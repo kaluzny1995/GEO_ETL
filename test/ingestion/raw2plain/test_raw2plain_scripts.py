@@ -45,7 +45,7 @@ SCRIPT_CLASSES = [script_cls for script_cls, _stem in SCRIPT_CASES]
 STEMS = [stem for _script_cls, stem in SCRIPT_CASES]
 
 CONVERT_COLUMN_CASES = [
-    (AvalancheOrgRaw2PlainScript, 17),
+    (AvalancheOrgRaw2PlainScript, 18),
     (EonetEventRaw2PlainScript, 20),
     (GdacsEventRaw2PlainScript, 20),
     (IbtracsCycloneRaw2PlainScript, 48),

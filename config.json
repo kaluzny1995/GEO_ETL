@@ -98,7 +98,8 @@
         "source_name": "AVALANCHE_ORG",
         "country_code": "US",
         "event_category": "avalanche",
-        "metric_name": "magnitude",
+        "metric_name": "size",
+        "metric_unit": "destructive size class",
         "danger_level_unit": "NAPADS level",
         "danger_rating_map": {
           "1": "low",

@@ -25,8 +25,11 @@ class EonetEventEtl(EventEtl):
       download-time stamped ``geocode_country`` / ``geocode_state`` pair, else
       ``ZZ`` / ``NULL`` for open water.
     * ``metric_name`` — ``wind speed`` (storms), ``area`` (fires), ``surface``
-      (ice), ``magnitude`` for any other category; ``metric_value`` /
-      ``metric_unit`` — ``magnitude_value`` / ``magnitude_unit``.
+      (ice), ``magnitude`` for any other category; ``metric_value`` —
+      ``magnitude_value``, counting a missing magnitude as ``0``;
+      ``metric_unit`` — ``magnitude_unit``, restated as ``N/m²`` (newton per
+      square metre) for ice in place of the source's ``NM^2``, ``NULL`` when
+      blank.
     * ``other_metrics`` — ``{"geometry_count": n}`` (the event's geometry points).
     * ``danger_rating`` — ``no_rating`` (EONET carries no rating).
     * ``event_start`` — ``event_date``; ``event_end`` —

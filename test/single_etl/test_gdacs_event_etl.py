@@ -196,7 +196,7 @@ class TestConvert:
             ("VO", None, None, "volcano"),
         ],
     )
-    def test_undefined_severity_keeps_metric_value_and_unit_null(
+    def test_undefined_severity_keeps_metric_value_zero_and_unit_null(
         self, spark_session, event_type, severity_unit, severity_text, expected_category
     ):
         (row,) = _convert(
@@ -216,7 +216,7 @@ class TestConvert:
         assert row.event_category == expected_category
         assert row.event_subcategory is None
         assert row.metric_name == "magnitude"
-        assert row.metric_value is None
+        assert row.metric_value == 0.0
         assert row.metric_unit is None
 
     @pytest.mark.parametrize(

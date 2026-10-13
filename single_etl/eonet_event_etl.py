@@ -138,10 +138,21 @@ def _event_description() -> Column:
     return F.when(trimmed != "", trimmed).otherwise(F.lit(None).cast("string"))
 
 
-def _metric_unit() -> Column:
-    """``magnitude_unit``, ``NULL`` when blank."""
+def _metric_unit(category: Column) -> Column:
+    """``magnitude_unit``, the canonical ice unit for icebergs, ``NULL`` when blank.
+
+    Args:
+        category: The row's ``event_category`` expression.
+
+    Returns:
+        ``N/m²`` (newton per square metre) for ice events — the source's
+        own ``NM^2`` (square nautical miles) restated in SI — else the
+        source's ``magnitude_unit`` (``kts``, ``acres``, …), ``NULL`` when
+        blank.
+    """
     trimmed = F.trim(F.col("magnitude_unit"))
-    return F.when(trimmed != "", trimmed).otherwise(F.lit(None).cast("string"))
+    from_source = F.when(trimmed != "", trimmed).otherwise(F.lit(None).cast("string"))
+    return F.when(category == "iceberg", F.lit("N/m²")).otherwise(from_source)
 
 
 def _other_metrics() -> Column:
@@ -164,6 +175,9 @@ class EonetEventEtlScript(SingleEtlScript):
         event's own. Country and state are resolved from the description first
         (fires state their US location), then from the stamped geocode columns;
         storms and ice on the open sea that neither answers get the ``ZZ`` fallback.
+        The metric is the event's ``magnitude_value`` (``0`` when the source
+        reports none); ice events carry the canonical ``N/m²`` unit instead of
+        the source's square-nautical-mile ``NM^2``.
 
         Args:
             df: Rows read from :attr:`SOURCE_TABLE`.
@@ -187,8 +201,8 @@ class EonetEventEtlScript(SingleEtlScript):
             _state_province(description_state, F.col("geocode_state")).alias("state_province"),
             _place_location().alias("place_location"),
             _metric_name(category).alias("metric_name"),
-            F.col("magnitude_value").alias("metric_value"),
-            _metric_unit().alias("metric_unit"),
+            F.coalesce(F.col("magnitude_value"), F.lit(0.0)).alias("metric_value"),
+            _metric_unit(category).alias("metric_unit"),
             F.lit(DangerRating.NO_RATING).alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("event_date").alias("event_start"),

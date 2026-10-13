@@ -28,6 +28,7 @@ def _source_row(**overrides):
         "link": "https://example.org/zone",
         "latitude": 38.5,
         "longitude": -119.5,
+        "avalanche_size": 3.0,
         "date": dt.date(2026, 1, 10),
         "file_date": "2026-01-10",
     }
@@ -57,9 +58,9 @@ class TestConvert:
         assert row.latitude == 38.5 and row.longitude == -119.5
         assert row.country_code == "US"
         assert row.state_province == "CA"
-        assert row.metric_name == "magnitude"
-        assert row.metric_value is None
-        assert row.metric_unit is None
+        assert row.metric_name == "size"
+        assert row.metric_value == 3.0
+        assert row.metric_unit == "destructive size class"
         assert row.danger_rating == "high"
         assert json.loads(row.other_metrics) == {
             "danger_level": 4,
@@ -95,7 +96,26 @@ class TestConvert:
         (row,) = _convert(spark_session, _source_row(danger_level=-1, danger_rating="no rating"))
 
         assert row.danger_rating == "no_rating"
+
+    def test_expected_size_becomes_the_metric_with_its_unit(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(avalanche_size=3.0))
+
+        assert row.metric_value == 3.0
+        assert row.metric_unit == "destructive size class"
+
+    def test_half_step_size_passes_through(self, spark_session):
+        (row,) = _convert(spark_session, _source_row(avalanche_size=2.5))
+
+        assert row.metric_value == 2.5
+        assert row.metric_unit == "destructive size class"
+
+    def test_zone_without_a_published_size_gets_null_metric_and_unit(self, spark_session):
+        schema = spark_session.createDataFrame([_source_row()]).schema
+        df = spark_session.createDataFrame([_source_row(avalanche_size=None)], schema=schema)
+        (row,) = _SCRIPT._convert(df).collect()
+
         assert row.metric_value is None
+        assert row.metric_unit is None
 
     def test_unrated_zone_with_underscored_rating_rates_no_rating(self, spark_session):
         (row,) = _convert(spark_session, _source_row(danger_level=-1, danger_rating="no_rating"))

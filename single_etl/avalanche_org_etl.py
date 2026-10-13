@@ -99,10 +99,14 @@ class AvalancheOrgEtlScript(SingleEtlScript):
 
         Every zone carries its polygon centroid as ``latitude``/``longitude``
         (``NULL`` when the source row has no coordinates, i.e. the download found
-        no usable geometry). A danger level is a rating, not a measurement, so
-        ``metric_value`` and ``metric_unit`` stay ``NULL``; ``danger_rating``
-        carries the NAPADS level mapped onto the shared severity scale, and
-        unrated zones (``danger_level = -1``) rate ``no_rating``.
+        no usable geometry). ``metric_value`` is the zone's expected avalanche
+        size — the largest destructive size class (``D1`` … ``D5``, half steps
+        allowed) the forecast publishes as ``avalanche_size``, ``NULL`` while
+        the forecast publishes no problems (off-season, unrated, or a day
+        outside the live product's window) — with ``metric_unit`` from the
+        config alongside it. ``danger_rating`` carries the NAPADS level mapped
+        onto the shared severity scale, and unrated zones (``danger_level = -1``)
+        rate ``no_rating``.
         The rating's scale index, the avalanche-warning product and the season
         state travel in :func:`_other_metrics`, so a danger transition or a
         warning issuance can be detected from the target table alone.
@@ -138,8 +142,8 @@ class AvalancheOrgEtlScript(SingleEtlScript):
             F.col("state").alias("state_province"),
             F.col("zone_name").alias("place_location"),
             F.lit(_cfg.metric_name).alias("metric_name"),
-            F.lit(None).cast("double").alias("metric_value"),
-            F.lit(None).cast("string").alias("metric_unit"),
+            F.col("avalanche_size").alias("metric_value"),
+            F.when(F.col("avalanche_size").isNotNull(), F.lit(_cfg.metric_unit)).alias("metric_unit"),
             _danger_rating().alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("forecast_start").alias("event_start"),

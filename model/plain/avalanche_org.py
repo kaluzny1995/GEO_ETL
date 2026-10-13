@@ -21,5 +21,6 @@ class AvalancheOrg(BaseModel):
     link: str
     latitude: float | None = None
     longitude: float | None = None
+    avalanche_size: float | None = None
     date: dt.date
     file_date: str

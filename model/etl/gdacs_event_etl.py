@@ -25,10 +25,10 @@ class GdacsEventEtl(EventEtl):
       ``geocode_country``, else ``ZZ``; ``state_province`` — the stamped
       ``geocode_state`` (GDACS carries none), ``NULL`` when unknown.
     * ``metric_name`` — ``magnitude`` (EQ/FL/VO), ``wind speed`` (TC), ``area``
-      (WF/DR); ``metric_value`` — ``severity`` with ``0`` ("not defined"
-      everywhere FL and VO report one) mapped to ``NULL``; ``metric_unit`` —
-      ``severity_unit`` (``M``, ``km/h``, ``ha``, ``km2``), ``NULL`` when
-      blank.
+      (WF/DR); ``metric_value`` — ``severity``, keeping the ``0`` ("not
+      defined" everywhere FL and VO report one) as ``0`` rather than
+      ``NULL``; ``metric_unit`` — ``severity_unit`` (``M``, ``km/h``, ``ha``,
+      ``km2``), ``NULL`` when blank.
     * ``danger_rating`` — ``alert_level`` (``Green`` / ``Orange`` / ``Red``)
       mapped onto the shared scale (``none`` / ``medium`` / ``high``);
       ``no_rating`` when the row carries no alert level the map knows.

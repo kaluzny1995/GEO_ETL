@@ -9,10 +9,10 @@ GEO_Download and arrive through the plain table, and so is the reverse-geocoded
 subdivision of the notice point (``geocode_state``, stamped at download time
 through GEO_Download's ``data/reverse_geocode.csv``) and the volcano's
 significant-eruption record from the NCEI/WDS Significant Volcanic Eruptions
-Database (``vei``, ``casualties``, ``damage`` — the largest VEI, total deaths
-and total damage in millions of USD over all of the volcano's significant
-eruptions): this ETL only reads those columns. No reverse-geocoding API is
-called here.
+Database (``vei``, ``casualties``, ``damage`` — the largest VEI (Volcanic
+Explosivity Index), total deaths and total damage in millions of USD over all
+of the volcano's significant eruptions): this ETL only reads those columns.
+No reverse-geocoding API is called here.
 
 Run::
 
@@ -73,14 +73,15 @@ def _place_location(region: Column) -> Column:
 
 
 def _metric_value() -> Column:
-    """The volcano's largest significant-eruption VEI, ``NULL`` when NCEI has no record.
+    """The volcano's largest significant-eruption VEI, ``0`` when NCEI has no record.
 
     Returns:
-        e.g. ``4.0`` for Kīlauea (the maximum VEI over all of its
-        significant eruptions in the NCEI/WDS database); ``NULL`` for a
-        volcano NCEI does not list (e.g. Great Sitkin).
+        e.g. ``4.0`` for Kīlauea (the maximum VEI — Volcanic Explosivity
+        Index — over all of its significant eruptions in the NCEI/WDS
+        database); ``0`` for a volcano NCEI does not list (e.g. Great
+        Sitkin).
     """
-    return F.col("vei").cast("double")
+    return F.coalesce(F.col("vei").cast("double"), F.lit(0.0))
 
 
 def _danger_rating() -> Column:
@@ -197,11 +198,13 @@ class UsgsVolcanoEtlScript(SingleEtlScript):
         notice type and the NCEI eruption numbers (``vei``, ``casualties``,
         ``damage``) — the country is always ``US`` and the subdivision is
         the stamped ``geocode_state`` of the notice point. The metric is the
-        VEI (``metric_name`` from the config), and the aviation color code,
-        the USGS alert level, the Smithsonian volcano number, the notice
-        identifier and the NCEI casualty/damage totals travel in
-        :func:`_other_metrics`; ``danger_rating`` maps the alert level and
-        the color code onto the shared severity scale.
+        VEI (Volcanic Explosivity Index, ``metric_name`` from the config):
+        the largest significant-eruption VEI NCEI records for the volcano,
+        ``0`` when NCEI lists none, with ``metric_unit`` always present.
+        The aviation color code, the USGS alert level, the Smithsonian
+        volcano number, the notice identifier and the NCEI casualty/damage
+        totals travel in :func:`_other_metrics`; ``danger_rating`` maps the
+        alert level and the color code onto the shared severity scale.
 
         Args:
             df: Rows read from :attr:`SOURCE_TABLE`.
@@ -223,7 +226,7 @@ class UsgsVolcanoEtlScript(SingleEtlScript):
             _place_location(F.col("region")).alias("place_location"),
             F.lit(_cfg.metric_name).alias("metric_name"),
             _metric_value().alias("metric_value"),
-            F.when(F.col("vei").isNotNull(), F.lit(_cfg.metric_unit)).alias("metric_unit"),
+            F.lit(_cfg.metric_unit).alias("metric_unit"),
             _danger_rating().alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("notice_date").alias("event_start"),

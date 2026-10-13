@@ -33,10 +33,10 @@ class UsgsVolcanoEtl(EventEtl):
       (``Great Sitkin, Aleutians``); without a region only the name
       remains, a blank name is ``NULL``.
     * ``metric_name`` — always ``vei``; ``metric_value`` — the volcano's
-      largest significant-eruption VEI as a number (Kīlauea → ``4``), read
-      from the plain table's NCEI/WDS eruption record; ``NULL`` for a
-      volcano NCEI does not list (e.g. Great Sitkin); ``metric_unit`` —
-      ``VEI`` alongside a value, ``NULL`` without one.
+      largest significant-eruption VEI (Volcanic Explosivity Index) as a
+      number (Kīlauea → ``4``), read from the plain table's NCEI/WDS
+      eruption record, ``0`` for a volcano NCEI does not list (e.g. Great
+      Sitkin); ``metric_unit`` — always ``VEI``.
     * ``danger_rating`` — the notice's alert level and aviation color code
       mapped onto the shared scale: ``none`` (``NORMAL`` / ``GREEN``),
       ``low`` (``ADVISORY`` / ``YELLOW``), ``high`` (``WATCH`` / ``ORANGE``),

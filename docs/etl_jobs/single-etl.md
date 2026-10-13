@@ -100,7 +100,9 @@ Each run logs what it removed: `Deduplication on (event_category, event_name, la
 | `subsource_name` | `center_name` (issuing center) |
 | `place_location` | `zone_name`; `event_name` stays `NULL` — a forecast has no event name |
 | `latitude` / `longitude` | the source's `latitude` / `longitude` columns — polygon centroid of the zone computed by GEO_Download at download time |
-| `metric_name` | always `magnitude`; `metric_value` / `metric_unit` stay `NULL` — a danger level is a rating, not a measurement |
+| `metric_name` | always `size` |
+| `metric_value` | `avalanche_size` — the zone's expected avalanche size, the largest destructive size class (`D1` … `D5`, half steps allowed) the forecast publishes; `NULL` while the forecast publishes no problems (off-season, unrated, or a day outside the live product's window) |
+| `metric_unit` | always `destructive size class` alongside a value, `NULL` without one |
 | `danger_rating` | the zone's NAPADS level mapped onto the shared severity scale — `low` (1) … `extreme` (5); unrated zones (`danger_level = -1`, `danger_rating = "no rating"`) and a level the map does not know rate `no_rating` |
 | `event_start` / `event_end` | `forecast_start` / `forecast_end` |
 | `other_metrics` | `{"danger_level": …, "danger_level_unit": "NAPADS level", "warning": "warning", "off_season": …}` — the raw scale index (`-1` = no rating) with its `<name>_unit` companion key, the avalanche-warning product (omitted while no warning covers the zone) and the season state; zone ids and links are not metrics |
@@ -124,7 +126,8 @@ Each source file holds the analysis day plus the next day's forecast (the shared
 | `country_code` / `state_province` | the US state at the end of `description` (fires: `… from Miles City, MT`), else the stamped `geocode_country` / `geocode_state` columns, else `ZZ` / `NULL` (open water) |
 | `place_location` | `event_name` minus its type prefix (`Wildfire`, `Prescribed Fire`, `Incident Complex`, `Emergency Stabilization BAER`) when a place is left, e.g. `Wildfire Snow, Custer, Montana` → `Snow, Custer, Montana`; `NULL` for `Hurricane Polo` / `Iceberg D32` |
 | `metric_name` | `wind speed` (storms), `area` (fires), `surface` (ice), `magnitude` for any other category |
-| `metric_value` / `metric_unit` | `magnitude_value` / `magnitude_unit` |
+| `metric_value` | `magnitude_value`, counting a missing magnitude as `0` |
+| `metric_unit` | `magnitude_unit` (`kts`, `acres`, …), restated as `N/m²` (newton per square metre) for ice in place of the source's square-nautical-mile `NM^2`, `NULL` when blank |
 | `danger_rating` | `no_rating` — EONET carries no rating |
 | `other_metrics` | `{"geometry_count": n}` — the event's geometry points |
 | `event_start` | `event_date` |
@@ -150,7 +153,7 @@ Both answers arrive with every row: GEO_Download stamps `geocode_country` / `geo
 | `state_province` | the stamped `geocode_state` column (GDACS has none), `NULL` when empty |
 | `place_location` | `country` — region at the centroid or affected-country list (e.g. `Brazil, Colombia`), `NULL` when blank |
 | `metric_name` | `magnitude` (EQ/FL/VO), `wind speed` (TC), `area` (WF/DR) |
-| `metric_value` | `severity`, with `0` ("not defined" — every FL and VO row) mapped to `NULL` |
+| `metric_value` | `severity`, keeping the `0` ("not defined" — every FL and VO row) as `0` rather than `NULL` |
 | `metric_unit` | `severity_unit` (`M`, `km/h`, `ha`, `km2`), `NULL` when blank |
 | `danger_rating` | `alert_level` mapped onto the shared severity scale — `Green` → `none`, `Orange` → `medium`, `Red` → `high`; a blank or unknown level rates `no_rating` |
 | `other_metrics` / `last_latitude` / `last_longitude` | `NULL` — a snapshot has no metrics beyond the measurement and no track |
@@ -316,8 +319,8 @@ Dropped from the ETL: `parameter_code` (its value *is* the discharge metric) and
 | `state_province` | the stamped `geocode_state` column of the volcano point, `ZZ` when it is empty (the Ahyi Seamount is an ocean point) |
 | `place_location` | `"<volcano_name>, <region>"` (`Great Sitkin, Aleutians`); without a region only the name remains, a blank name is `NULL` |
 | `metric_name` | always `vei` |
-| `metric_value` | the Volcanic Explosivity Index of the volcano's largest significant eruption in the NCEI/WDS Significant Volcanic Eruptions Database (Kīlauea → `4`); `NULL` for a volcano NCEI does not list (e.g. Great Sitkin) |
-| `metric_unit` | `VEI` alongside a value, `NULL` without one |
+| `metric_value` | the Volcanic Explosivity Index of the volcano's largest significant eruption in the NCEI/WDS Significant Volcanic Eruptions Database (Kīlauea → `4`); `0` for a volcano NCEI does not list (e.g. Great Sitkin) |
+| `metric_unit` | always `VEI` |
 | `danger_rating` | the notice's alert level **and** aviation color code, both mapped onto the shared severity scale — `NORMAL`/`GREEN` → `none`, `ADVISORY`/`YELLOW` → `low`, `WATCH`/`ORANGE` → `high`, `WARNING`/`RED` → `extreme` — and the harsher of the two answers wins; a notice with neither a known alert level nor a known color code rates `no_rating`. The VEI is **not** a rating of the notice; it stays in `metric_value` |
 | `event_start` | `notice_date` — when the notice was issued |
 | `event_end` | `NULL` — a notice is an instant |
