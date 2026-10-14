@@ -127,7 +127,7 @@ Each source file holds the analysis day plus the next day's forecast (the shared
 | `place_location` | `event_name` minus its type prefix (`Wildfire`, `Prescribed Fire`, `Incident Complex`, `Emergency Stabilization BAER`) when a place is left, e.g. `Wildfire Snow, Custer, Montana` → `Snow, Custer, Montana`; `NULL` for `Hurricane Polo` / `Iceberg D32` |
 | `metric_name` | `wind speed` (storms), `area` (fires), `surface` (ice), `magnitude` for any other category |
 | `metric_value` | `magnitude_value`, counting a missing magnitude as `0` |
-| `metric_unit` | `magnitude_unit` (`kts`, `acres`, …), restated as `N/m²` (newton per square metre) for ice in place of the source's square-nautical-mile `NM^2`, `NULL` when blank |
+| `metric_unit` | the source's `magnitude_unit` converted to the canonical unit of the metric (`kts` → `km/h` for `wind speed`, `acres` → `km²` for `area`), restated as `N/m²` (newton per square metre) for ice in place of the source's square-nautical-mile `NM^2`, `NULL` when blank |
 | `danger_rating` | `no_rating` — EONET carries no rating |
 | `other_metrics` | `{"geometry_count": n}` — the event's geometry points |
 | `event_start` | `event_date` |
@@ -154,7 +154,7 @@ Both answers arrive with every row: GEO_Download stamps `geocode_country` / `geo
 | `place_location` | `country` — region at the centroid or affected-country list (e.g. `Brazil, Colombia`), `NULL` when blank |
 | `metric_name` | `magnitude` (EQ/FL/VO), `wind speed` (TC), `area` (WF/DR) |
 | `metric_value` | `severity`, keeping the `0` ("not defined" — every FL and VO row) as `0` rather than `NULL` |
-| `metric_unit` | `severity_unit` (`M`, `km/h`, `ha`, `km2`), `NULL` when blank |
+| `metric_unit` | `severity_unit` converted to the canonical unit of the metric — `ha` and `km2` → `km²` for `area`, `km/h` already canonical for `wind speed`; the `M` of an `earthquake` magnitude restated as the standard `Mw` (Moment Magnitude Scale); `NULL` when blank |
 | `danger_rating` | `alert_level` mapped onto the shared severity scale — `Green` → `none`, `Orange` → `medium`, `Red` → `high`; a blank or unknown level rates `no_rating` |
 | `other_metrics` / `last_latitude` / `last_longitude` | `NULL` — a snapshot has no metrics beyond the measurement and no track |
 | `event_start` | `from_date` |
@@ -178,10 +178,10 @@ The source's alpha-3 country code wins because GDACS knows the affected country 
 | `country_code` / `state_province` | the stamped `geocode_country` / `geocode_state` columns, else `ZZ` / `NULL` (open water) — the source carries no country at all |
 | `place_location` | full basin name extended with the sub-basin (`North Atlantic - Gulf of Mexico`, `Eastern North Pacific - Central Pacific`, `North Indian - Bay of Bengal`, …); just the basin name for the unnamed sub-basins (`NA`, `MM`) |
 | `metric_name` | always `wind speed` |
-| `metric_value` | `coalesce(wmo_wind, usa_wind)` — WMO values are absent in real-time data, so the US agency's knots win today |
-| `metric_unit` | always `kts` |
+| `metric_value` | `coalesce(wmo_wind, usa_wind)` — WMO values are absent in real-time data, so the US agency's knots win today — converted to `km/h` (× 1.852); a point with no wind at all stays `NULL` |
+| `metric_unit` | the canonical `wind speed` unit `km/h` |
 | `danger_rating` | the Saffir-Simpson class of `usa_sshs` mapped onto the shared severity scale — categories 4–5 → `extreme`, 3 → `high`, 1–2 → `medium`, a tropical storm and every weaker system → `low`; a `NULL` or unmapped class (including `unknown`, `-5`) rates `no_rating`. The source's own wording (`category 5` … `category 1`, `tropical storm`, `tropical depression`, `disturbance`, `subtropical`, `post-tropical`) stays available as `other_metrics.saffir_simpson` |
-| `other_metrics` | `{"pressure": …, "pressure_unit": "mb", "speed": …, "speed_unit": "kts", "direction": …, "direction_unit": "degrees", "gust": …, "gust_unit": "kts", "dist2land": …, "dist2land_unit": "km", "landfall": …, "landfall_unit": "km"}` — `usa_pres`, `storm_speed`, `storm_dir`, `usa_gust`, `dist2land` / `landfall`; every measurement is paired with its `<name>_unit` companion key, and one the position does not report is omitted together with its unit; `NULL` when it reports none |
+| `other_metrics` | `{"pressure": …, "pressure_unit": "mb", "speed": …, "speed_unit": "km/h", "direction": …, "direction_unit": "degrees", "gust": …, "gust_unit": "km/h", "dist2land": …, "dist2land_unit": "km", "landfall": …, "landfall_unit": "km"}` — `usa_pres`, `storm_speed`, `storm_dir`, `usa_gust`, `dist2land` / `landfall`; every measurement is paired with its `<name>_unit` companion key, and one the position does not report is omitted together with its unit; the two wind measurements (`speed`, `gust`) are the source's knots converted to the canonical `km/h` (× 1.852) so they agree with `metric_value`; `NULL` when it reports none |
 | `event_start` / `event_end` | `iso_time` — one row = one track position |
 | `last_latitude` / `last_longitude` | `lat` / `lon` of the maximum `iso_time` per `sid` — the storm's latest position |
 | `file_date` | `file_date` |
@@ -205,8 +205,8 @@ The source knows no country, so GEO_Download answers it at download time: every 
 | `state_province` | `state` when present (the 2026-09-18 vintage on), else the stamped `geocode_state` column, `NULL` when neither resolves |
 | `place_location` | the full name as it ships with the source row in `unit_name` (GEO_Download resolves `jurisdiction_label` through its `data/nifc_unit_names.csv` lookup when the daily CSVs are written: `WAOWF` → `Okanogan-Wenatchee National Forest`, `CAYNP` → `Yosemite National Park`, `TXTXS` → `Texas A & M Forest Service`, …); a code the lookup does not know keeps its raw value, a blank one is `NULL` — the agency codes in `jurisdiction` have no published domain and are not used |
 | `metric_name` | always `area` |
-| `metric_value` | `acres`, counting a missing acreage as `0` (the pre-2026-09-18 vintage predates the field) |
-| `metric_unit` | always `acres` |
+| `metric_value` | `acres` converted to `km²` (× 0.0040468564224), counting a missing acreage as `0` (the pre-2026-09-18 vintage predates the field) |
+| `metric_unit` | the canonical `area` unit `km²` |
 | `other_metrics` | `{"percent_contained": …, "percent_contained_unit": "%"}` — always present: a missing `percent_contained` counts as `0` (nothing reported yet), so both keys stay valid |
 | `event_start` | `created_on` |
 | `event_end` | `NULL` — the layer carries no fire-out datetime |
@@ -262,7 +262,7 @@ Besides the source, the script left-joins the threshold reference CSV `data/open
 | `place_location` | `place` verbatim (`9 km WSW of Idyllwild, CA`) |
 | `metric_name` | always `magnitude` |
 | `metric_value` | `mag`, counting a missing magnitude as `0` (none occur) |
-| `metric_unit` | `magType` per row (`ml`, `mb`, `mww`, …) — a magnitude is only meaningful with its type |
+| `metric_unit` | `magType` per row, unified as `Mw` (Moment Magnitude Scale): the moment-magnitude family (`mw`, `mww`, `mwr`, …) already is `Mw` and only gets relabelled; the local, body-wave, duration and Lg scales (`ml`, `md`, `mb`, `mb_lg`) are converted first with the empirical rule USGS OF 1997/464 (p. 4) publishes for each — `Mw* = 0.67 * (value + 1.5)` when `ml`/`md` is below 4.0 or `mb`/`mb_lg` (the Nuttli `Mn` scale) is below 3.0, the reported value otherwise (so every `mb` ≥ 3.0 is left as it stands); `mh` (USGS gives its equation as `N/A` — a non-standard, temporary designation) and `mun` (unknown magnitude, not a USGS magnitude type) have no published conversion and keep their own scale label |
 | `other_metrics` | `{"depth", "depth_unit": "km", "nst", "nst_unit": "stations"}`; the `nst` keys are omitted when the network reports no station count |
 | `event_start` | `time` — the rupture origin time (millisecond precision) |
 | `event_end` | `NULL` — an instant has no end |
@@ -289,8 +289,8 @@ Dropped from the ETL: `gap`, `dmin`, `rms`, `horizontalError`, `depthError`, `ma
 | `state_province` | the stamped `geocode_state` column of the gauge point, `NULL` when empty |
 | `place_location` | `"<river name>, <place text>"` — both parts extracted from `site_name` around its first `NEAR`/`AT` marker (`Potomac river, WASH, DC LITTLE FALLS PUMP STA`); without a marker only the sentence-cased name remains, a missing name is `NULL` |
 | `metric_name` | always `discharge` (parameter `00060`) |
-| `metric_value` | `value` — the daily mean, counting a missing reading as `0` (none occur) |
-| `metric_unit` | `unit` verbatim (`ft3/s`; a metric parameter fetch would carry `m³/s`) |
+| `metric_value` | `value` — the daily mean converted to `m³/s` (ft³/s × 0.028316846592), counting a missing reading as `0` (none occur) |
+| `metric_unit` | the canonical `discharge` unit `m³/s` |
 | `event_start` | `date` at midnight — the source reports a day, not a datetime |
 | `event_end` | `NULL` — a daily mean has no end |
 | `last_latitude` / `last_longitude` | `NULL` — the gauge is fixed |
@@ -356,7 +356,8 @@ The nine tables to stack and the target come from `datasets.single_etl.union_etl
 | Column | In the union table |
 |--------|--------------------|
 | `source_name` | which of the nine tables the row came from — one distinct label per table (`AVALANCHE_ORG`, `EONET`, `GDACS`, `IBTRACS`, `NIFC`, `OPENMETEO`, `USGS_EARTHQUAKE`, `USGS_NWIS`, `USGS_VOLCANO`); this is also the per-source incremental key |
-| `event_category`, `event_subcategory`, `metric_name`, `metric_unit` | the source's own labels — kept per source, not harmonised |
+| `event_category`, `event_subcategory`, `metric_name` | the source's own labels — kept per source, not harmonised |
+| `metric_unit` | the canonical unit of the metric where one exists (`wind speed` → `km/h`, `area` → `km²`, `discharge` → `m³/s`, applied by each source's `_convert`); the earthquake `magnitude` unified as `Mw` — the moment family (`mw`/`mww`/`mwr`, GDACS `M`) relabelled and `ml`/`md`/`mb`/`mb_lg` converted to `Mw*` first, with USGS OF 1997/464's rule; otherwise the source's own label (`VEI`, the avalanche size class, `mh`, `mun`, …) |
 | `danger_rating`, `other_metrics` | the shared severity scale every source is mapped onto (`no_rating` … `extreme`) and the source's own JSON metrics (units included) |
 | the remaining columns | unchanged from the source row |
 

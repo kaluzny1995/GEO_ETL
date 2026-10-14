@@ -96,8 +96,8 @@ class TestConvert:
         assert row.state_province is None
         assert row.place_location == "North Atlantic - Gulf of Mexico"
         assert row.metric_name == "wind speed"
-        assert row.metric_value == 65.0
-        assert row.metric_unit == "kts"
+        assert row.metric_value == 120.38000000000001
+        assert row.metric_unit == "km/h"
         assert row.danger_rating == "medium"
         assert row.event_start == dt.datetime(2026, 9, 1, 21, 0, 0)
         assert row.event_end == dt.datetime(2026, 9, 1, 21, 0, 0)
@@ -189,37 +189,30 @@ class TestConvert:
     def test_wmo_wind_wins_over_the_us_agency_value(self, spark_session):
         (row,) = _convert(spark_session, _source_row(wmo_wind=70, usa_wind=65))
 
-        assert row.metric_value == 70.0
+        assert row.metric_value == 129.64000000000001
 
     def test_us_wind_is_used_when_the_wmo_value_is_absent(self, spark_session):
         (row,) = _convert(spark_session, _source_row(wmo_wind=None, usa_wind=65))
 
-        assert row.metric_value == 65.0
+        assert row.metric_value == 120.38000000000001
 
     def test_no_wind_at_all_keeps_the_metric_value_null(self, spark_session):
         (row,) = _convert(spark_session, _source_row(wmo_wind=None, usa_wind=None))
 
         assert row.metric_value is None
-        assert row.metric_unit == "kts"
+        assert row.metric_unit == "km/h"
 
     def test_other_metrics_carry_the_six_measurements_with_their_units(self, spark_session):
         (row,) = _convert(spark_session, _source_row(usa_gust=130))
 
-        assert json.loads(row.other_metrics) == {
-            "saffir_simpson": "category 1",
-            "pressure": 985,
-            "pressure_unit": "mb",
-            "speed": 8,
-            "speed_unit": "kts",
-            "direction": 280,
-            "direction_unit": "degrees",
-            "gust": 130,
-            "gust_unit": "kts",
-            "dist2land": 0,
-            "dist2land_unit": "km",
-            "landfall": 0,
-            "landfall_unit": "km",
-        }
+        metrics = json.loads(row.other_metrics)
+        assert metrics["saffir_simpson"] == "category 1"
+        assert metrics["pressure"] == 985 and metrics["pressure_unit"] == "mb"
+        assert metrics["speed"] == pytest.approx(8 * 1.852) and metrics["speed_unit"] == "km/h"
+        assert metrics["direction"] == 280 and metrics["direction_unit"] == "degrees"
+        assert metrics["gust"] == pytest.approx(130 * 1.852) and metrics["gust_unit"] == "km/h"
+        assert metrics["dist2land"] == 0 and metrics["dist2land_unit"] == "km"
+        assert metrics["landfall"] == 0 and metrics["landfall_unit"] == "km"
 
     def test_absent_measurements_are_omitted_with_their_units(self, spark_session):
         (row,) = _convert(spark_session, _source_row(usa_pres=None, usa_gust=None))
@@ -227,7 +220,7 @@ class TestConvert:
         metrics = json.loads(row.other_metrics)
         assert "pressure" not in metrics and "pressure_unit" not in metrics
         assert "gust" not in metrics and "gust_unit" not in metrics
-        assert metrics["speed_unit"] == "kts"
+        assert metrics["speed_unit"] == "km/h"
         assert metrics["dist2land_unit"] == "km"
 
     def test_other_metrics_omit_the_absent_measurements(self, spark_session):

@@ -75,14 +75,38 @@ class TestConvert:
         assert row.state_province == "CI"
         assert row.place_location == "9 km WSW of Idyllwild, CA"
         assert row.metric_name == "magnitude"
-        assert row.metric_value == 0.52
-        assert row.metric_unit == "ml"
+        assert row.metric_value == pytest.approx(1.3534)  # 0.67 * (0.52 + 1.5), 0.52 being below 4.0
+        assert row.metric_unit == "Mw"
         assert row.danger_rating == "no_rating"
         assert row.other_metrics == '{"depth":15.95,"depth_unit":"km","nst":15,"nst_unit":"stations"}'
         assert row.event_start == dt.datetime(2026, 9, 1, 23, 58, 46, 50000)
         assert row.event_end is None
         assert row.last_latitude is None and row.last_longitude is None
         assert row.file_date == "2026-09-01"
+
+    @pytest.mark.parametrize(
+        ("mag_type", "mag", "expected_value", "expected_unit"),
+        [
+            ("mw", 5.3, 5.3, "Mw"),  # moment magnitude → the standard Mw label
+            ("mww", 5.3, 5.3, "Mw"),
+            ("mwr", 4.6, 4.6, "Mw"),
+            ("ml", 5.3, 5.3, "Mw"),  # 5.3 is at or above 4.0, so only the label changes
+            ("ml", 0.52, 1.3534, "Mw"),  # below 4.0 → 0.67 * (0.52 + 1.5)
+            ("mb", 4.5, 4.5, "Mw"),  # every mb is at or above 3.0, so only the label changes
+            ("md", 1.33, 1.8961, "Mw"),  # MD follows the ML rule
+            ("mb_lg", 2.5, 2.68, "Mw"),  # mb_Lg is the Nuttli Mn scale (threshold 3.0)
+            ("mh", 0.12, 0.12, "mh"),  # USGS publishes no equation for Mh, so it stays put
+            ("mun", 0.0, 0.0, "mun"),  # "unknown magnitude" is not a scale to convert
+        ],
+    )
+    def test_magnitude_scale_is_unified_to_the_equivalent_moment_magnitude(
+        self, spark_session, mag_type, mag, expected_value, expected_unit
+    ):
+        """Every reported scale lands on ``Mw``, converted where USGS published a rule."""
+        (row,) = _convert(spark_session, _source_row(mag_type=mag_type, mag=mag))
+
+        assert row.metric_unit == expected_unit
+        assert row.metric_value == pytest.approx(expected_value)
 
     @pytest.mark.parametrize(
         "place",
@@ -173,15 +197,15 @@ class TestConvert:
         assert row.other_metrics == expected_json
 
     @pytest.mark.parametrize(
-        ("mag", "expected_value"),
+        ("mag", "expected_value", "expected_unit"),
         [
-            (0.52, 0.52),
-            (None, 0.0),
+            (0.52, 1.3534, "Mw"),  # below the ML threshold of 4.0
+            (None, 0.0, "Mw"),  # a missing magnitude counts as 0 and is not scaled into 1.005
         ],
     )
-    def test_metric_value_is_the_magnitude(self, spark_session, mag, expected_value):
+    def test_metric_value_is_the_magnitude(self, spark_session, mag, expected_value, expected_unit):
         (row,) = _convert(spark_session, _source_row(mag=mag))
 
         assert row.metric_name == "magnitude"
-        assert row.metric_value == expected_value
-        assert row.metric_unit == "ml"
+        assert row.metric_value == pytest.approx(expected_value)
+        assert row.metric_unit == expected_unit

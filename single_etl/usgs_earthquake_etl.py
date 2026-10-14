@@ -25,6 +25,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import UsgsEarthquakeEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", UsgsEarthquakeEtlConfig)
 _us_suffixes = sorted((*_cfg.us_state_codes, *_cfg.us_state_full_names))
@@ -185,6 +186,10 @@ class UsgsEarthquakeEtlScript(SingleEtlScript):
             The DataFrame in :attr:`TARGET_TABLE` column order.
         """
         suffix = _place_suffix()
+        # ``mag`` is passed raw: a missing magnitude must stay missing through
+        # the Mw* conversion (coalescing first would fabricate 1.005 for ``ml``).
+        metric_value, metric_unit = standardized_metric(F.lit(_cfg.metric_name), F.col("mag"), F.col("mag_type"))
+        metric_value = F.coalesce(metric_value, F.lit(0.0))
 
         return df.select(
             F.lit(_cfg.source_name).alias("source_name"),
@@ -199,8 +204,8 @@ class UsgsEarthquakeEtlScript(SingleEtlScript):
             _state_province(F.col("geocode_state")).alias("state_province"),
             F.col("place").alias("place_location"),
             F.lit(_cfg.metric_name).alias("metric_name"),
-            F.coalesce(F.col("mag"), F.lit(0.0)).alias("metric_value"),
-            F.col("mag_type").alias("metric_unit"),
+            metric_value.alias("metric_value"),
+            metric_unit.alias("metric_unit"),
             F.lit(DangerRating.NO_RATING).alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("time").alias("event_start"),

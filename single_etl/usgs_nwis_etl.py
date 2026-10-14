@@ -36,6 +36,7 @@ from model.config import AppConfig
 from model.config.datasets import UsgsNwisEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", UsgsNwisEtlConfig)
 
@@ -279,6 +280,9 @@ class UsgsNwisEtlScript(SingleEtlScript):
         river, place = _name_parts()
         categories = self._flood_categories(df.sparkSession)
         merged = df.join(F.broadcast(categories), ["site_id"], "left")
+        metric_value, metric_unit = standardized_metric(
+            F.lit(_cfg.metric_name), F.coalesce(F.col("value"), F.lit(0.0)), F.col("unit")
+        )
 
         return merged.select(
             F.lit(_cfg.source_name).alias("source_name"),
@@ -293,8 +297,8 @@ class UsgsNwisEtlScript(SingleEtlScript):
             _state_province(F.col("geocode_state")).alias("state_province"),
             _place_location(river, place).alias("place_location"),
             F.lit(_cfg.metric_name).alias("metric_name"),
-            F.coalesce(F.col("value"), F.lit(0.0)).alias("metric_value"),
-            F.col("unit").alias("metric_unit"),
+            metric_value.alias("metric_value"),
+            metric_unit.alias("metric_unit"),
             _danger_rating().alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("date").cast("timestamp").alias("event_start"),

@@ -24,6 +24,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import EonetEventEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", EonetEventEtlConfig)
 
@@ -187,6 +188,9 @@ class EonetEventEtlScript(SingleEtlScript):
         """
         description_state = _state_from_description()
         category = _event_category()
+        metric_value, metric_unit = standardized_metric(
+            _metric_name(category), F.coalesce(F.col("magnitude_value"), F.lit(0.0)), _metric_unit(category)
+        )
 
         return df.select(
             F.lit(_cfg.source_name).alias("source_name"),
@@ -201,8 +205,8 @@ class EonetEventEtlScript(SingleEtlScript):
             _state_province(description_state, F.col("geocode_state")).alias("state_province"),
             _place_location().alias("place_location"),
             _metric_name(category).alias("metric_name"),
-            F.coalesce(F.col("magnitude_value"), F.lit(0.0)).alias("metric_value"),
-            _metric_unit(category).alias("metric_unit"),
+            metric_value.alias("metric_value"),
+            metric_unit.alias("metric_unit"),
             F.lit(DangerRating.NO_RATING).alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("event_date").alias("event_start"),

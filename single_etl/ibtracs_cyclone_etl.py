@@ -32,6 +32,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import IbtracsCycloneEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.metric_units import KNOT_TO_KMH, standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", IbtracsCycloneEtlConfig)
 
@@ -140,7 +141,7 @@ def _unit_when_present(column: str, unit: str) -> Column:
 
     Args:
         column: Source column the unit belongs to.
-        unit: The unit's name (``mb``, ``kts``, ``degrees``, ``km``).
+        unit: The unit's name (``mb``, ``km/h``, ``degrees``, ``km``).
 
     Returns:
         *unit* when the row reports *column*, ``NULL`` otherwise — the JSON
@@ -159,21 +160,24 @@ def _other_metrics() -> Column:
         "landfall": …, "landfall_unit": …}`` — ``saffir_simpson`` keeps the
         source's own class wording (the shared severity scale in
         ``danger_rating`` merges categories 1+2 and 4+5), and every measurement
-        is paired with its ``<name>_unit`` companion key (``mb``, ``kts``,
-        ``degrees``, ``km``); measurements the point does not report are omitted
-        together with their unit, ``NULL`` when it reports none of them.
+        is paired with its ``<name>_unit`` companion key; measurements the point
+        does not report are omitted together with their unit, ``NULL`` when it
+        reports none of them. The two wind measurements (``speed``, ``gust``)
+        are the source's knots converted to the canonical ``km/h`` (x 1.852) so
+        they agree with ``metric_value``; the remaining measurements keep their
+        source units (``mb``, ``degrees``, ``km``).
     """
     metrics = F.to_json(
         F.struct(
             _sshs_label().alias("saffir_simpson"),
             F.col("usa_pres").alias("pressure"),
             _unit_when_present("usa_pres", "mb").alias("pressure_unit"),
-            F.col("storm_speed").alias("speed"),
-            _unit_when_present("storm_speed", "kts").alias("speed_unit"),
+            (F.col("storm_speed") * F.lit(KNOT_TO_KMH)).alias("speed"),
+            _unit_when_present("storm_speed", "km/h").alias("speed_unit"),
             F.col("storm_dir").alias("direction"),
             _unit_when_present("storm_dir", "degrees").alias("direction_unit"),
-            F.col("usa_gust").alias("gust"),
-            _unit_when_present("usa_gust", "kts").alias("gust_unit"),
+            (F.col("usa_gust") * F.lit(KNOT_TO_KMH)).alias("gust"),
+            _unit_when_present("usa_gust", "km/h").alias("gust_unit"),
             F.col("dist2land").alias("dist2land"),
             _unit_when_present("dist2land", "km").alias("dist2land_unit"),
             F.col("landfall").alias("landfall"),
@@ -209,6 +213,9 @@ class IbtracsCycloneEtlScript(SingleEtlScript):
         basin = F.trim(F.col("basin"))
         name = F.trim(F.col("name"))
         latest = Window.partitionBy("sid").orderBy(F.col("iso_time").desc())
+        metric_value, metric_unit = standardized_metric(
+            F.lit(_cfg.metric_name), _metric_value(), F.lit(_cfg.metric_unit)
+        )
 
         return df.select(
             F.lit(_cfg.source_name).alias("source_name"),
@@ -223,8 +230,8 @@ class IbtracsCycloneEtlScript(SingleEtlScript):
             _state_province(F.col("geocode_state")).alias("state_province"),
             _place_location().alias("place_location"),
             F.lit(_cfg.metric_name).alias("metric_name"),
-            _metric_value().alias("metric_value"),
-            F.lit(_cfg.metric_unit).alias("metric_unit"),
+            metric_value.alias("metric_value"),
+            metric_unit.alias("metric_unit"),
             _danger_rating().alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("iso_time").alias("event_start"),

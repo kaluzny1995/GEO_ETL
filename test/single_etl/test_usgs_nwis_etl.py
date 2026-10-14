@@ -103,8 +103,8 @@ class TestConvert:
         assert row.state_province is None
         assert row.place_location == "Potomac river, WASH, DC LITTLE FALLS PUMP STA"
         assert row.metric_name == "discharge"
-        assert row.metric_value == 1450.0
-        assert row.metric_unit == "ft3/s"
+        assert row.metric_value == 41.0594275584
+        assert row.metric_unit == "m³/s"
         assert row.danger_rating == "no_rating"
         assert row.other_metrics is None
         assert row.event_start == dt.datetime(2026, 9, 1)
@@ -180,7 +180,7 @@ class TestConvert:
     @pytest.mark.parametrize(
         ("value", "expected_value"),
         [
-            (1450.0, 1450.0),
+            (1450.0, 41.0594275584),
             (None, 0.0),
         ],
     )
@@ -189,7 +189,7 @@ class TestConvert:
 
         assert row.metric_name == "discharge"
         assert row.metric_value == expected_value
-        assert row.metric_unit == "ft3/s"
+        assert row.metric_unit == "m³/s"
 
     @pytest.mark.parametrize("site_id", ["USGS-01646500", "USGS-03105500"])
     def test_subsource_name_is_the_site_id(self, spark_session, site_id):

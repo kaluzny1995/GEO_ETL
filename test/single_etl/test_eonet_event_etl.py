@@ -67,8 +67,8 @@ class TestConvert:
         assert row.state_province is None
         assert row.place_location is None
         assert row.metric_name == "wind speed"
-        assert row.metric_value == 60.0
-        assert row.metric_unit == "kts"
+        assert row.metric_value == 111.12
+        assert row.metric_unit == "km/h"
         assert row.danger_rating == "no_rating"
         assert row.other_metrics == '{"geometry_count":36}'
         assert row.event_start == dt.datetime(2026, 9, 20, 12, 0, 0)
@@ -115,8 +115,8 @@ class TestConvert:
         assert row.country_code == "US"
         assert row.state_province == "MT"
         assert row.metric_name == "area"
-        assert row.metric_value == 120.0
-        assert row.metric_unit == "acres"
+        assert row.metric_value == 0.485622770688
+        assert row.metric_unit == "km²"
 
     def test_state_and_country_from_the_stamped_geocode_when_the_description_has_none(self, spark_session):
         (row,) = _convert(spark_session, _source_row(geocode_country="US", geocode_state="MT"))

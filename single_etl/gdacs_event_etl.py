@@ -28,6 +28,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import GdacsEventEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", GdacsEventEtlConfig)
 
@@ -178,6 +179,7 @@ class GdacsEventEtlScript(SingleEtlScript):
             The DataFrame in :attr:`TARGET_TABLE` column order.
         """
         category = _event_category()
+        metric_value, metric_unit = standardized_metric(_metric_name(category), _metric_value(), _metric_unit())
 
         return df.select(
             F.lit(_cfg.source_name).alias("source_name"),
@@ -192,8 +194,8 @@ class GdacsEventEtlScript(SingleEtlScript):
             _state_province(F.col("geocode_state")).alias("state_province"),
             _place_location().alias("place_location"),
             _metric_name(category).alias("metric_name"),
-            _metric_value().alias("metric_value"),
-            _metric_unit().alias("metric_unit"),
+            metric_value.alias("metric_value"),
+            metric_unit.alias("metric_unit"),
             _danger_rating().alias("danger_rating"),
             F.lit(None).cast("string").alias("other_metrics"),
             F.col("from_date").alias("event_start"),

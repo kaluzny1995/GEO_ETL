@@ -117,7 +117,7 @@ class TestConvert:
         assert row.place_location == "Colombia"
         assert row.metric_name == "magnitude"
         assert row.metric_value == 4.5
-        assert row.metric_unit == "M"
+        assert row.metric_unit == "Mw"
         assert row.danger_rating == "none"
         assert row.event_start == row.event_end == dt.datetime(2026, 9, 29, 21, 50, 29)
 
@@ -141,8 +141,8 @@ class TestConvert:
         assert row.country_code == "AU"
         assert row.place_location == "Australia"
         assert row.metric_name == "area"
-        assert row.metric_value == 14196.0
-        assert row.metric_unit == "ha"
+        assert row.metric_value == 141.96
+        assert row.metric_unit == "km²"
 
     def test_drought_mapping(self, spark_session):
         (row,) = _convert(
@@ -168,7 +168,7 @@ class TestConvert:
         assert row.place_location == "Brazil, Colombia"
         assert row.metric_name == "area"
         assert row.metric_value == 1264372.0
-        assert row.metric_unit == "km2"
+        assert row.metric_unit == "km²"
         assert row.danger_rating == "medium"
 
     @pytest.mark.parametrize(

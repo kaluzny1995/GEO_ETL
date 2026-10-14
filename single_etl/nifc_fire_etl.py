@@ -28,6 +28,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import NifcFireEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", NifcFireEtlConfig)
 
@@ -111,6 +112,9 @@ class NifcFireEtlScript(SingleEtlScript):
             The DataFrame in :attr:`TARGET_TABLE` column order.
         """
         place_location = _place_location()
+        metric_value, metric_unit = standardized_metric(
+            F.lit(_cfg.metric_name), F.coalesce(F.col("acres"), F.lit(0.0)), F.lit(_cfg.metric_unit)
+        )
 
         return df.select(
             F.lit(_cfg.source_name).alias("source_name"),
@@ -125,8 +129,8 @@ class NifcFireEtlScript(SingleEtlScript):
             _state_province(F.col("geocode_state")).alias("state_province"),
             place_location.alias("place_location"),
             F.lit(_cfg.metric_name).alias("metric_name"),
-            F.coalesce(F.col("acres"), F.lit(0.0)).alias("metric_value"),
-            F.lit(_cfg.metric_unit).alias("metric_unit"),
+            metric_value.alias("metric_value"),
+            metric_unit.alias("metric_unit"),
             F.lit(DangerRating.NO_RATING).alias("danger_rating"),
             _other_metrics().alias("other_metrics"),
             F.col("created_on").alias("event_start"),

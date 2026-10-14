@@ -29,9 +29,16 @@ class UsgsEarthquakeEtl(EventEtl):
       stamped ``geocode_state`` when ``net`` is blank, ``NULL`` when
       neither resolves.
     * ``place_location`` — the source ``place`` verbatim.
-    * ``metric_name`` — always ``magnitude``; ``metric_value`` — ``mag``
-      (always reported); ``metric_unit`` — ``magType`` per row (``ml``,
-      ``mb``, ``mww``, …): a magnitude is only meaningful with its type.
+    * ``metric_name`` — always ``magnitude``; ``metric_value`` — ``mag``,
+      counting a missing magnitude as ``0`` (none occur); ``metric_unit`` —
+      ``magType`` per row. The moment-magnitude family (``mw``, ``mww``,
+      ``mwr``, …) is restated as the standard ``Mw`` untouched; ``ml``, ``md``,
+      ``mb`` and ``mb_lg`` are converted to the equivalent moment magnitude
+      ``Mw*`` with the USGS OF 1997/464 empirical rule for each scale
+      (``0.67 * (value + 1.5)`` below 4.0 for ``ML``/``MD``, below 3.0 for
+      ``mb``/``Mn``) and then relabelled ``Mw``; ``mh`` (USGS equation ``N/A``)
+      and ``mun`` (unknown magnitude) have no published conversion and keep
+      their own scale label.
     * ``other_metrics`` — ``{"depth", "depth_unit": "km", "nst",
       "nst_unit": "stations"}``; the ``nst`` keys are omitted when the
       network reports no station count.
