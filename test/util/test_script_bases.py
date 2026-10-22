@@ -6,6 +6,7 @@ from ingestion.raw2plain.raw2plain_script import Raw2PlainScript
 from ingestion.upload.upload_script import UploadScript
 from single_etl.single_etl_script import SingleEtlScript
 from utils.etl_utils import EtlOutcome
+from views.view_script import ViewScript
 
 
 class _StubScript(SingleEtlScript):
@@ -176,3 +177,35 @@ class TestUploadScript:
 
         assert result is False
         assert mock_run.call_args[0][6] is logger
+
+
+class _StubViewScript(ViewScript):
+    SOURCE_TABLE = "src_etl"
+    TARGET_VIEW = "src_vw"
+    QUERY = "SELECT * FROM geo.src_etl"
+
+
+class TestViewScript:
+    def test_run_delegates_to_run_view_with_the_class_names_and_query(self):
+        script = _StubViewScript()
+        spark, config, db_config = MagicMock(), MagicMock(), MagicMock()
+
+        with patch("utils.view_utils.run_view", return_value=EtlOutcome(True, "HISTORICAL: defined view")) as mock_run:
+            outcome = script.run(spark, config, db_config)
+
+        assert outcome.loaded is True
+        assert outcome.summary == "HISTORICAL: defined view"
+        args, kwargs = mock_run.call_args
+        assert args == (spark, config, db_config, "src_etl", "src_vw", "SELECT * FROM geo.src_etl")
+        assert kwargs == {"logger": None}
+
+    def test_run_passes_logger_through(self):
+        script = _StubViewScript()
+        logger = MagicMock(name="logger")
+
+        with patch("utils.view_utils.run_view", return_value=EtlOutcome(True, "ok")) as mock_run:
+            script.run(MagicMock(), MagicMock(), MagicMock(), logger=logger)
+
+        assert mock_run.call_args.kwargs == {
+            "logger": logger,
+        }

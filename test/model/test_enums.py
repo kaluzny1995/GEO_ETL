@@ -17,6 +17,10 @@ def test_job_type_single_etl_value():
     assert JobType.SINGLE_ETL.value == "SINGLE_ETL"
 
 
+def test_job_type_view_value():
+    assert JobType.VIEW.value == "VIEW"
+
+
 def test_job_type_create_is_instance():
     assert isinstance(JobType.CREATE, JobType)
 
@@ -33,8 +37,12 @@ def test_job_type_single_etl_is_instance():
     assert isinstance(JobType.SINGLE_ETL, JobType)
 
 
-def test_job_type_has_four_members():
-    assert len(JobType) == 4
+def test_job_type_view_is_instance():
+    assert isinstance(JobType.VIEW, JobType)
+
+
+def test_job_type_has_five_members():
+    assert len(JobType) == 5
 
 
 def test_job_type_from_value():
@@ -42,6 +50,7 @@ def test_job_type_from_value():
     assert JobType("INGESTION") is JobType.INGESTION
     assert JobType("DATA_QUALITY") is JobType.DATA_QUALITY
     assert JobType("SINGLE_ETL") is JobType.SINGLE_ETL
+    assert JobType("VIEW") is JobType.VIEW
 
 
 def test_job_type_invalid_value_raises():

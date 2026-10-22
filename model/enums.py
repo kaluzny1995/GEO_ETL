@@ -11,12 +11,15 @@ class JobType(enum.Enum):
         INGESTION: Uploads CSV data and transforms raw tables to typed tables.
         DATA_QUALITY: Computes per-file_date quality metrics for a table.
         SINGLE_ETL: Runs one standalone PySpark script from ``single_etl/``.
+        VIEW: Runs one standalone PySpark script from ``views/`` that creates a
+            ``*_vw`` view from a query over a ``*_etl`` table (HISTORICAL only).
     """
 
     CREATE = "CREATE"
     INGESTION = "INGESTION"
     DATA_QUALITY = "DATA_QUALITY"
     SINGLE_ETL = "SINGLE_ETL"
+    VIEW = "VIEW"
 
 
 class LoadType(enum.Enum):

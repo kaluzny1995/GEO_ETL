@@ -7,6 +7,7 @@ Usage::
     python run_etl.py DATA_QUALITY <table_name>
     python run_etl.py DATA_QUALITY <table_name> --overall
     python run_etl.py SINGLE_ETL <script_name> [--load-type auto|historical|incremental]
+    python run_etl.py VIEW <script_name>
 """
 
 import argparse
@@ -149,7 +150,8 @@ def main() -> None:
         "table_name",
         help=(
             "Table name, e.g. avalanche_org (raw suffix added automatically for ingestion); "
-            "SINGLE_ETL expects the name of a script from single_etl/"
+            "SINGLE_ETL expects the name of a script from single_etl/, "
+            "VIEW expects the name of a script from views/ (HISTORICAL load only)"
         ),
     )
     parser.add_argument(

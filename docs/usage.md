@@ -133,10 +133,11 @@ python run_etl.py INGESTION <table_name>
 4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories — **exits with code 1 when nothing was ingested** (no CSV newer than the raw table's max `file_date` and no raw row newer than the plain table's)
 5. For `DATA_QUALITY`: measures only the selected `file_date`s of the plain table and replaces those rows in `geo.data_quality`, then refreshes the whole-table `overall` snapshot (when not run with `--overall`)
 6. For `SINGLE_ETL`: resolves the script name (`single_etl/<name>.py`) via `SingleEtlFactory` and runs it with the selected load type — **exits with code 1 when no record was loaded** (no source row newer than the `_etl` table's max `file_date`, an empty source, or a conversion that yields zero rows). The `union_etl` script is one of them: it stacks every `*_etl` table into `geo.union_etl`
+7. For `VIEW`: resolves the script name (`views/<name>.py`) via `ViewScriptFactory`, runs its query over the `*_etl` source through Spark and replaces the `*_vw` view definition (HISTORICAL only) — **exits with code 1 when the query returned no rows**
 
-See [ETL jobs](etl-jobs.md) for the job registry, the CREATE, INGESTION and SINGLE_ETL pipelines and their load-type logic.
+See [ETL jobs](etl-jobs.md) for the job registry, the CREATE, INGESTION, SINGLE_ETL and VIEW pipelines and their load-type logic.
 
-**Exit codes:** `0` when the job wrote data (or `DATA_QUALITY` only had nothing new to measure and warned), `1` on any exception — including the `INGESTION` "no new data" and the `SINGLE_ETL` "no records loaded" cases. A chained [GEO_E2E](../../GEO_E2E/docs/architecture.md) run reacts to a non-zero code by logging a warning and stopping the chain, so `DATA_QUALITY` never runs on a table that did not change.
+**Exit codes:** `0` when the job wrote data (or `DATA_QUALITY` only had nothing new to measure and warned), `1` on any exception — including the `INGESTION` "no new data", the `SINGLE_ETL` "no records loaded" and the `VIEW` "query returned no rows" cases. A chained [GEO_E2E](../../GEO_E2E/docs/architecture.md) run reacts to a non-zero code by logging a warning and stopping the chain, so `DATA_QUALITY` never runs on a table that did not change.
 
 ## Check data quality
 

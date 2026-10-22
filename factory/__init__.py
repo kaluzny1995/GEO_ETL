@@ -37,7 +37,18 @@ def __getattr__(name: str):
         from factory.single_etl_factory import SingleEtlFactory
 
         return SingleEtlFactory
+    if name == "ViewScriptFactory":
+        from factory.view_script_factory import ViewScriptFactory
+
+        return ViewScriptFactory
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["JobFactory", "Raw2PlainScriptFactory", "SingleEtlFactory", "TableFactory", "UploadScriptFactory"]
+__all__ = [
+    "JobFactory",
+    "Raw2PlainScriptFactory",
+    "SingleEtlFactory",
+    "TableFactory",
+    "UploadScriptFactory",
+    "ViewScriptFactory",
+]

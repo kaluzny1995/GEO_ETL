@@ -675,6 +675,7 @@
           "usgs_volcano_etl"
         ]
       }
-    }
+    },
+    "view": {}
   }
 }

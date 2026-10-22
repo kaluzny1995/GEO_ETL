@@ -1,9 +1,9 @@
 """Dataset constants loaded from the ``datasets`` section of ``config.json``.
 
-Every upload, raw2plain and single-ETL script keeps its wiring (table names,
-dataset folders) and transformation constants (source names, category maps,
-lookup tables) in ``config.json``. Scripts load their own entry at import
-time, keyed by the script's file stem::
+Every upload, raw2plain, single-ETL and view script keeps its wiring (table
+names, dataset folders) and transformation constants (source names, category
+maps, lookup tables, view queries) in ``config.json``. Scripts load their own
+entry at import time, keyed by the script's file stem::
 
     _cfg = load_dataset(__file__, "single_etl", GdacsEtlConfig)
 
@@ -23,7 +23,7 @@ from model.enums import DangerRating
 
 T = TypeVar("T", bound=BaseModel)
 
-DatasetSection = Literal["upload", "raw2plain", "single_etl"]
+DatasetSection = Literal["upload", "raw2plain", "single_etl", "view"]
 
 
 class UploadDatasetConfig(BaseModel):
@@ -201,6 +201,28 @@ class UnionEtlConfig(BaseModel):
     source_tables: list[str]
 
 
+class ViewDatasetConfig(BaseModel):
+    """Wiring for one script in ``views/``.
+
+    Attributes:
+        source_table: ``*_etl`` table the view is defined over
+            (e.g. ``"union_etl"``).
+        target_view: View name the script creates, always ``*_vw``
+            (e.g. ``"union_vw"``).
+        query: Complete ``SELECT`` statement the view exposes — it must read
+            *source_table* (schema-qualified, e.g. ``geo.union_etl``). The
+            runner executes it through Spark JDBC first to prove it returns
+            rows, then stores it as ``CREATE OR REPLACE VIEW
+            geo.<target_view> AS <query>``.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source_table: str
+    target_view: str
+    query: str
+
+
 @cache
 def _read_datasets(path: str) -> dict:
     with open(path) as f:
@@ -213,8 +235,8 @@ def load_dataset(script_file: str, section: DatasetSection, model: type[T], *, p
     Args:
         script_file: ``__file__`` of the calling script; the entry is keyed
             by its file stem (e.g. ``"gdacs_event_etl"``).
-        section: Layer the script belongs to (``"upload"``, ``"raw2plain"``
-            or ``"single_etl"``).
+        section: Layer the script belongs to (``"upload"``, ``"raw2plain"``,
+            ``"single_etl"`` or ``"view"``).
         model: Pydantic model validating the entry.
         path: Config file to read. Defaults to the project ``config.json``.
 

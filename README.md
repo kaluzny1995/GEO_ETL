@@ -17,8 +17,9 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 - **Local PySpark client** — scripts run on the host, connecting to the cluster remotely
 - **Model-driven schema** — Pydantic models define table structures; DDL and PySpark schemas are generated automatically
 - **Canonical event tables** — the `SINGLE_ETL` job maps every source into one shared 21-column event structure (`geo.<source>_etl`), deduplicates each source to one row per event per `file_date`, and the [`union_etl` script](docs/etl_jobs/single-etl.md#union_etl) stacks them all into one `geo.union_etl` table keyed per source by a distinct `source_name` (see [Data tables](docs/data-tables.md))
+- **Views** — the `VIEW` job defines `geo.<name>_vw` views over the `*_etl` tables from queries kept in `config.json` (HISTORICAL only — every run re-proves the query and replaces the view)
 - **Data quality metrics** — per-`file_date` null/bad/duplicate rates plus field varyingness (min/max/range, mean/stddev, percentiles, distinct counts) in `geo.data_quality`, measured incrementally (HISTORICAL first, then only new dates); each run also refreshes the whole-table `overall` snapshot
-- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY, SINGLE_ETL) via a job registry
+- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) via a job registry
 
 ## Tech Stack
 
@@ -43,7 +44,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 |----------|----------|
 | [Project structure](docs/architecture.md) | Directory layout — what each folder and entry-point script is for. |
 | [Usage](docs/usage.md) | Setup, creating tables, running ingestion, drop/delete scripts and expected output. |
-| [ETL jobs](docs/etl-jobs.md) | Job registry and links to the CREATE, INGESTION, DATA_QUALITY and SINGLE_ETL pipelines, plus load type detection. |
+| [ETL jobs](docs/etl-jobs.md) | Job registry and links to the CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL and VIEW pipelines, plus load type detection. |
 | [Data quality metrics](docs/data-quality-metrics.md) | Metric families, rules and querying `geo.data_quality`. |
 | [Data tables](docs/data-tables.md) | The `geo` schema — raw/plain table pairs, registered models, current data and how to add a table. |
 | [Configuration](docs/configuration.md) | `config.json` reference and Supabase credentials (`.env`). |

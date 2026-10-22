@@ -1,5 +1,5 @@
-from factory import JobFactory, Raw2PlainScriptFactory, SingleEtlFactory, UploadScriptFactory
-from jobs import create_table, data_quality, ingestion, single_etl
+from factory import JobFactory, Raw2PlainScriptFactory, SingleEtlFactory, UploadScriptFactory, ViewScriptFactory
+from jobs import create_table, data_quality, ingestion, single_etl, view
 from model.enums import JobType
 
 
@@ -8,6 +8,7 @@ def _register():
     JobFactory.register(JobType.INGESTION, ingestion)
     JobFactory.register(JobType.DATA_QUALITY, data_quality)
     JobFactory.register(JobType.SINGLE_ETL, single_etl)
+    JobFactory.register(JobType.VIEW, view)
 
     from single_etl.avalanche_org_etl import AvalancheOrgEtlScript
 

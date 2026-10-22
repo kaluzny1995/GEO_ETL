@@ -51,7 +51,7 @@ mypy                 # targets come from [tool.mypy] files in pyproject.toml
 tox -e typecheck     # same, in an isolated environment
 ```
 
-Checked packages: `model`, `utils`, `factory`, `jobs`, `ingestion` (`upload/` + `raw2plain/`), `single_etl` and the six `run_*.py` entry points — **102 source files**, tests excluded.
+Checked packages: `model`, `utils`, `factory`, `jobs`, `ingestion` (`upload/` + `raw2plain/`), `single_etl`, `views` and the six `run_*.py` entry points — **108 source files**, tests excluded.
 
 `pyspark`, `findspark` and `py4j` ship no type stubs, so they are listed under `[[tool.mypy.overrides]]` with `ignore_missing_imports = true`.
 

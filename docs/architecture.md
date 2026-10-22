@@ -2,7 +2,7 @@
 
 # Project Structure
 
-The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold script classes with their interfaces (`upload_script.py`, `raw2plain_script.py`), `single_etl/` holds per-dataset PySpark scripts (interface in `single_etl/single_etl_script.py`) run by the `SINGLE_ETL` job — including a `union_etl` script that stacks their output into one `geo.union_etl` table, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
+The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold script classes with their interfaces (`upload_script.py`, `raw2plain_script.py`), `single_etl/` holds per-dataset PySpark scripts (interface in `single_etl/single_etl_script.py`) run by the `SINGLE_ETL` job — including a `union_etl` script that stacks their output into one `geo.union_etl` table, `views/` holds view-defining PySpark scripts (interface in `views/view_script.py`) run by the `VIEW` job (each defines one `*_vw` view over a `*_etl` table, HISTORICAL only), `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
 
 ```
 GEO_ETL/
@@ -51,14 +51,16 @@ GEO_ETL/
 │   ├── table_factory.py              # TableFactory: table_name -> Pydantic model
 │   ├── upload_script_factory.py      # UploadScriptFactory: table_name -> upload script instance
 │   ├── raw2plain_script_factory.py   # Raw2PlainScriptFactory: table_name -> raw2plain script instance
-│   └── single_etl_factory.py         # SingleEtlFactory: script name -> script instance
+│   ├── single_etl_factory.py         # SingleEtlFactory: script name -> script instance
+│   └── view_script_factory.py        # ViewScriptFactory: view name -> view script instance
 │
 ├── jobs/                             # Job modules (the "what to do" layer)
 │   ├── __init__.py                   # Registers jobs in JobFactory, scripts in the script factories
 │   ├── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
 │   ├── data_quality.py              # DATA_QUALITY job (per-file_date metrics -> geo.data_quality + overall refresh)
 │   ├── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
-│   └── single_etl.py                 # SINGLE_ETL job (runs one script from single_etl/)
+│   ├── single_etl.py                 # SINGLE_ETL job (runs one script from single_etl/)
+│   └── view.py                       # VIEW job (runs one script from views/, defines a *_vw view)
 │
 ├── single_etl/                       # Standalone PySpark ETL scripts (SingleEtlScript interface, SINGLE_ETL job)
 │   ├── __init__.py
@@ -74,8 +76,12 @@ GEO_ETL/
 │   ├── usgs_volcano_etl.py            # geo.usgs_volcano -> geo.usgs_volcano_etl (canonical event structure)
 │   └── union_etl.py                   # every *_etl table -> geo.union_etl (stacks the nine canonical tables)
 │
+├── views/                            # View-defining PySpark scripts (ViewScript interface, VIEW job)
+│   ├── __init__.py
+│   └── view_script.py                # ViewScript interface (SOURCE_TABLE, TARGET_VIEW, QUERY + run())
+│
 ├── model/                            # Data models and configuration
-│   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL) + LoadType (HISTORICAL, INCREMENTAL)
+│   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
 │   ├── config/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   ├── datasets.py               # Per-script dataset constants from config.json (load_dataset + frozen models)
@@ -130,7 +136,8 @@ GEO_ETL/
 │   │   ├── ListenerHelper.java       # Py4J bridge for listener registration
 │   │   ├── ListenerHelper.class
 │   │   └── spark-monitor.jar         # Packaged JAR (committed), installed into PySpark's jars/
-│   └── upload_utils.py               # Shared upload logic (DRY: parse_file_date, get_max_file_date, upload template)
+│   ├── upload_utils.py               # Shared upload logic (DRY: parse_file_date, get_max_file_date, upload template)
+│   └── view_utils.py                 # Shared view runner (run_view template, HISTORICAL only)
 │
 ├── docs/                             # Documentation (this file included)
 │
@@ -145,6 +152,7 @@ GEO_ETL/
 │   ├── upload/                       # Standalone upload job logs
 │   ├── raw2plain/                    # Standalone raw2plain transform logs
 │   ├── single_etl/                   # SINGLE_ETL job logs
+│   ├── view/                         # VIEW job logs
 │   ├── pyspark_csv_test/             # CSV test script logs
 │   └── pyspark_supabase_test/        # Supabase test script logs
 │
@@ -167,7 +175,8 @@ GEO_ETL/
     │   ├── test_create_table.py
     │   ├── test_data_quality.py
     │   ├── test_ingestion.py
-    │   └── test_single_etl.py
+    │   ├── test_single_etl.py
+    │   └── test_view.py                 # VIEW job (script resolution, logging, unknown script, empty-query RuntimeError)
     ├── model/
     │   ├── test_enums.py
     │   ├── test_model_contract.py    # Shared contract for all 28 plain/raw/ETL models
@@ -213,5 +222,6 @@ GEO_ETL/
         ├── test_logger.py
         ├── test_schema_converter.py
         ├── test_script_bases.py
-        └── test_spark_monitor.py
+        ├── test_spark_monitor.py
+        └── test_view_utils.py            # Shared VIEW runner (subquery read, CREATE OR REPLACE VIEW, empty result)
 ```

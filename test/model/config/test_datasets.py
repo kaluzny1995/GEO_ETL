@@ -14,6 +14,7 @@ from model.config.datasets import (
     UnionEtlConfig,
     UploadDatasetConfig,
     UsgsVolcanoEtlConfig,
+    ViewDatasetConfig,
     load_dataset,
 )
 from model.enums import DangerRating
@@ -30,6 +31,7 @@ DATASETS = {
         },
         "demo_union_etl": {"target_table": "demo_union_etl", "source_tables": ["alpha_etl", "beta_etl"]},
     },
+    "view": {"demo_vw": {"source_table": "demo_etl", "target_view": "demo_vw", "query": "SELECT * FROM geo.demo_etl"}},
 }
 
 
@@ -69,6 +71,20 @@ class TestLoadDataset:
         assert cfg.target_table == "demo_union_etl"
         assert cfg.source_tables == ["alpha_etl", "beta_etl"]
 
+    def test_returns_typed_view_config(self, config_path):
+        cfg = load_dataset("/x/demo_vw.py", "view", ViewDatasetConfig, path=config_path)
+        assert cfg.source_table == "demo_etl"
+        assert cfg.target_view == "demo_vw"
+        assert cfg.query == "SELECT * FROM geo.demo_etl"
+
+    def test_view_config_missing_query_is_rejected(self, config_path):
+        path = _write_config({"view": {"demo_vw": {"source_table": "demo_etl", "target_view": "demo_vw"}}})
+        try:
+            with pytest.raises(ValidationError):
+                load_dataset("/x/demo_vw.py", "view", ViewDatasetConfig, path=path)
+        finally:
+            os.unlink(path)
+
     def test_unknown_key_raises_key_error(self, config_path):
         with pytest.raises(KeyError, match=r"datasets\.upload"):
             load_dataset("/x/missing_upload.py", "upload", UploadDatasetConfig, path=config_path)
@@ -99,10 +115,11 @@ class TestProjectConfig:
     def test_project_config_has_all_dataset_sections(self):
         with open(CONFIG_PATH) as f:
             datasets = json.load(f)["datasets"]
-        assert set(datasets) == {"upload", "raw2plain", "single_etl"}
+        assert set(datasets) == {"upload", "raw2plain", "single_etl", "view"}
         assert len(datasets["upload"]) == 9
         assert len(datasets["raw2plain"]) == 9
         assert len(datasets["single_etl"]) == 10
+        assert datasets["view"] == {}
 
     def test_project_union_script_config_loads(self):
         cfg = load_dataset("/x/union_etl.py", "single_etl", UnionEtlConfig)

@@ -2,7 +2,7 @@
 
 # Load type detection
 
-The INGESTION pipelines, the DATA_QUALITY job and the SINGLE_ETL scripts decide their load type from the state of their target table — no manual flag is needed (`SINGLE_ETL` also accepts `--load-type` to force one).
+The INGESTION pipelines, the DATA_QUALITY job and the SINGLE_ETL scripts decide their load type from the state of their target table — no manual flag is needed (`SINGLE_ETL` also accepts `--load-type` to force one). The VIEW job decides nothing: views are always `HISTORICAL` ([below](#view)).
 
 ## Upload
 
@@ -64,6 +64,22 @@ A step that *did* have work keeps the job green: raw rows left behind by an earl
 
 ```
 logger.warning("No new file_date to measure for avalanche_org — metrics are up to date")
+```
+
+## VIEW
+
+| Condition | Load Type | Behavior |
+|-----------|-----------|----------|
+| Always | `HISTORICAL` | Re-runs the script's query over the `*_etl` source and replaces the whole `*_vw` view definition |
+| Query returns no rows | `HISTORICAL` | Runner returns `loaded=False` → the job warns and raises `RuntimeError`; the existing view stays untouched |
+
+A view has no `file_date` cursor to be incremental from — there is nothing to detect and nothing to force, and `--load-type` is rejected for this job (`--load-type can only be used with the SINGLE_ETL job`). Every run proves the query through Spark JDBC and stores it with `CREATE OR REPLACE VIEW`, so the view always reflects the current contents of its source — see [VIEW job](view.md).
+
+**VIEW fails when its query returns no rows** — the same contract as SINGLE_ETL: `utils/view_utils.py` reports the empty run as `EtlOutcome(loaded=False, …)` and `jobs/view.py` warns with that summary and raises, so `run_etl.py` exits with code 1:
+
+```
+WARNING No records loaded into union_vw — query returned no rows from union_etl
+ERROR ETL job failed   (RuntimeError)   → exit code 1
 ```
 
 To exercise the INCREMENTAL path, follow the [incremental test workflow](../usage.md#incremental-test-workflow).

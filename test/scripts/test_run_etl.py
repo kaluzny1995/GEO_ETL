@@ -404,6 +404,77 @@ def test_load_type_rejected_for_other_jobs(mock_logger, mock_create, mock_config
     mock_create.assert_not_called()
 
 
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_main_dispatches_view_job(mock_logger, mock_create, mock_config, mock_spark):
+    mock_create.return_value = MagicMock(run=MagicMock(return_value="done"))
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "VIEW", "union_vw"]):
+        from run_etl import main
+
+        main()
+
+    mock_create.assert_called_once_with(JobType.VIEW)
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_view_passes_script_name(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "VIEW", "my_view"]):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args[0][1] == "my_view"
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_view_never_passes_a_load_type(mock_logger, mock_create, mock_config, mock_spark):
+    """Views are HISTORICAL-only — no load_type kwarg reaches the job."""
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "VIEW", "union_vw"]):
+        from run_etl import main
+
+        main()
+
+    assert "load_type" not in job_mock.run.call_args.kwargs
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_view_load_type_rejected(mock_logger, mock_create, mock_config, mock_spark):
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "VIEW", "union_vw", "--load-type", "historical"]):
+        from run_etl import main
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+
+    assert exc.value.code == 2
+    mock_create.assert_not_called()
+
+
 def test_stderr_capture_stop_and_read_without_start_returns_empty():
     from run_etl import _StderrCapture
 

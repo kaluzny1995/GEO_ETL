@@ -26,6 +26,8 @@ logs/
 │   └── create_avalanche_org_raw_2026-10-03T22:31:01.313539.log
 ├── single_etl/
 │   └── single_etl_avalanche_org_etl_2026-10-04T21:09:27.962397.log
+├── view/
+│   └── view_union_vw_<timestamp>.log
 ├── data_quality/
 │   └── data_quality_avalanche_org_2026-09-27T17:50:36.838342.log
 ├── drop_table/
