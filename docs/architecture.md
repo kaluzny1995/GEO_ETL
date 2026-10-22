@@ -56,7 +56,7 @@ GEO_ETL/
 ├── jobs/                             # Job modules (the "what to do" layer)
 │   ├── __init__.py                   # Registers jobs in JobFactory, scripts in the script factories
 │   ├── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
-│   ├── data_quality.py              # DATA_QUALITY job (per-file_date metrics -> geo.data_quality)
+│   ├── data_quality.py              # DATA_QUALITY job (per-file_date metrics -> geo.data_quality + overall refresh)
 │   ├── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
 │   └── single_etl.py                 # SINGLE_ETL job (runs one script from single_etl/)
 │

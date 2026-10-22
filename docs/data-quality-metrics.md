@@ -4,11 +4,11 @@
 
 Every run of the [`DATA_QUALITY` job](etl_jobs/data-quality.md) stores one row per `(table_name, file_date, metric)` in `geo.data_quality`. This page documents what the metrics mean, which rules are applied and how to query the results with plain SQL.
 
-The job itself — CLI, flow diagram, [load type detection](etl_jobs/load-types.md#data_quality), [`--overall` mode](etl_jobs/data-quality.md#overall-mode) and expected log file content — is documented under [ETL jobs](etl-jobs.md).
+The job itself — CLI, flow diagram, [load type detection](etl_jobs/load-types.md#data_quality), [overall refresh](etl_jobs/data-quality.md#overall-refresh), [`--overall` mode](etl_jobs/data-quality.md#overall-mode) and expected log file content — is documented under [ETL jobs](etl-jobs.md).
 
 ## Metric families
 
-Each row of `geo.data_quality` is one metric value for one `file_date` (or for the [`overall` snapshot](etl_jobs/data-quality.md#overall-mode)):
+Each row of `geo.data_quality` is one metric value for one `file_date` (or for the whole-table [`overall` snapshot](etl_jobs/data-quality.md#overall-refresh), which a normal run refreshes automatically):
 
 | Metric | Meaning |
 |--------|---------|
@@ -84,7 +84,7 @@ WHERE table_name = 'avalanche_org' AND file_date = '2026-09-20'
 ORDER BY metric;
 ```
 
-Whole-table snapshot (`--overall`):
+Whole-table snapshot (refreshed by every normal run, or written alone with `--overall`):
 
 ```sql
 SELECT metric, round(value::numeric, 4) AS value
@@ -160,10 +160,10 @@ ORDER BY file_date;
 
 | File | Role |
 |------|------|
-| `jobs/data_quality.py` | Load type detection, purge of removed `file_date`s, measure and replace |
+| `jobs/data_quality.py` | Load type detection, purge of removed `file_date`s, measure and replace, `overall` refresh |
 | `utils/dq_metrics.py` | Rules, metric computation and unpivoting |
 | `model/other/data_quality.py` | `DataQuality` model — the row layout of `geo.data_quality` |
 | `utils/jdbc_retry.py` | Bounded retry for transient pooler connection failures |
 | `utils/ddl_generator.py` | `execute_statement` runs the `DELETE`s over JDBC |
-| `test/jobs/test_data_quality.py` | Job flow for both load types, `--overall` mode, purge, empty/no-new-data paths |
+| `test/jobs/test_data_quality.py` | Job flow for both load types, `overall` refresh, `--overall` mode, purge, empty/no-new-data paths |
 | `test/util/test_dq_metrics.py` | Metrics verified against a real local Spark session |

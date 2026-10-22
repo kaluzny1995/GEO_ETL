@@ -27,7 +27,7 @@ The INGESTION pipelines, the DATA_QUALITY job and the SINGLE_ETL scripts decide 
 | No metrics stored for this table | `HISTORICAL` | Measures every `file_date` in the source |
 | Metrics stored | `INCREMENTAL` | Measures only `file_date` > the stored maximum, and purges metrics whose `file_date` left the source |
 
-Details: [DATA_QUALITY job — load type notes](data-quality.md#load-type-detection).
+Either load type then refreshes the whole-table `overall` snapshot; `--overall` skips load type detection entirely and only writes the `overall` rows. Details: [DATA_QUALITY job — load type notes](data-quality.md#load-type-detection).
 
 ## SINGLE_ETL
 

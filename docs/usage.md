@@ -131,7 +131,7 @@ python run_etl.py INGESTION <table_name>
 2. Connects to the Spark cluster
 3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model for the **exact** table name passed on the command line, executes it against Supabase — one table per run
 4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories — **exits with code 1 when nothing was ingested** (no CSV newer than the raw table's max `file_date` and no raw row newer than the plain table's)
-5. For `DATA_QUALITY`: measures only the selected `file_date`s of the plain table and replaces those rows in `geo.data_quality`
+5. For `DATA_QUALITY`: measures only the selected `file_date`s of the plain table and replaces those rows in `geo.data_quality`, then refreshes the whole-table `overall` snapshot (when not run with `--overall`)
 6. For `SINGLE_ETL`: resolves the script name (`single_etl/<name>.py`) via `SingleEtlFactory` and runs it with the selected load type — **exits with code 1 when no record was loaded** (no source row newer than the `_etl` table's max `file_date`, an empty source, or a conversion that yields zero rows). The `union_etl` script is one of them: it stacks every `*_etl` table into `geo.union_etl`
 
 See [ETL jobs](etl-jobs.md) for the job registry, the CREATE, INGESTION and SINGLE_ETL pipelines and their load-type logic.
@@ -154,9 +154,9 @@ python run_etl.py DATA_QUALITY <table_name> --overall
 
 > **Note:** Pass the plain table name — `DATA_QUALITY` does not add the `_raw` suffix, and the metrics are computed on the typed table.
 
-The first run measures every `file_date` (`HISTORICAL`); later runs measure only the `file_date`s added since (`INCREMENTAL`) and drop metrics for `file_date`s that no longer exist in the source. Run it after each INGESTION to keep `geo.data_quality` in step with the data — see [Load type detection](etl_jobs/load-types.md#data_quality).
+The first run measures every `file_date` (`HISTORICAL`); later runs measure only the `file_date`s added since (`INCREMENTAL`) and drop metrics for `file_date`s that no longer exist in the source. Run it after each INGESTION to keep `geo.data_quality` in step with the data — see [Load type detection](etl_jobs/load-types.md#data_quality). Each normal run also refreshes the whole-table `overall` snapshot, so the aggregate never falls behind the dated rows — see [Overall refresh](etl_jobs/data-quality.md#overall-refresh).
 
-Add `--overall` to measure the entire table as a single snapshot stored under `file_date = 'overall'` instead — it replaces a previously stored snapshot on every run and never touches the per-`file_date` rows — see [Overall mode](etl_jobs/data-quality.md#overall-mode).
+Add `--overall` to measure **only** the entire table as a single snapshot stored under `file_date = 'overall'` — it writes the `overall` rows, never touches the per-`file_date` rows, and skips load type detection and the dated metrics. A normal run already keeps the aggregate in step, so `--overall` is only needed to refresh the snapshot alone — see [Overall mode](etl_jobs/data-quality.md#overall-mode).
 
 Expected log file content (`logs/data_quality/data_quality_avalanche_org_<timestamp>.log` — the job's logger writes to the file and mirrors to stdout):
 
@@ -168,6 +168,9 @@ INFO Computed 657 metrics for 9 file_date(s) in avalanche_org (HISTORICAL)
 INFO Replacing stored metrics for avalanche_org...
 INFO Writing to geo.data_quality...
 INFO Data quality metrics complete: 657 rows written to geo.data_quality
+INFO Refreshing overall snapshot for avalanche_org...
+INFO Writing to geo.data_quality...
+INFO Overall snapshot refreshed: 73 metrics for avalanche_org
 ```
 
 Results land in `geo.data_quality` (one row per metric and `file_date`). Re-running the job for the same table replaces its previous rows. Metrics, rules and example SQL: see [Data Quality metrics](data-quality-metrics.md).

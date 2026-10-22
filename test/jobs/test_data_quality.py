@@ -34,18 +34,34 @@ def _metric_row_count():
     return 725
 
 
-def _setup_metrics(mock_dq, date_count=2):
-    """Wire the mocked metrics DataFrame for the cache/count/write path.
+def _overall_metric_row_count():
+    return 73
 
-    ``data_quality_rows`` must stay inside Spark: building the frame from a
-    Python list would require Python workers on the executors, which the
-    Docker-based cluster does not have.
+
+def _setup_metrics(mock_dq, date_count=2):
+    """Wire two distinct mocked metrics DataFrames — dated and overall.
+
+    ``data_quality_rows`` is called twice on a normal run (per-``file_date``
+    with ``overall=False``, then the aggregate refresh with ``overall=True``),
+    so the factory returns a different frame per mode. ``data_quality_rows``
+    must stay inside Spark: building the frame from a Python list would
+    require Python workers on the executors, which the Docker-based cluster
+    does not have.
     """
-    df = mock_dq.return_value
-    df.cache.return_value = df
-    df.count.return_value = _metric_row_count()
-    df.select.return_value.distinct.return_value.count.return_value = date_count
-    return df
+    dated_df = MagicMock()
+    dated_df.cache.return_value = dated_df
+    dated_df.count.return_value = _metric_row_count()
+    dated_df.select.return_value.distinct.return_value.count.return_value = date_count
+
+    overall_df = MagicMock()
+    overall_df.cache.return_value = overall_df
+    overall_df.count.return_value = _overall_metric_row_count()
+
+    def _factory(*_args, overall=False, **_kwargs):
+        return overall_df if overall else dated_df
+
+    mock_dq.side_effect = _factory
+    return dated_df, overall_df
 
 
 PURGE_SQL = (
@@ -137,17 +153,21 @@ class TestHistoricalRun:
         monkeypatch,
     ):
         monkeypatch.setattr("utils.jdbc_retry.time.sleep", lambda _seconds: None)
-        metrics_df = _setup_metrics(mock_dq)
-        metrics_df.write.jdbc.side_effect = [
+        dated_df, overall_df = _setup_metrics(mock_dq)
+        dated_df.write.jdbc.side_effect = [
             RuntimeError("Caused by: java.net.UnknownHostException: pooler.supabase.com"),
             None,
         ]
 
         run(mock_spark, "avalanche_org")
 
-        assert metrics_df.write.jdbc.call_count == 2
-        assert mock_delete.call_count == 2
-        metrics_df.unpersist.assert_called_once()
+        # The dated delete+write is retried as one unit (2 delete, 2 write), then the
+        # overall refresh adds one more delete and one overall write.
+        assert dated_df.write.jdbc.call_count == 2
+        assert overall_df.write.jdbc.call_count == 1
+        assert mock_delete.call_count == 3
+        dated_df.unpersist.assert_called_once()
+        overall_df.unpersist.assert_called_once()
 
     def test_executes_ddl_for_metrics_table(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
@@ -186,30 +206,36 @@ class TestHistoricalRun:
 
         run(mock_spark, "avalanche_org")
 
-        mock_delete.assert_called_once()
-        assert mock_delete.call_args[0][1] == HISTORICAL_DELETE_SQL
+        # Two deletes: the dated HISTORICAL range, then the overall snapshot refresh.
+        assert mock_delete.call_count == 2
+        assert mock_delete.call_args_list[0][0][1] == HISTORICAL_DELETE_SQL
+        assert mock_delete.call_args_list[1][0][1] == OVERALL_DELETE_SQL
 
-    def test_does_not_pass_overall_to_metrics(
+    def test_dated_metrics_use_overall_false_and_refresh_uses_true(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
         _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
-        assert mock_dq.call_args.kwargs["overall"] is False
+        assert mock_dq.call_count == 2
+        assert mock_dq.call_args_list[0].kwargs["overall"] is False
+        assert mock_dq.call_args_list[1].kwargs["overall"] is True
 
     def test_writes_metrics(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        metrics_df = _setup_metrics(mock_dq)
+        dated_df, overall_df = _setup_metrics(mock_dq)
 
         result = run(mock_spark, "avalanche_org")
 
         mock_spark.createDataFrame.assert_not_called()
-        metrics_df.write.jdbc.assert_called_once()
-        assert metrics_df.write.jdbc.call_args.kwargs["table"] == "geo.data_quality"
-        assert metrics_df.write.jdbc.call_args.kwargs["mode"] == "append"
-        metrics_df.unpersist.assert_called_once()
+        dated_df.write.jdbc.assert_called_once()
+        assert dated_df.write.jdbc.call_args.kwargs["table"] == "geo.data_quality"
+        assert dated_df.write.jdbc.call_args.kwargs["mode"] == "append"
+        dated_df.unpersist.assert_called_once()
+        overall_df.write.jdbc.assert_called_once()
+        overall_df.unpersist.assert_called_once()
         assert f"{_metric_row_count()} metrics" in result
 
     def test_empty_source_returns_no_data_message(
@@ -320,11 +346,13 @@ class TestIncrementalRun:
 
         run(mock_spark, "avalanche_org")
 
-        assert mock_delete.call_count == 2
+        # Three deletes: the purge, the dated INCREMENTAL range, then the overall refresh.
+        assert mock_delete.call_count == 3
         assert (
             mock_delete.call_args_list[1][0][1] == "DELETE FROM geo.data_quality WHERE table_name = 'avalanche_org' "
             "AND file_date > '2026-09-15' AND file_date <> 'overall'"
         )
+        assert mock_delete.call_args_list[2][0][1] == OVERALL_DELETE_SQL
 
     def test_returns_incremental_success_message(
         self,
@@ -424,12 +452,13 @@ class TestIncrementalRun:
         mock_spark,
         spark_session,
     ):
-        metrics_df = _setup_metrics(mock_dq)
+        dated_df, overall_df = _setup_metrics(mock_dq)
 
         run(mock_spark, "avalanche_org")
 
-        metrics_df.write.jdbc.assert_called_once()
-        assert metrics_df.write.jdbc.call_args.kwargs["mode"] == "append"
+        dated_df.write.jdbc.assert_called_once()
+        assert dated_df.write.jdbc.call_args.kwargs["mode"] == "append"
+        overall_df.write.jdbc.assert_called_once()
         mock_spark.createDataFrame.assert_not_called()
 
 
@@ -506,15 +535,15 @@ class TestOverallRun:
     def test_writes_metrics(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
     ):
-        metrics_df = _setup_metrics(mock_dq)
+        _, overall_df = _setup_metrics(mock_dq)
 
         result = run(mock_spark, "avalanche_org", overall=True)
 
-        metrics_df.write.jdbc.assert_called_once()
-        assert metrics_df.write.jdbc.call_args.kwargs["table"] == "geo.data_quality"
-        assert metrics_df.write.jdbc.call_args.kwargs["mode"] == "append"
-        metrics_df.unpersist.assert_called_once()
-        assert f"{_metric_row_count()} metrics" in result
+        overall_df.write.jdbc.assert_called_once()
+        assert overall_df.write.jdbc.call_args.kwargs["table"] == "geo.data_quality"
+        assert overall_df.write.jdbc.call_args.kwargs["mode"] == "append"
+        overall_df.unpersist.assert_called_once()
+        assert f"{_overall_metric_row_count()} metrics" in result
 
     def test_empty_source_returns_no_data_message(
         self, mock_get, mock_app, mock_db, mock_schema, mock_ddl, mock_delete, mock_max, mock_dq, mock_spark
@@ -539,7 +568,7 @@ class TestOverallRun:
             "OVERALL: measuring every row of geo.avalanche_org as a single 'overall' snapshot..."
         )
         mock_logger.info.assert_any_call(
-            f"Computed {_metric_row_count()} metrics for all rows of avalanche_org (OVERALL)"
+            f"Computed {_overall_metric_row_count()} metrics for all rows of avalanche_org (OVERALL)"
         )
         mock_logger.info.assert_any_call("Replacing stored metrics for avalanche_org...")
         mock_logger.info.assert_any_call("Writing to geo.data_quality...")

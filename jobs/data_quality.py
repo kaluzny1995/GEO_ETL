@@ -1,13 +1,17 @@
 """DATA_QUALITY job: computes per-file_date quality metrics for a table.
 
-``--overall`` switches to a single snapshot of the whole table stored under
-``file_date = 'overall'``; see :func:`run`.
+A normal run measures the new ``file_date``s **and** refreshes the whole-table
+``overall`` snapshot (stored under ``file_date = 'overall'``), so the aggregate
+never falls behind the dated rows it summarizes. ``--overall`` switches to a
+snapshot-only run that measures the whole table and leaves the per-``file_date``
+rows untouched; see :func:`run`.
 """
 
 import datetime as dt
 import logging
 
-from pyspark.sql import SparkSession
+from pydantic import BaseModel
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
 from factory import TableFactory
@@ -55,6 +59,58 @@ def _max_stored_file_date(
     return None
 
 
+def _refresh_overall_snapshot(
+    spark: SparkSession,
+    df_full: DataFrame,
+    *,
+    schema: str,
+    table_name: str,
+    model: type[BaseModel],
+    jdbc_url: str,
+    properties: dict[str, str],
+    logger: logging.Logger,
+) -> int:
+    """Recompute and replace the ``file_date = 'overall'`` snapshot for *table_name*.
+
+    Called after a normal (per-``file_date``) run that measured new data, so the
+    aggregate snapshot never falls behind the dated rows it summarizes. The whole
+    table (*df_full*, unfiltered) is measured as one group and the stored
+    ``overall`` rows are replaced; the per-``file_date`` rows are left untouched.
+
+    Args:
+        spark: Active Spark session.
+        df_full: The full source table (not filtered to new ``file_date``s).
+        schema: PostgreSQL schema name.
+        table_name: Table whose snapshot is refreshed.
+        model: Pydantic model of the source table.
+        jdbc_url: JDBC connection URL.
+        properties: JDBC connection properties.
+        logger: Job logger.
+
+    Returns:
+        The number of overall metric rows written.
+    """
+    overall_df = data_quality_rows(df_full, table_name=table_name, model=model, overall=True).cache()
+    try:
+        overall_row_count = retry_connection(overall_df.count, logger=logger)
+        delete_sql = (
+            f"DELETE FROM {schema}.{METRICS_TABLE} "
+            f"WHERE table_name = '{table_name}' AND file_date = '{OVERALL_FILE_DATE}'"
+        )
+
+        def _replace_overall_metrics() -> None:
+            logger.info(f"Refreshing overall snapshot for {table_name}...")
+            execute_statement(spark, delete_sql, jdbc_url, properties)
+            logger.info(f"Writing to {schema}.{METRICS_TABLE}...")
+            overall_df.write.jdbc(url=jdbc_url, table=f"{schema}.{METRICS_TABLE}", mode="append", properties=properties)
+
+        retry_connection(_replace_overall_metrics, logger=logger)
+        logger.info(f"Overall snapshot refreshed: {overall_row_count} metrics for {table_name}")
+        return overall_row_count
+    finally:
+        overall_df.unpersist()
+
+
 def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = None, *, overall: bool = False) -> str:
     """Compute and store data quality metrics for a single table.
 
@@ -67,13 +123,20 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
            ``file_date`` no longer exists in the source.
         4. Read the matching rows and compute one metric set per ``file_date``.
         5. Replace the stored rows for exactly that range.
+        6. Refresh the whole-table ``overall`` snapshot from the full source.
 
-    With ``overall=True`` the load type detection, the ``file_date`` filter and
-    the purge are skipped: the **whole table** is measured as one group and
-    stored under ``file_date = 'overall'``, replacing a previously stored
-    snapshot (recalculated on every run). The two modes own disjoint rows —
-    a normal run never deletes ``'overall'`` rows, and an ``overall`` run
-    never touches the per-``file_date`` rows.
+    A normal run therefore keeps both the per-``file_date`` history **and** the
+    ``overall`` aggregate in step with the data: after writing the dated metrics
+    for any new ``file_date``s it recomputes the whole table and replaces the
+    stored ``file_date = 'overall'`` rows, so the snapshot can never fall behind
+    the dated rows it summarizes. The two row families stay disjoint — the dated
+    deletes exclude ``'overall'``, and the overall refresh only replaces
+    ``'overall'`` rows.
+
+    With ``overall=True`` the run is snapshot-only: the load type detection, the
+    ``file_date`` filter, the dated metrics and the purge are all skipped, and the
+    **whole table** is measured as one group stored under ``file_date = 'overall'``,
+    replacing the previous snapshot. The per-``file_date`` rows are left untouched.
 
     Metrics mirror the source: re-running the job replaces the previous rows
     for *table_name*, so trends are never skewed by duplicate runs and stored
@@ -88,8 +151,9 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
         spark: Active Spark session.
         table_name: Table to measure (e.g. ``"avalanche_org"``).
         logger: Optional logger; defaults to a module-level logger.
-        overall: Measure every row of the table as a single ``'overall'``
-            snapshot instead of one metric set per ``file_date``.
+        overall: Snapshot-only mode — measure every row as a single ``'overall'``
+            snapshot instead of the per-``file_date`` history (the dated metrics
+            are not written, and the overall refresh is not duplicated).
 
     Returns:
         A human-readable completion message.
@@ -136,9 +200,10 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
             retry_connection(lambda: execute_statement(spark, purge_sql, jdbc_url, properties), logger=logger)
 
     logger.info(f"Reading {source}...")
-    df = retry_connection(lambda: spark.read.jdbc(url=jdbc_url, table=source, properties=properties), logger=logger)
-    if max_stored is not None:
-        df = df.filter(F.col(FILE_DATE_COL) > F.lit(max_stored.isoformat()))
+    df_full = retry_connection(
+        lambda: spark.read.jdbc(url=jdbc_url, table=source, properties=properties), logger=logger
+    )
+    df = df_full if max_stored is None else df_full.filter(F.col(FILE_DATE_COL) > F.lit(max_stored.isoformat()))
 
     if not retry_connection(lambda: df.head(1), logger=logger):
         if max_stored is None:
@@ -195,4 +260,22 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
     finally:
         metrics_df.unpersist()
 
-    return f"Data quality ({load_type}) for {table_name} written to {schema}.{METRICS_TABLE} — {row_count} metrics."
+    overall_row_count = 0
+    if not overall:
+        overall_row_count = _refresh_overall_snapshot(
+            spark,
+            df_full,
+            schema=schema,
+            table_name=table_name,
+            model=model,
+            jdbc_url=jdbc_url,
+            properties=properties,
+            logger=logger,
+        )
+
+    if overall:
+        return f"Data quality (OVERALL) for {table_name} written to {schema}.{METRICS_TABLE} — {row_count} metrics."
+    return (
+        f"Data quality ({load_type}) for {table_name} written to {schema}.{METRICS_TABLE} — "
+        f"{row_count} metrics (overall snapshot: {overall_row_count})."
+    )

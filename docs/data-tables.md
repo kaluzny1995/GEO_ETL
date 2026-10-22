@@ -43,7 +43,7 @@ DDL is generated from the Pydantic models instead of being written by hand — s
 | `usgs_volcano` | `UsgsVolcano` | `model/plain/` | USGS volcanic activity data — typed (int, float, datetime) |
 | `usgs_volcano_etl` | `UsgsVolcanoEtl` | `model/etl/` | USGS volcanic activity notice in the canonical event structure (str, float, datetime) |
 | `union_etl` | `UnionEtl` | `model/etl/` | Every `*_etl` table stacked into one by the `union_etl` script — the canonical 21 columns, `source_name` identifies the source table (one distinct label per table) |
-| `data_quality` | `DataQuality` | `model/other/` | Quality metrics per `file_date` — long format (str, float, datetime) |
+| `data_quality` | `DataQuality` | `model/other/` | Quality metrics per `file_date` (plus the whole-table `overall` snapshot) — long format (str, float, datetime) |
 
 > **Note:** One `CREATE` run builds exactly one table — the raw and the plain table need their own run (`python run_etl.py CREATE <table_name>_raw`, then `python run_etl.py CREATE <table_name>`). Only `INGESTION` appends the `_raw` suffix itself: pass `<table_name>` to it, not `<table_name>_raw`.
 
