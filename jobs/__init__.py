@@ -75,6 +75,11 @@ def _register():
     _script = MetricsEarthquakeVwScript()
     ViewScriptFactory.register(_script.TARGET_VIEW, _script)
 
+    from views.metrics_fire_vw import MetricsFireVwScript
+
+    _script = MetricsFireVwScript()
+    ViewScriptFactory.register(_script.TARGET_VIEW, _script)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
     from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 

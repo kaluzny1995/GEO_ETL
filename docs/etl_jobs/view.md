@@ -46,6 +46,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `metrics_avalanche_vw` | `event_category = 'avalanche'` | `geo.metrics_avalanche_vw` | [below](#metrics_avalanche_vw) |
 | `metrics_drought_vw` | `event_category = 'drought'` | `geo.metrics_drought_vw` | [below](#metrics_drought_vw) |
 | `metrics_earthquake_vw` | `event_category = 'earthquake'` | `geo.metrics_earthquake_vw` | [below](#metrics_earthquake_vw) |
+| `metrics_fire_vw` | `event_category = 'fire'` | `geo.metrics_fire_vw` | [below](#metrics_fire_vw) |
 
 Both follow the same shape — own measured metric + numeric `other_metrics` explosion + trailing `file_date` — the avalanche entry:
 
@@ -113,6 +114,16 @@ Live shape: 47,698 rows — 16,877 `magnitude` / `Mw` plus 15,411 `depth` / `km`
 
 ```bash
 python run_etl.py VIEW metrics_earthquake_vw
+```
+
+## metrics_fire_vw
+
+`views/metrics_fire_vw.py` (`datasets.view.metrics_fire_vw`): the fire twin of the avalanche view — same query shape, filtered to `event_category = 'fire'` over `geo.union_etl`. The `other_metrics` explosion mixes two sources: NIFC contributes `percent_contained` / `%` (its `_other_metrics()` always writes the companion), and EONET fire rows contribute `geometry_count` (the event's geometry points — a count with **no companion unit**, so those rows carry `metric_unit = NULL`; drop them with a `metric_unit IS NOT NULL` predicate if unwanted).
+
+Live shape: 12,374 rows — 11,942 own `area` / `km²` rows (all fire sources publish it), 343 `percent_contained` / `%` and 89 `geometry_count` / NULL from the explosion.
+
+```bash
+python run_etl.py VIEW metrics_fire_vw
 ```
 
 ## Dropping a view
