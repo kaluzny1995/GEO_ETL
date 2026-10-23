@@ -119,7 +119,7 @@ class TestProjectConfig:
         assert len(datasets["upload"]) == 9
         assert len(datasets["raw2plain"]) == 9
         assert len(datasets["single_etl"]) == 10
-        assert set(datasets["view"]) == {"metrics_avalanche_vw", "metrics_drought_vw"}
+        assert set(datasets["view"]) == {"metrics_avalanche_vw", "metrics_drought_vw", "metrics_earthquake_vw"}
 
     def test_project_union_script_config_loads(self):
         cfg = load_dataset("/x/union_etl.py", "single_etl", UnionEtlConfig)
@@ -144,6 +144,7 @@ class TestProjectConfig:
             "union_etl": UnionEtlConfig,
             "metrics_avalanche_vw": ViewDatasetConfig,
             "metrics_drought_vw": ViewDatasetConfig,
+            "metrics_earthquake_vw": ViewDatasetConfig,
         }.items():
             if key.endswith("_etl"):
                 section = "single_etl"

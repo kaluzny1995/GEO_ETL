@@ -45,6 +45,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/single_etl/test_union_etl.py` | union script (nine configured source tables, identity `_convert`, target from config, registry entry) |
 | `test/views/test_metrics_avalanche_vw.py` | metrics_avalanche_vw view script (source/target/query from config, `_vw` suffix, avalanche filter + numeric `other_metrics` explosion + `file_date` cast in the query, registry entry) |
 | `test/views/test_metrics_drought_vw.py` | metrics_drought_vw view script (same contract as the avalanche view, drought filter) |
+| `test/views/test_metrics_earthquake_vw.py` | metrics_earthquake_vw view script (same contract as the avalanche view, earthquake filter) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (column mapping, source coordinate pass-through, forecast-window collapse) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (category/place/country mapping, stamped geocode pass-through with description-state precedence) |
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |
