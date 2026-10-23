@@ -65,6 +65,11 @@ def _register():
     _script = MetricsAvalancheVwScript()
     ViewScriptFactory.register(_script.TARGET_VIEW, _script)
 
+    from views.metrics_drought_vw import MetricsDroughtVwScript
+
+    _script = MetricsDroughtVwScript()
+    ViewScriptFactory.register(_script.TARGET_VIEW, _script)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
     from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 
