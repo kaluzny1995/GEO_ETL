@@ -127,6 +127,7 @@ class TestProjectConfig:
             "metrics_flood_vw",
             "metrics_iceberg_vw",
             "metrics_storm_vw",
+            "metrics_volcano_vw",
         }
 
     def test_project_union_script_config_loads(self):
@@ -157,6 +158,7 @@ class TestProjectConfig:
             "metrics_flood_vw": ViewDatasetConfig,
             "metrics_iceberg_vw": ViewDatasetConfig,
             "metrics_storm_vw": ViewDatasetConfig,
+            "metrics_volcano_vw": ViewDatasetConfig,
         }.items():
             if key.endswith("_etl"):
                 section = "single_etl"

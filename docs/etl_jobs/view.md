@@ -50,6 +50,9 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `metrics_flood_vw` | `event_category = 'flood'` | `geo.metrics_flood_vw` | [below](#metrics_flood_vw) |
 | `metrics_iceberg_vw` | `event_category = 'iceberg'` | `geo.metrics_iceberg_vw` | [below](#metrics_iceberg_vw) |
 | `metrics_storm_vw` | `event_category = 'storm'` | `geo.metrics_storm_vw` | [below](#metrics_storm_vw) |
+| `metrics_volcano_vw` | `event_category = 'volcano'` | `geo.metrics_volcano_vw` | [below](#metrics_volcano_vw) |
+
+One view per `event_category` of `geo.union_etl` — the set is complete.
 
 Both follow the same shape — own measured metric + numeric `other_metrics` explosion + trailing `file_date` — the avalanche entry:
 
@@ -157,6 +160,16 @@ Live shape: 10,372 rows — 1,925 own `wind speed` rows + 8,447 exploded rows ac
 
 ```bash
 python run_etl.py VIEW metrics_storm_vw
+```
+
+## metrics_volcano_vw
+
+`views/metrics_volcano_vw.py` (`datasets.view.metrics_volcano_vw`): the volcano twin of the avalanche view — same query shape, filtered to `event_category = 'volcano'` over `geo.union_etl`. Own metrics: USGS's `vei` / `VEI` (80 rows) and GDACS's `magnitude` / NULL (8 rows, NULL `other_metrics`). The explosion adds USGS notice numbers `vnum` / `Smithsonian GVP` (an identifier in numeric form — exclude with `metric_name != 'vnum'` if unwanted) and, on damage-affected volcanoes, `casualties` / `people` and `damage` / `million USD` (21 rows each). `color_code`, `alert_level` and `notice_identifier` are strings and are skipped by the numeric filter.
+
+Live shape: 210 rows — 88 own metrics + 80 `vnum` + 21 `casualties` + 21 `damage`.
+
+```bash
+python run_etl.py VIEW metrics_volcano_vw
 ```
 
 ## Dropping a view

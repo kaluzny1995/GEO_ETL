@@ -50,6 +50,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/views/test_metrics_flood_vw.py` | metrics_flood_vw view script (same contract as the avalanche view, flood filter + five-metric whitelist) |
 | `test/views/test_metrics_iceberg_vw.py` | metrics_iceberg_vw view script (same contract as the avalanche view, iceberg filter) |
 | `test/views/test_metrics_storm_vw.py` | metrics_storm_vw view script (same contract as the avalanche view, storm filter) |
+| `test/views/test_metrics_volcano_vw.py` | metrics_volcano_vw view script (same contract as the avalanche view, volcano filter) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (column mapping, source coordinate pass-through, forecast-window collapse) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (category/place/country mapping, stamped geocode pass-through with description-state precedence) |
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |

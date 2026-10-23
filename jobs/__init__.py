@@ -95,6 +95,11 @@ def _register():
     _script = MetricsStormVwScript()
     ViewScriptFactory.register(_script.TARGET_VIEW, _script)
 
+    from views.metrics_volcano_vw import MetricsVolcanoVwScript
+
+    _script = MetricsVolcanoVwScript()
+    ViewScriptFactory.register(_script.TARGET_VIEW, _script)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
     from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 
