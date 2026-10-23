@@ -696,6 +696,11 @@
         "source_table": "union_etl",
         "target_view": "metrics_fire_vw",
         "query": "WITH fire AS (SELECT event_category, event_subcategory, file_date::timestamp AS file_date, metric_name, metric_value, metric_unit, other_metrics FROM geo.union_etl WHERE event_category = 'fire'), other_metric AS (SELECT a.event_category, a.event_subcategory, a.file_date, e.key AS metric_name, (e.value #>> '{}')::double precision AS metric_value, a.other_metrics::jsonb ->> (e.key || '_unit') AS metric_unit FROM fire a CROSS JOIN LATERAL jsonb_each(NULLIF(a.other_metrics, '')::jsonb) AS e(key, value) WHERE e.key NOT LIKE '%\\_unit' AND jsonb_typeof(e.value) = 'number') SELECT event_category, event_subcategory, metric_name, metric_value, metric_unit, file_date FROM fire WHERE metric_value IS NOT NULL UNION ALL SELECT event_category, event_subcategory, metric_name, metric_value, metric_unit, file_date FROM other_metric"
+      },
+      "metrics_flood_vw": {
+        "source_table": "union_etl",
+        "target_view": "metrics_flood_vw",
+        "query": "WITH flood AS (SELECT event_category, event_subcategory, file_date::timestamp AS file_date, metric_name, metric_value, metric_unit, other_metrics FROM geo.union_etl WHERE event_category = 'flood'), other_metric AS (SELECT a.event_category, a.event_subcategory, a.file_date, e.key AS metric_name, (e.value #>> '{}')::double precision AS metric_value, a.other_metrics::jsonb ->> (e.key || '_unit') AS metric_unit FROM flood a CROSS JOIN LATERAL jsonb_each(NULLIF(a.other_metrics, '')::jsonb) AS e(key, value) WHERE e.key NOT LIKE '%\\_unit' AND jsonb_typeof(e.value) = 'number') SELECT event_category, event_subcategory, metric_name, metric_value, metric_unit, file_date FROM flood WHERE metric_value IS NOT NULL AND metric_name IN ('discharge', 'threshold', 'baseline_days', 'exceedance_ratio', 'magnitude') UNION ALL SELECT event_category, event_subcategory, metric_name, metric_value, metric_unit, file_date FROM other_metric WHERE metric_name IN ('discharge', 'threshold', 'baseline_days', 'exceedance_ratio', 'magnitude')"
       }
     }
   }

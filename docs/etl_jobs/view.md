@@ -47,6 +47,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `metrics_drought_vw` | `event_category = 'drought'` | `geo.metrics_drought_vw` | [below](#metrics_drought_vw) |
 | `metrics_earthquake_vw` | `event_category = 'earthquake'` | `geo.metrics_earthquake_vw` | [below](#metrics_earthquake_vw) |
 | `metrics_fire_vw` | `event_category = 'fire'` | `geo.metrics_fire_vw` | [below](#metrics_fire_vw) |
+| `metrics_flood_vw` | `event_category = 'flood'` | `geo.metrics_flood_vw` | [below](#metrics_flood_vw) |
 
 Both follow the same shape — own measured metric + numeric `other_metrics` explosion + trailing `file_date` — the avalanche entry:
 
@@ -124,6 +125,16 @@ Live shape: 12,374 rows — 11,942 own `area` / `km²` rows (all fire sources pu
 
 ```bash
 python run_etl.py VIEW metrics_fire_vw
+```
+
+## metrics_flood_vw
+
+`views/metrics_flood_vw.py` (`datasets.view.metrics_flood_vw`): the flood twin of the avalanche view — same query shape, filtered to `event_category = 'flood'` over `geo.union_etl`. Both branches carry a five-metric whitelist (`metric_name IN ('discharge', 'threshold', 'baseline_days', 'exceedance_ratio', 'magnitude')`), so only those metrics ever reach the view: the OPENMETEO percentile/ensemble block and the USGS_NWIS stage metrics found in its rich `other_metrics` JSON are filtered out, as are any future keys. Units come from the companion `<name>_unit` keys (`discharge` and `threshold` in `m³/s`); `baseline_days`, `exceedance_ratio` and GDACS's own `magnitude` land with `metric_unit = NULL`. Non-numeric entries (`threshold_exceeded`, dates, gauge ids, `exceedance_level`) are skipped by the numeric filter.
+
+Live shape: 45,589 rows — 11,635 `discharge` / `m³/s` + 570 `magnitude` / NULL own metrics, and 11,544 `threshold` / `m³/s`, 11,544 `baseline_days` / NULL, 10,296 `exceedance_ratio` / NULL from the explosion.
+
+```bash
+python run_etl.py VIEW metrics_flood_vw
 ```
 
 ## Dropping a view

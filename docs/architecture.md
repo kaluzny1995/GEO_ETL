@@ -82,7 +82,8 @@ GEO_ETL/
 │   ├── metrics_avalanche_vw.py        # geo.union_etl (avalanche rows) -> geo.metrics_avalanche_vw
 │   ├── metrics_drought_vw.py          # geo.union_etl (drought rows) -> geo.metrics_drought_vw
 │   ├── metrics_earthquake_vw.py       # geo.union_etl (earthquake rows) -> geo.metrics_earthquake_vw
-│   └── metrics_fire_vw.py             # geo.union_etl (fire rows) -> geo.metrics_fire_vw
+│   ├── metrics_fire_vw.py             # geo.union_etl (fire rows) -> geo.metrics_fire_vw
+│   └── metrics_flood_vw.py            # geo.union_etl (flood rows) -> geo.metrics_flood_vw
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
@@ -223,7 +224,8 @@ GEO_ETL/
     │   ├── test_metrics_avalanche_vw.py  # First VIEW script (config wiring, query contract, registry entry)
     │   ├── test_metrics_drought_vw.py    # Drought twin of metrics_avalanche_vw
     │   ├── test_metrics_earthquake_vw.py  # Earthquake twin of metrics_avalanche_vw
-    │   └── test_metrics_fire_vw.py       # Fire twin of metrics_avalanche_vw
+    │   ├── test_metrics_fire_vw.py       # Fire twin of metrics_avalanche_vw
+    │   └── test_metrics_flood_vw.py      # Flood twin of metrics_avalanche_vw
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
