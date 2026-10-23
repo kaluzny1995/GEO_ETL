@@ -49,6 +49,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `metrics_fire_vw` | `event_category = 'fire'` | `geo.metrics_fire_vw` | [below](#metrics_fire_vw) |
 | `metrics_flood_vw` | `event_category = 'flood'` | `geo.metrics_flood_vw` | [below](#metrics_flood_vw) |
 | `metrics_iceberg_vw` | `event_category = 'iceberg'` | `geo.metrics_iceberg_vw` | [below](#metrics_iceberg_vw) |
+| `metrics_storm_vw` | `event_category = 'storm'` | `geo.metrics_storm_vw` | [below](#metrics_storm_vw) |
 
 Both follow the same shape — own measured metric + numeric `other_metrics` explosion + trailing `file_date` — the avalanche entry:
 
@@ -146,6 +147,16 @@ Live shape: 122 rows — 61 `surface` / `N/m²` own metrics + 61 `geometry_count
 
 ```bash
 python run_etl.py VIEW metrics_iceberg_vw
+```
+
+## metrics_storm_vw
+
+`views/metrics_storm_vw.py` (`datasets.view.metrics_storm_vw`): the storm twin of the avalanche view — same query shape, filtered to `event_category = 'storm'` over `geo.union_etl`. Every source publishes the own metric `wind speed` / `km/h` (IBTRACS 1,593, GDACS 209, EONET 123; GDACS rows have NULL `other_metrics` and contribute only it). The explosion adds the IBTRACS block — `pressure` / `mb`, `speed` / `km/h`, `direction` / `degrees`, `gust` / `km/h` (444 rows) and `dist2land` / `landfall` / `km` — plus EONET's unit-less `geometry_count` (NULL unit). The `saffir_simpson` class is a string and is skipped by the numeric filter.
+
+Live shape: 10,372 rows — 1,925 own `wind speed` rows + 8,447 exploded rows across 7 metric names.
+
+```bash
+python run_etl.py VIEW metrics_storm_vw
 ```
 
 ## Dropping a view

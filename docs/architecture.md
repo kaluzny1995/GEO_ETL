@@ -84,7 +84,8 @@ GEO_ETL/
 │   ├── metrics_earthquake_vw.py       # geo.union_etl (earthquake rows) -> geo.metrics_earthquake_vw
 │   ├── metrics_fire_vw.py             # geo.union_etl (fire rows) -> geo.metrics_fire_vw
 │   ├── metrics_flood_vw.py            # geo.union_etl (flood rows) -> geo.metrics_flood_vw
-│   └── metrics_iceberg_vw.py          # geo.union_etl (iceberg rows) -> geo.metrics_iceberg_vw
+│   ├── metrics_iceberg_vw.py          # geo.union_etl (iceberg rows) -> geo.metrics_iceberg_vw
+│   └── metrics_storm_vw.py            # geo.union_etl (storm rows) -> geo.metrics_storm_vw
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
@@ -227,7 +228,8 @@ GEO_ETL/
     │   ├── test_metrics_earthquake_vw.py  # Earthquake twin of metrics_avalanche_vw
     │   ├── test_metrics_fire_vw.py       # Fire twin of metrics_avalanche_vw
     │   ├── test_metrics_flood_vw.py      # Flood twin of metrics_avalanche_vw
-    │   └── test_metrics_iceberg_vw.py    # Iceberg twin of metrics_avalanche_vw
+    │   ├── test_metrics_iceberg_vw.py    # Iceberg twin of metrics_avalanche_vw
+    │   └── test_metrics_storm_vw.py      # Storm twin of metrics_avalanche_vw
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
