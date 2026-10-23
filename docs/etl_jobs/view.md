@@ -48,6 +48,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `metrics_earthquake_vw` | `event_category = 'earthquake'` | `geo.metrics_earthquake_vw` | [below](#metrics_earthquake_vw) |
 | `metrics_fire_vw` | `event_category = 'fire'` | `geo.metrics_fire_vw` | [below](#metrics_fire_vw) |
 | `metrics_flood_vw` | `event_category = 'flood'` | `geo.metrics_flood_vw` | [below](#metrics_flood_vw) |
+| `metrics_iceberg_vw` | `event_category = 'iceberg'` | `geo.metrics_iceberg_vw` | [below](#metrics_iceberg_vw) |
 
 Both follow the same shape — own measured metric + numeric `other_metrics` explosion + trailing `file_date` — the avalanche entry:
 
@@ -135,6 +136,16 @@ Live shape: 45,589 rows — 11,635 `discharge` / `m³/s` + 570 `magnitude` / NUL
 
 ```bash
 python run_etl.py VIEW metrics_flood_vw
+```
+
+## metrics_iceberg_vw
+
+`views/metrics_iceberg_vw.py` (`datasets.view.metrics_iceberg_vw`): the iceberg twin of the avalanche view — same query shape, filtered to `event_category = 'iceberg'` over `geo.union_etl`. All 61 rows are EONET `sea_lake_ice` events: the own metric is `surface` / `N/m²`, and every row's `other_metrics` holds `geometry_count` (the event's geometry points — a count with no companion unit, so those rows carry `metric_unit = NULL`, as with fire).
+
+Live shape: 122 rows — 61 `surface` / `N/m²` own metrics + 61 `geometry_count` / NULL from the explosion.
+
+```bash
+python run_etl.py VIEW metrics_iceberg_vw
 ```
 
 ## Dropping a view
