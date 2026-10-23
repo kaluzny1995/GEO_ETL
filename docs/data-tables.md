@@ -52,6 +52,14 @@ DDL is generated from the Pydantic models instead of being written by hand — s
 
 Models are registered in `model/__init__.py` via `TableFactory.register()` and looked up by `factory/table_factory.py`.
 
+## Views
+
+Views are not tables: they are defined by the [`VIEW` job](etl_jobs/view.md) (no `CREATE` run, no `TableFactory` registration) and always `HISTORICAL` — every run replaces the whole definition.
+
+| View | Source | Description |
+|------|--------|-------------|
+| `metrics_avalanche_vw` | `geo.union_etl` | Every measured avalanche-category metric flattened into one row per (name, value, unit): the row's own `metric_name` / `metric_value` / `metric_unit` (kept only when it carries a value), appended rows for the numeric entries of its `other_metrics` JSON with their companion `<name>_unit` units, and the row's `file_date` stamp cast to `timestamp` (trailing column) — see [VIEW job — metrics_avalanche_vw](etl_jobs/view.md#metrics_avalanche_vw) |
+
 ## Data
 
 Downloaded CSV files from [GEO_Download](../../GEO_Download) are the input. Current sources:

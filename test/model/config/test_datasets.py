@@ -119,7 +119,7 @@ class TestProjectConfig:
         assert len(datasets["upload"]) == 9
         assert len(datasets["raw2plain"]) == 9
         assert len(datasets["single_etl"]) == 10
-        assert datasets["view"] == {}
+        assert set(datasets["view"]) == {"metrics_avalanche_vw"}
 
     def test_project_union_script_config_loads(self):
         cfg = load_dataset("/x/union_etl.py", "single_etl", UnionEtlConfig)
@@ -142,11 +142,14 @@ class TestProjectConfig:
             "avalanche_org_raw2plain": Raw2PlainDatasetConfig,
             "gdacs_event_etl": GdacsEventEtlConfig,
             "union_etl": UnionEtlConfig,
+            "metrics_avalanche_vw": ViewDatasetConfig,
         }.items():
             if key.endswith("_etl"):
                 section = "single_etl"
             elif key.endswith("_raw2plain"):
                 section = "raw2plain"
+            elif key.endswith("_vw"):
+                section = "view"
             else:
                 section = "upload"
             load_dataset(f"/x/{key}.py", section, cfg)

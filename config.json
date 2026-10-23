@@ -676,6 +676,12 @@
         ]
       }
     },
-    "view": {}
+    "view": {
+      "metrics_avalanche_vw": {
+        "source_table": "union_etl",
+        "target_view": "metrics_avalanche_vw",
+        "query": "WITH avalanche AS (SELECT event_category, event_subcategory, file_date::timestamp AS file_date, metric_name, metric_value, metric_unit, other_metrics FROM geo.union_etl WHERE event_category = 'avalanche'), other_metric AS (SELECT a.event_category, a.event_subcategory, a.file_date, e.key AS metric_name, (e.value #>> '{}')::double precision AS metric_value, a.other_metrics::jsonb ->> (e.key || '_unit') AS metric_unit FROM avalanche a CROSS JOIN LATERAL jsonb_each(NULLIF(a.other_metrics, '')::jsonb) AS e(key, value) WHERE e.key NOT LIKE '%\\_unit' AND jsonb_typeof(e.value) = 'number') SELECT event_category, event_subcategory, metric_name, metric_value, metric_unit, file_date FROM avalanche WHERE metric_value IS NOT NULL UNION ALL SELECT event_category, event_subcategory, metric_name, metric_value, metric_unit, file_date FROM other_metric"
+      }
+    }
   }
 }

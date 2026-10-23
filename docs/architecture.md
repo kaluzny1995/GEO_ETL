@@ -78,7 +78,8 @@ GEO_ETL/
 │
 ├── views/                            # View-defining PySpark scripts (ViewScript interface, VIEW job)
 │   ├── __init__.py
-│   └── view_script.py                # ViewScript interface (SOURCE_TABLE, TARGET_VIEW, QUERY + run())
+│   ├── view_script.py                # ViewScript interface (SOURCE_TABLE, TARGET_VIEW, QUERY + run())
+│   └── metrics_avalanche_vw.py        # geo.union_etl (avalanche rows) -> geo.metrics_avalanche_vw
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
@@ -214,6 +215,9 @@ GEO_ETL/
     │   ├── test_usgs_nwis_etl.py
     │   ├── test_usgs_volcano_etl.py
     │   └── test_union_etl.py
+    ├── views/
+    │   ├── __init__.py
+    │   └── test_metrics_avalanche_vw.py  # First VIEW script (config wiring, query contract, registry entry)
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py

@@ -74,7 +74,13 @@ The `datasets` section of the same file holds every script's wiring and transfor
         "source_tables": ["avalanche_org_etl", "eonet_event_etl", "..."]
       }
     },
-    "view": {}
+    "view": {
+      "metrics_avalanche_vw": {
+        "source_table": "union_etl",
+        "target_view": "metrics_avalanche_vw",
+        "query": "WITH avalanche AS (...), other_metric AS (...) SELECT ... UNION ALL SELECT ..."
+      }
+    }
   }
 }
 ```
@@ -86,7 +92,7 @@ The `datasets` section of the same file holds every script's wiring and transfor
 | `datasets.single_etl.<script>` | plain/ETL tables, source name, category and country maps, metric labels, lookup tables (`union_etl` instead lists the `*_etl` tables it stacks) | one `<Name>EtlConfig` per script, `UnionEtlConfig` for the union script |
 | `datasets.view.<script>` | `*_etl` source table, `*_vw` target view and the `SELECT` query the view exposes | `ViewDatasetConfig` |
 
-The `view` section is empty until view scripts are added — each entry is keyed by the view script's file stem and holds the whole view definition, see [VIEW job — Adding a new view script](etl_jobs/view.md#adding-a-new-view-script).
+Each view entry is keyed by the view script's file stem and holds the whole view definition — see [VIEW job](etl_jobs/view.md) and its [Adding a new view script](etl_jobs/view.md#adding-a-new-view-script) recipe (the query is abridged above; the real entry carries the full SQL).
 
 Each script loads its own entry at import time and uses the model's fields directly — there are no per-field aliases:
 

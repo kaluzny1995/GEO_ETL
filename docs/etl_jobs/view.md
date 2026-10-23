@@ -39,14 +39,14 @@ How the data flows:
 5. No rows → the runner returns `EtlOutcome(loaded=False, …)`; `jobs/view.py` warns with that summary and raises `RuntimeError`, so `run_etl.py` exits with code 1 (same contract as SINGLE_ETL) and **the existing view is not touched**.
 6. Rows → `execute_statement` runs `CREATE OR REPLACE VIEW geo.<target_view> AS <query>` over JDBC. The definition is stored in the database, which recomputes the view on every read — so the view always reflects the current contents of its `*_etl` source.
 
-The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDatasetConfig` model) — the script itself is only wiring:
+The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDatasetConfig` model) — the script itself is only wiring. The one registered view today:
 
 ```json
 "view": {
-  "union_vw": {
+  "metrics_avalanche_vw": {
     "source_table": "union_etl",
-    "target_view": "union_vw",
-    "query": "SELECT * FROM geo.union_etl WHERE source_name IS NOT NULL"
+    "target_view": "metrics_avalanche_vw",
+    "query": "WITH avalanche AS (SELECT ... FROM geo.union_etl WHERE event_category = 'avalanche'), other_metric AS (SELECT ... jsonb_each(other_metrics::jsonb) ...) SELECT ... FROM avalanche UNION ALL SELECT ... FROM other_metric"
   }
 }
 ```
@@ -56,19 +56,35 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 Log lines written to `logs/view/view_<view_name>_<timestamp>.log` (logger output — nothing is printed to the terminal):
 
 ```
-INFO ---- View started: geo.union_etl → geo.union_vw ----
+INFO ---- View started: geo.union_etl → geo.metrics_avalanche_vw ----
 INFO Load type: HISTORICAL (the only load type views support)
 INFO Running the query on geo.union_etl...
-INFO Defining view geo.union_vw...
-INFO View complete: geo.union_vw defined over geo.union_etl
-INFO View union_vw complete — HISTORICAL: defined view geo.union_vw over geo.union_etl
+INFO Defining view geo.metrics_avalanche_vw...
+INFO View complete: geo.metrics_avalanche_vw defined over geo.union_etl
+INFO View metrics_avalanche_vw complete — HISTORICAL: defined view geo.metrics_avalanche_vw over geo.union_etl
 ```
 
 An empty query result fails the run:
 
 ```
-WARNING No records loaded into union_vw — query returned no rows from union_etl
+WARNING No records loaded into metrics_avalanche_vw — query returned no rows from union_etl
 ERROR ETL job failed   (RuntimeError)   → exit code 1
+```
+
+## metrics_avalanche_vw
+
+`views/metrics_avalanche_vw.py` (`datasets.view.metrics_avalanche_vw`): every avalanche-category metric of `geo.union_etl` flattened into one row per (name, value, unit) triple:
+
+| Column | Content |
+|--------|---------|
+| `event_category`, `event_subcategory` | carried over from the source row (the category is always `avalanche`) |
+| `metric_name`, `metric_value`, `metric_unit` | the row's own canonical metric — kept only when it carries a value (bare names with NULL value/unit, such as `size`, are skipped) — and, **appended** as extra rows, one row per numeric entry of its `other_metrics` JSON, with the unit taken from the companion `<name>_unit` key |
+| `file_date` | the source row's `YYYY-MM-DD` snapshot stamp, cast to `timestamp` (trailing column) |
+
+So a zone publishing `metric_name = 'size'` with no value alongside `{"danger_level": 3, "danger_level_unit": "NAPADS level", "off_season": false}` yields one row: `danger_level` / `3` / `NAPADS level` (the unmeasured `size` name is dropped). In today's data every avalanche row's own metric is exactly such a bare `size` name, so the view currently carries the exploded `other_metrics` rows only — 4,426 `danger_level` rows. Companion `*_unit` keys are units, not metrics, and non-numeric entries (free text / booleans such as `warning`, `off_season`) carry no measurement and are skipped — the explosion happens in the database (`jsonb_each` + `jsonb_typeof(...) = 'number'` inside the configured query).
+
+```bash
+python run_etl.py VIEW metrics_avalanche_vw
 ```
 
 ## Dropping a view
@@ -76,15 +92,17 @@ ERROR ETL job failed   (RuntimeError)   → exit code 1
 `run_drop_table.py` issues `DROP TABLE`, which PostgreSQL rejects for a view. Drop a view with SQL instead:
 
 ```sql
-DROP VIEW IF EXISTS geo.union_vw;
+DROP VIEW IF EXISTS geo.metrics_avalanche_vw;
 ```
 
-The next `python run_etl.py VIEW union_vw` recreates it.
+The next `python run_etl.py VIEW metrics_avalanche_vw` recreates it.
+
+> PostgreSQL only lets `CREATE OR REPLACE VIEW` **append** new columns at the end of the column list — reordering or inserting a column earlier (like moving the view's trailing `file_date`) fails with *"cannot change name of view column ..."*. Drop the view once (as above) and re-run the job to get a new column order; from then on, plain `CREATE OR REPLACE` runs work again as long as the order is kept.
 
 ## Adding a new view script
 
 1. Add a `datasets.view.<name>_vw` entry to `config.json` — `source_table` (the `*_etl` table), `target_view` (the `*_vw` name) and the `query` the view exposes. `ViewDatasetConfig` (`model/config/datasets.py`) already validates all three fields; no new model is needed unless the entry carries extra constants.
-2. Create `views/<name>_vw.py`:
+2. Create `views/<name>_vw.py` (the pattern of the existing [`metrics_avalanche_vw` script](#metrics_avalanche_vw)):
 
 ```python
 from model.config.datasets import ViewDatasetConfig, load_dataset
@@ -93,7 +111,7 @@ from views.view_script import ViewScript
 _cfg = load_dataset(__file__, "view", ViewDatasetConfig)
 
 
-class UnionVwScript(ViewScript):
+class FloodMetricsVwScript(ViewScript):
     SOURCE_TABLE = _cfg.source_table
     TARGET_VIEW = _cfg.target_view
     QUERY = _cfg.query

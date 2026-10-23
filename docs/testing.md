@@ -28,7 +28,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/jobs/test_view.py` | VIEW job (script resolution, logger passing, no `load_type` kwarg, config loading, unknown script, raises `RuntimeError` when the query returned no rows) |
 | `test/model/test_enums.py` | JobType and LoadType enums (values, membership, from_value, invalid value) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig models |
-| `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models (incl. `ViewDatasetConfig` for the `view` section), project config sections (incl. the union script's `source_tables` and the empty `view` section) |
+| `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models (incl. `ViewDatasetConfig` for the `view` section), project config sections (incl. the union script's `source_tables` and the registered view entries) |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/test_model_contract.py` | Shared contract for all 28 canonical models (plain + raw + ETL): full-row kwargs, optional fields default to None, Spark schema field count/names/nullable/type, missing `file_date` raises |
 | `test/model/raw/test_raw_models.py` | All nine raw models parametrized (all-fields-accepted, optional present, missing required field, all-string Spark schema) + NIFC CSV header order |
@@ -43,6 +43,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from raw + plain or ETL-only, table derivation, skip on empty, data_quality rejection) |
 | `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all ten SINGLE_ETL scripts (the nine source scripts + `union_etl`) parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, `loaded=False` for no-new-rows / empty conversion, source table) + the union's per-source INCREMENTAL thresholds (keyed by each table's `source_name`) |
 | `test/single_etl/test_union_etl.py` | union script (nine configured source tables, identity `_convert`, target from config, registry entry) |
+| `test/views/test_metrics_avalanche_vw.py` | metrics_avalanche_vw view script (source/target/query from config, `_vw` suffix, avalanche filter + numeric `other_metrics` explosion in the query, registry entry) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (column mapping, source coordinate pass-through, forecast-window collapse) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (category/place/country mapping, stamped geocode pass-through with description-state precedence) |
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |

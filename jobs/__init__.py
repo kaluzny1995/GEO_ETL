@@ -60,6 +60,11 @@ def _register():
     _script = UnionEtlScript()
     SingleEtlFactory.register(_script.TARGET_TABLE, _script)
 
+    from views.metrics_avalanche_vw import MetricsAvalancheVwScript
+
+    _script = MetricsAvalancheVwScript()
+    ViewScriptFactory.register(_script.TARGET_VIEW, _script)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
     from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 
