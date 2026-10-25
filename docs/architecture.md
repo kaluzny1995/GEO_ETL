@@ -94,7 +94,8 @@ GEO_ETL/
 │   ├── phenomenons_europe_vw.py       # geo.union_etl (M49 Europe minus RU) -> geo.phenomenons_europe_vw (Looker map view)
 │   ├── phenomenons_asia_vw.py         # geo.union_etl (M49 Asia minus RU) -> geo.phenomenons_asia_vw (Looker map view)
 │   ├── phenomenons_africa_vw.py       # geo.union_etl (M49 Africa) -> geo.phenomenons_africa_vw (Looker map view)
-│   └── phenomenons_aus_oc_vw.py       # geo.union_etl (M49 Oceania) -> geo.phenomenons_aus_oc_vw (Looker map view)
+│   ├── phenomenons_aus_oc_vw.py       # geo.union_etl (M49 Oceania) -> geo.phenomenons_aus_oc_vw (Looker map view)
+│   └── phenomenons_waters_vw.py       # geo.union_etl (open-water heuristic) -> geo.phenomenons_waters_vw (Looker map view)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
@@ -247,7 +248,8 @@ GEO_ETL/
     │   ├── test_phenomenons_europe_vw.py  # Europe twin (M49 whitelist minus RU)
     │   ├── test_phenomenons_asia_vw.py   # Asia twin (M49 whitelist minus RU, Europe's complement)
     │   ├── test_phenomenons_africa_vw.py  # Africa twin (M49 whitelist, 54 AU members)
-    │   └── test_phenomenons_aus_oc_vw.py  # Australia/Oceania twin (M49 whitelist, four sub-regions)
+    │   ├── test_phenomenons_aus_oc_vw.py  # Australia/Oceania twin (M49 whitelist, four sub-regions)
+    │   └── test_phenomenons_waters_vw.py  # ocean/sea twin (ZZ + sea_lake_ice + keywords)
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py

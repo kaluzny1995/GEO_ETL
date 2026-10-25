@@ -59,6 +59,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `phenomenons_asia_vw` | `country_code IN (<Asia ISO list>)` | `geo.phenomenons_asia_vw` | [below](#phenomenons_asia_vw) |
 | `phenomenons_africa_vw` | `country_code IN (<Africa ISO list>)` | `geo.phenomenons_africa_vw` | [below](#phenomenons_africa_vw) |
 | `phenomenons_aus_oc_vw` | `country_code IN (<Oceania ISO list>)` | `geo.phenomenons_aus_oc_vw` | [below](#phenomenons_aus_oc_vw) |
+| `phenomenons_waters_vw` | `ZZ ∪ sea_lake_ice ∪ maritime keywords` | `geo.phenomenons_waters_vw` | [below](#phenomenons_waters_vw) |
 
 One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country/region map views — see the sections below.
 
@@ -309,6 +310,27 @@ Live shape: 3,890 rows across 11 country codes (fire 2,504, earthquake 525, floo
 
 ```bash
 python run_etl.py VIEW phenomenons_aus_oc_vw
+```
+
+## phenomenons_waters_vw
+
+`views/phenomenons_waters_vw.py` (`datasets.view.phenomenons_waters_vw`): the **water** twin — **byte-identical** `SELECT` to [`phenomenons_us_vw`](#phenomenons_us_vw), filtered to events **on oceans and seas**. With no PostGIS in the database, water-ness is a pure-SQL heuristic (chosen over the extension/polygon alternative):
+
+```sql
+WHERE latitude IS NOT NULL AND longitude IS NOT NULL          -- geocode guard
+  AND ( country_code = 'ZZ'                                   -- provider's no-country/open-water marker
+     OR event_subcategory = 'sea_lake_ice'                    -- iceberg & sea-ice events (incl. AQ)
+     OR (coalesce(event_name,'') || ' ' || coalesce(place_location,'') || ' ' || coalesce(event_description,''))
+        ~* '\y(ocean|sea|gulf|strait|offshore|coast)\y|off the coast|open water'
+  )
+```
+
+`bay`/`maritime` were dropped after auditing case-insensitive matches: they hit land places (`Pedro Bay`, `Cruz Bay`, Alaska's `Maritime` region) — pinned by test.
+
+Live shape: 2,361 rows (storm 1,774, earthquake 526, iceberg 61). **Known trade-off:** water events carrying a *real* country code with no maritime wording (e.g. `114 km E of ..., Japan` offshore quakes) are missed — that would need `CREATE EXTENSION postgis` + a land-polygon table (`ST_Intersects(land, ST_MakePoint(lon,lat))`), deliberately avoided for now; a few land places named after water (`Ocean City`, `Sea Ranch`) still match.
+
+```bash
+python run_etl.py VIEW phenomenons_waters_vw
 ```
 
 ## Dropping a view
