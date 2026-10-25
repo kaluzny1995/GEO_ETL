@@ -54,6 +54,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `phenomenons_us_vw` | `country_code = 'US'` | `geo.phenomenons_us_vw` | [below](#phenomenons_us_vw) |
 | `phenomenons_ca_vw` | `country_code = 'CA'` | `geo.phenomenons_ca_vw` | [below](#phenomenons_ca_vw) |
 | `phenomenons_cs_amer_vw` | `country_code IN (<Americas ISO list>)` | `geo.phenomenons_cs_amer_vw` | [below](#phenomenons_cs_amer_vw) |
+| `phenomenons_ru_vw` | `country_code = 'RU'` | `geo.phenomenons_ru_vw` | [below](#phenomenons_ru_vw) |
 
 One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country/region map views — see the sections below.
 
@@ -222,6 +223,16 @@ Live shape: 4,495 rows across 27 country codes (largest: BR, MX, CO, AR, PA).
 
 ```bash
 python run_etl.py VIEW phenomenons_cs_amer_vw
+```
+
+## phenomenons_ru_vw
+
+`views/phenomenons_ru_vw.py` (`datasets.view.phenomenons_ru_vw`): the Russia twin — the **identical** display query as [`phenomenons_us_vw`](#phenomenons_us_vw) (same 15 columns and reshapes) with `WHERE country_code = 'RU'`. A test pins that invariant: swapping `US` → `RU` in the US query must produce the RU query exactly.
+
+Live shape: 995 rows (flood 728, fire 135, earthquake 131, volcano 1).
+
+```bash
+python run_etl.py VIEW phenomenons_ru_vw
 ```
 
 ## Dropping a view

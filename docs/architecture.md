@@ -89,7 +89,8 @@ GEO_ETL/
 │   ├── metrics_volcano_vw.py          # geo.union_etl (volcano rows) -> geo.metrics_volcano_vw
 │   ├── phenomenons_us_vw.py           # geo.union_etl (US rows) -> geo.phenomenons_us_vw (Looker map view)
 │   ├── phenomenons_ca_vw.py           # geo.union_etl (Canada rows) -> geo.phenomenons_ca_vw (Looker map view)
-│   └── phenomenons_cs_amer_vw.py      # geo.union_etl (Americas minus US/CA) -> geo.phenomenons_cs_amer_vw (Looker map view)
+│   ├── phenomenons_cs_amer_vw.py      # geo.union_etl (Americas minus US/CA) -> geo.phenomenons_cs_amer_vw (Looker map view)
+│   └── phenomenons_ru_vw.py           # geo.union_etl (Russia rows) -> geo.phenomenons_ru_vw (Looker map view)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
@@ -237,7 +238,8 @@ GEO_ETL/
     │   ├── test_metrics_volcano_vw.py    # Volcano twin of metrics_avalanche_vw
     │   ├── test_phenomenons_us_vw.py     # US Looker Studio map view (denormalized)
     │   ├── test_phenomenons_ca_vw.py     # Canada twin (query equality beyond country code)
-    │   └── test_phenomenons_cs_amer_vw.py  # Americas twin (ISO whitelist minus US/CA)
+    │   ├── test_phenomenons_cs_amer_vw.py  # Americas twin (ISO whitelist minus US/CA)
+    │   └── test_phenomenons_ru_vw.py     # Russia twin (denormalized)
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
