@@ -129,6 +129,7 @@ class TestProjectConfig:
             "metrics_storm_vw",
             "metrics_volcano_vw",
             "phenomenons_us_vw",
+            "phenomenons_ca_vw",
         }
 
     def test_project_union_script_config_loads(self):
@@ -161,6 +162,7 @@ class TestProjectConfig:
             "metrics_storm_vw": ViewDatasetConfig,
             "metrics_volcano_vw": ViewDatasetConfig,
             "phenomenons_us_vw": ViewDatasetConfig,
+            "phenomenons_ca_vw": ViewDatasetConfig,
         }.items():
             if key.endswith("_etl"):
                 section = "single_etl"

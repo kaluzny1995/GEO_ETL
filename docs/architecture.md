@@ -87,7 +87,8 @@ GEO_ETL/
 │   ├── metrics_iceberg_vw.py          # geo.union_etl (iceberg rows) -> geo.metrics_iceberg_vw
 │   ├── metrics_storm_vw.py            # geo.union_etl (storm rows) -> geo.metrics_storm_vw
 │   ├── metrics_volcano_vw.py          # geo.union_etl (volcano rows) -> geo.metrics_volcano_vw
-│   └── phenomenons_us_vw.py           # geo.union_etl (US rows) -> geo.phenomenons_us_vw (Looker map view)
+│   ├── phenomenons_us_vw.py           # geo.union_etl (US rows) -> geo.phenomenons_us_vw (Looker map view)
+│   └── phenomenons_ca_vw.py           # geo.union_etl (Canada rows) -> geo.phenomenons_ca_vw (Looker map view)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
@@ -233,7 +234,8 @@ GEO_ETL/
     │   ├── test_metrics_iceberg_vw.py    # Iceberg twin of metrics_avalanche_vw
     │   ├── test_metrics_storm_vw.py      # Storm twin of metrics_avalanche_vw
     │   ├── test_metrics_volcano_vw.py    # Volcano twin of metrics_avalanche_vw
-    │   └── test_phenomenons_us_vw.py     # US Looker Studio map view (denormalized)
+    │   ├── test_phenomenons_us_vw.py     # US Looker Studio map view (denormalized)
+    │   └── test_phenomenons_ca_vw.py     # Canada twin (query equality beyond country code)
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py

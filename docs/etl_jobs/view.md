@@ -52,8 +52,9 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `metrics_storm_vw` | `event_category = 'storm'` | `geo.metrics_storm_vw` | [below](#metrics_storm_vw) |
 | `metrics_volcano_vw` | `event_category = 'volcano'` | `geo.metrics_volcano_vw` | [below](#metrics_volcano_vw) |
 | `phenomenons_us_vw` | `country_code = 'US'` | `geo.phenomenons_us_vw` | [below](#phenomenons_us_vw) |
+| `phenomenons_ca_vw` | `country_code = 'CA'` | `geo.phenomenons_ca_vw` | [below](#phenomenons_ca_vw) |
 
-One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized US map view — see the sections below.
+One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country map views — see the sections below.
 
 The eight metrics twins follow the same shape — own measured metric + numeric `other_metrics` explosion + trailing `file_date` — the avalanche entry:
 
@@ -192,6 +193,16 @@ Live shape: 20,187 rows (earthquake 14,098, avalanche 4,426, flood 1,057, fire 4
 
 ```bash
 python run_etl.py VIEW phenomenons_us_vw
+```
+
+## phenomenons_ca_vw
+
+`views/phenomenons_ca_vw.py` (`datasets.view.phenomenons_ca_vw`): the Canada twin — the **identical** display query as [`phenomenons_us_vw`](#phenomenons_us_vw) (same 15 columns and reshapes) with `WHERE country_code = 'CA'`. A test pins that invariant: swapping `US` → `CA` in the US query must produce the CA query exactly.
+
+Live shape: 809 rows (flood 737, earthquake 69, storm 2, fire 1).
+
+```bash
+python run_etl.py VIEW phenomenons_ca_vw
 ```
 
 ## Dropping a view
