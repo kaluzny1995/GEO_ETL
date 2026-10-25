@@ -130,6 +130,11 @@ def _register():
     _script = PhenomenonsAsiaVwScript()
     ViewScriptFactory.register(_script.TARGET_VIEW, _script)
 
+    from views.phenomenons_africa_vw import PhenomenonsAfricaVwScript
+
+    _script = PhenomenonsAfricaVwScript()
+    ViewScriptFactory.register(_script.TARGET_VIEW, _script)
+
     from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
     from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 

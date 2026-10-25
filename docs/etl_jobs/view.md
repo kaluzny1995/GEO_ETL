@@ -57,6 +57,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `phenomenons_ru_vw` | `country_code = 'RU'` | `geo.phenomenons_ru_vw` | [below](#phenomenons_ru_vw) |
 | `phenomenons_europe_vw` | `country_code IN (<Europe ISO list>)` | `geo.phenomenons_europe_vw` | [below](#phenomenons_europe_vw) |
 | `phenomenons_asia_vw` | `country_code IN (<Asia ISO list>)` | `geo.phenomenons_asia_vw` | [below](#phenomenons_asia_vw) |
+| `phenomenons_africa_vw` | `country_code IN (<Africa ISO list>)` | `geo.phenomenons_africa_vw` | [below](#phenomenons_africa_vw) |
 
 One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country/region map views — see the sections below.
 
@@ -271,6 +272,25 @@ Live shape: 4,601 rows across 33 country codes (flood 2,499, fire 1,172, earthqu
 
 ```bash
 python run_etl.py VIEW phenomenons_asia_vw
+```
+
+## phenomenons_africa_vw
+
+`views/phenomenons_africa_vw.py` (`datasets.view.phenomenons_africa_vw`): the Africa twin — **byte-identical** `SELECT` to [`phenomenons_us_vw`](#phenomenons_us_vw), filtered to **strict UN M49 Africa** (no exclusions):
+
+```sql
+WHERE country_code IN ('AO','BF','BI','BJ','BW','CD','CF','CG','CI','CM','CV','DJ','DZ','EG','EH','ER','ET','GA',
+                       'GH','GM','GN','GQ','GW','IO','KE','KM','LR','LS','LY','MA','MG','ML','MR','MU','MW','MZ',
+                       'NA','NE','NG','RE','RW','SC','SD','SH','SL','SN','SO','SS','ST','SZ','TD','TF','TG','TN',
+                       'TZ','UG','YT','ZA','ZM','ZW')
+```
+
+60 codes: the **54 AU member states** (pinned by test) plus M49 African territories `EH`, `IO`, `RE`, `YT`, `SH`, `TF`. **Disjoint from the Europe and Asia whitelists** (pinned): Egypt/Sudan are M49 Northern Africa (→ here), the Western-Asia edge cases stay with Asia, Oceania and `ZZ` are excluded. Caveat: island territories coded to their parent country (`ES` Canary Islands, `FR` Réunion is `RE` here but Guadeloupe is `GP` → cs_amer) follow `country_code`.
+
+Live shape: 7,968 rows across 34 country codes (fire 6,174, flood 1,623, drought 147, earthquake 22, storm 2).
+
+```bash
+python run_etl.py VIEW phenomenons_africa_vw
 ```
 
 ## Dropping a view

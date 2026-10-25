@@ -134,6 +134,7 @@ class TestProjectConfig:
             "phenomenons_ru_vw",
             "phenomenons_europe_vw",
             "phenomenons_asia_vw",
+            "phenomenons_africa_vw",
         }
 
     def test_project_union_script_config_loads(self):
@@ -171,6 +172,7 @@ class TestProjectConfig:
             "phenomenons_ru_vw": ViewDatasetConfig,
             "phenomenons_europe_vw": ViewDatasetConfig,
             "phenomenons_asia_vw": ViewDatasetConfig,
+            "phenomenons_africa_vw": ViewDatasetConfig,
         }.items():
             if key.endswith("_etl"):
                 section = "single_etl"

@@ -92,7 +92,8 @@ GEO_ETL/
 │   ├── phenomenons_cs_amer_vw.py      # geo.union_etl (Americas minus US/CA) -> geo.phenomenons_cs_amer_vw (Looker map view)
 │   ├── phenomenons_ru_vw.py           # geo.union_etl (Russia rows) -> geo.phenomenons_ru_vw (Looker map view)
 │   ├── phenomenons_europe_vw.py       # geo.union_etl (M49 Europe minus RU) -> geo.phenomenons_europe_vw (Looker map view)
-│   └── phenomenons_asia_vw.py         # geo.union_etl (M49 Asia minus RU) -> geo.phenomenons_asia_vw (Looker map view)
+│   ├── phenomenons_asia_vw.py         # geo.union_etl (M49 Asia minus RU) -> geo.phenomenons_asia_vw (Looker map view)
+│   └── phenomenons_africa_vw.py       # geo.union_etl (M49 Africa) -> geo.phenomenons_africa_vw (Looker map view)
 │
 ├── model/                            # Data models and configuration
 │   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
@@ -243,7 +244,8 @@ GEO_ETL/
     │   ├── test_phenomenons_cs_amer_vw.py  # Americas twin (ISO whitelist minus US/CA)
     │   ├── test_phenomenons_ru_vw.py     # Russia twin (denormalized)
     │   ├── test_phenomenons_europe_vw.py  # Europe twin (M49 whitelist minus RU)
-    │   └── test_phenomenons_asia_vw.py   # Asia twin (M49 whitelist minus RU, Europe's complement)
+    │   ├── test_phenomenons_asia_vw.py   # Asia twin (M49 whitelist minus RU, Europe's complement)
+    │   └── test_phenomenons_africa_vw.py  # Africa twin (M49 whitelist, 54 AU members)
     └── util/
         ├── test_ddl_generator.py
         ├── test_dq_metrics.py
