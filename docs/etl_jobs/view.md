@@ -58,6 +58,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `phenomenons_europe_vw` | `country_code IN (<Europe ISO list>)` | `geo.phenomenons_europe_vw` | [below](#phenomenons_europe_vw) |
 | `phenomenons_asia_vw` | `country_code IN (<Asia ISO list>)` | `geo.phenomenons_asia_vw` | [below](#phenomenons_asia_vw) |
 | `phenomenons_africa_vw` | `country_code IN (<Africa ISO list>)` | `geo.phenomenons_africa_vw` | [below](#phenomenons_africa_vw) |
+| `phenomenons_aus_oc_vw` | `country_code IN (<Oceania ISO list>)` | `geo.phenomenons_aus_oc_vw` | [below](#phenomenons_aus_oc_vw) |
 
 One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country/region map views — see the sections below.
 
@@ -291,6 +292,23 @@ Live shape: 7,968 rows across 34 country codes (fire 6,174, flood 1,623, drought
 
 ```bash
 python run_etl.py VIEW phenomenons_africa_vw
+```
+
+## phenomenons_aus_oc_vw
+
+`views/phenomenons_aus_oc_vw.py` (`datasets.view.phenomenons_aus_oc_vw`): the Australia/Oceania twin — **byte-identical** `SELECT` to [`phenomenons_us_vw`](#phenomenons_us_vw), filtered to **strict UN M49 Oceania** (all four sub-regions):
+
+```sql
+WHERE country_code IN ('AS','AU','CC','CK','CX','FJ','FM','GU','KI','MH','MP','NC','NF','NR','NU','NZ','PF',
+                       'PG','PN','PW','SB','TK','TO','TV','UM','VU','WF','WS')
+```
+
+28 codes: **Australia & New Zealand** (`AU CC CX NF NZ`), **Melanesia** (`FJ NC PG SB VU`), **Micronesia** (`FM GU KI MH MP NR PW UM`), **Polynesia** (`AS CK NU PF PN TK TO TV WF WS`) — all four pinned by test. Disjoint from the Europe/Asia/Africa whitelists (pinned): Indian-Ocean territories (`RE`/`YT`/`SH`/`IO`) stay with Africa, `TL` with Asia, `AQ`/`GS` belong to no region view.
+
+Live shape: 3,890 rows across 11 country codes (fire 2,504, earthquake 525, flood 832, drought 16, storm 13) — AU 2,601, PG 869, VU 138, NC 88, TO 64.
+
+```bash
+python run_etl.py VIEW phenomenons_aus_oc_vw
 ```
 
 ## Dropping a view

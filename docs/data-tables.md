@@ -73,6 +73,7 @@ Views are not tables: they are defined by the [`VIEW` job](etl_jobs/view.md) (no
 | `phenomenons_europe_vw` | `geo.union_etl` | The Europe twin of the US map view (identical `SELECT`, `country_code IN (<Europe ISO list minus RU>)`): 2,614 rows across strict M49 Europe for Looker Studio — see [VIEW job — phenomenons_europe_vw](etl_jobs/view.md#phenomenons_europe_vw) |
 | `phenomenons_asia_vw` | `geo.union_etl` | The Asia twin of the US map view (identical `SELECT`, `country_code IN (<Asia ISO list minus RU>)`): 4,601 rows across strict M49 Asia for Looker Studio — see [VIEW job — phenomenons_asia_vw](etl_jobs/view.md#phenomenons_asia_vw) |
 | `phenomenons_africa_vw` | `geo.union_etl` | The Africa twin of the US map view (identical `SELECT`, `country_code IN (<Africa ISO list>)`): 7,968 rows across M49 Africa (54 AU members + territories) for Looker Studio — see [VIEW job — phenomenons_africa_vw](etl_jobs/view.md#phenomenons_africa_vw) |
+| `phenomenons_aus_oc_vw` | `geo.union_etl` | The Australia/Oceania twin of the US map view (identical `SELECT`, `country_code IN (<Oceania ISO list>)`): 3,890 rows across M49 Oceania's four sub-regions for Looker Studio — see [VIEW job — phenomenons_aus_oc_vw](etl_jobs/view.md#phenomenons_aus_oc_vw) |
 
 ## Data
 

@@ -58,6 +58,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/views/test_phenomenons_europe_vw.py` | phenomenons_europe_vw Europe twin (51-code M49 whitelist minus RU, TR/CY/AM/AZ/GE/ZZ exclusion, identical `SELECT` vs US view, registry entry) |
 | `test/views/test_phenomenons_asia_vw.py` | phenomenons_asia_vw Asia twin (51-code M49 whitelist minus RU, edge cases included, disjoint from Europe, identical `SELECT` vs US view, registry entry) |
 | `test/views/test_phenomenons_africa_vw.py` | phenomenons_africa_vw Africa twin (60-code M49 whitelist, 54-AU coverage, disjoint from Europe/Asia, identical `SELECT` vs US view, registry entry) |
+| `test/views/test_phenomenons_aus_oc_vw.py` | phenomenons_aus_oc_vw Australia/Oceania twin (28-code M49 whitelist, four sub-region coverage, disjoint from Europe/Asia/Africa, identical `SELECT` vs US view, registry entry) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (column mapping, source coordinate pass-through, forecast-window collapse) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (category/place/country mapping, stamped geocode pass-through with description-state precedence) |
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |
