@@ -53,8 +53,9 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `metrics_volcano_vw` | `event_category = 'volcano'` | `geo.metrics_volcano_vw` | [below](#metrics_volcano_vw) |
 | `phenomenons_us_vw` | `country_code = 'US'` | `geo.phenomenons_us_vw` | [below](#phenomenons_us_vw) |
 | `phenomenons_ca_vw` | `country_code = 'CA'` | `geo.phenomenons_ca_vw` | [below](#phenomenons_ca_vw) |
+| `phenomenons_cs_amer_vw` | `country_code IN (<Americas ISO list>)` | `geo.phenomenons_cs_amer_vw` | [below](#phenomenons_cs_amer_vw) |
 
-One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country map views — see the sections below.
+One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country/region map views — see the sections below.
 
 The eight metrics twins follow the same shape — own measured metric + numeric `other_metrics` explosion + trailing `file_date` — the avalanche entry:
 
@@ -203,6 +204,24 @@ Live shape: 809 rows (flood 737, earthquake 69, storm 2, fire 1).
 
 ```bash
 python run_etl.py VIEW phenomenons_ca_vw
+```
+
+## phenomenons_cs_amer_vw
+
+`views/phenomenons_cs_amer_vw.py` (`datasets.view.phenomenons_cs_amer_vw`): the third map twin — **byte-identical** `SELECT` to [`phenomenons_us_vw`](#phenomenons_us_vw), filtered to **both Americas without the United States and Canada**:
+
+```sql
+WHERE country_code IN ('AG','AI','AR','AW','BB','BL','BO','BQ','BR','BS','BZ','CL','CO','CR','CU','CW',
+                       'DM','DO','EC','FK','GD','GF','GL','GP','GT','GY','HN','HT','JM','KN','LC','MF',
+                       'MQ','MS','MX','NI','PA','PE','PM','PR','PY','SR','SX','TC','TT','UY','VC','VE','VG','VI')
+```
+
+The list is every ISO 3166-1 alpha-2 code of the Americas (UN M49 Northern + Central + South America and the Caribbean — countries *and* territories, since GDACS/seismic catalogs assign them) minus `US`/`CA`. A bare `NOT IN ('US','CA')` would wrongly include Europe, Africa, Asia and Oceania. The same tuple is exported as `COUNTRY_CODES` from the script, and tests pin: query `SELECT` == US view's, whitelist == `COUNTRY_CODES`, `US`/`CA`/`ZZ` absent.
+
+Live shape: 4,495 rows across 27 country codes (largest: BR, MX, CO, AR, PA).
+
+```bash
+python run_etl.py VIEW phenomenons_cs_amer_vw
 ```
 
 ## Dropping a view

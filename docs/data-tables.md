@@ -68,6 +68,7 @@ Views are not tables: they are defined by the [`VIEW` job](etl_jobs/view.md) (no
 | `metrics_volcano_vw` | `geo.union_etl` | The volcano twin (`event_category = 'volcano'`): own `vei` / `VEI` (USGS) and `magnitude` / NULL (GDACS) metrics plus exploded `vnum` / `Smithsonian GVP`, `casualties` / `people` and `damage` / `million USD` from USGS notices, trailing `file_date` timestamp — see [VIEW job — metrics_volcano_vw](etl_jobs/view.md#metrics_volcano_vw) |
 | `phenomenons_us_vw` | `geo.union_etl` | Denormalized US-only rows (`country_code = 'US'`) for Looker Studio map visualization: capitalized categories, `event_ndesc` display name (name + `:\n\n` + description), map coordinates/place fields, categorical `danger_rating`, own metric columns, `other_metrics` as `key: value (unit); ...` text, coalesced `event_start_date` and raw `event_end_date` — see [VIEW job — phenomenons_us_vw](etl_jobs/view.md#phenomenons_us_vw) |
 | `phenomenons_ca_vw` | `geo.union_etl` | The Canada twin of the US map view (identical 15-column display query, `country_code = 'CA'`): 809 rows of Canadian phenomena for Looker Studio — see [VIEW job — phenomenons_ca_vw](etl_jobs/view.md#phenomenons_ca_vw) |
+| `phenomenons_cs_amer_vw` | `geo.union_etl` | The Americas twin of the US map view (identical `SELECT`, `country_code IN (<Americas ISO list minus US/CA>)`): 4,495 rows across Central/South America & the Caribbean for Looker Studio — see [VIEW job — phenomenons_cs_amer_vw](etl_jobs/view.md#phenomenons_cs_amer_vw) |
 
 ## Data
 
