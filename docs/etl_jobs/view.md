@@ -51,10 +51,11 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `metrics_iceberg_vw` | `event_category = 'iceberg'` | `geo.metrics_iceberg_vw` | [below](#metrics_iceberg_vw) |
 | `metrics_storm_vw` | `event_category = 'storm'` | `geo.metrics_storm_vw` | [below](#metrics_storm_vw) |
 | `metrics_volcano_vw` | `event_category = 'volcano'` | `geo.metrics_volcano_vw` | [below](#metrics_volcano_vw) |
+| `phenomenons_us_vw` | `country_code = 'US'` | `geo.phenomenons_us_vw` | [below](#phenomenons_us_vw) |
 
-One view per `event_category` of `geo.union_etl` — the set is complete.
+One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized US map view — see the sections below.
 
-Both follow the same shape — own measured metric + numeric `other_metrics` explosion + trailing `file_date` — the avalanche entry:
+The eight metrics twins follow the same shape — own measured metric + numeric `other_metrics` explosion + trailing `file_date` — the avalanche entry:
 
 ```json
 "view": {
@@ -170,6 +171,27 @@ Live shape: 210 rows — 88 own metrics + 80 `vnum` + 21 `casualties` + 21 `dama
 
 ```bash
 python run_etl.py VIEW metrics_volcano_vw
+```
+
+## phenomenons_us_vw
+
+`views/phenomenons_us_vw.py` (`datasets.view.phenomenons_us_vw`): **not** a metrics twin — a denormalized, one-row-per-snapshot view of the United States rows (`country_code = 'US'`) of `geo.union_etl`, shaped for **map visualization in Looker Studio**. Every reshape happens in the SQL query:
+
+| Column | Content |
+|--------|---------|
+| `event_category`, `event_subcategory` | `initcap()`-capitalized (`earthquake` → `Earthquake`) |
+| `event_ndesc` | display name: `event_name` (fallback: capitalized category) + `":\n\n" + event_description` when a description exists |
+| `latitude`, `longitude`, `country_code`, `state_province`, `place_location` | map pin + tooltip fields |
+| `danger_rating` | the row's categorical rating passed through (`low` / `medium` / `high` / `extreme` / `none` / `no_rating`) |
+| `metric_name`, `metric_value`, `metric_unit` | the row's own metric, passed through |
+| `other_metrics` | Looker-friendly text: `key: value (unit)` pairs joined by `"; "` (e.g. `danger_level: -1 (NAPADS level); off_season: true`), `*_unit` companions consumed |
+| `event_start_date` | `event_start`, falling back to midnight of `file_date` when NULL |
+| `event_end_date` | `event_end` as stored (NULL until an event ends) |
+
+Live shape: 20,187 rows (earthquake 14,098, avalanche 4,426, flood 1,057, fire 452, volcano 80, storm 49, drought 25 — no US icebergs).
+
+```bash
+python run_etl.py VIEW phenomenons_us_vw
 ```
 
 ## Dropping a view

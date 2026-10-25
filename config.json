@@ -716,6 +716,11 @@
         "source_table": "union_etl",
         "target_view": "metrics_volcano_vw",
         "query": "WITH volcano AS (SELECT event_category, event_subcategory, file_date::timestamp AS file_date, metric_name, metric_value, metric_unit, other_metrics FROM geo.union_etl WHERE event_category = 'volcano'), other_metric AS (SELECT a.event_category, a.event_subcategory, a.file_date, e.key AS metric_name, (e.value #>> '{}')::double precision AS metric_value, a.other_metrics::jsonb ->> (e.key || '_unit') AS metric_unit FROM volcano a CROSS JOIN LATERAL jsonb_each(NULLIF(a.other_metrics, '')::jsonb) AS e(key, value) WHERE e.key NOT LIKE '%\\_unit' AND jsonb_typeof(e.value) = 'number') SELECT event_category, event_subcategory, metric_name, metric_value, metric_unit, file_date FROM volcano WHERE metric_value IS NOT NULL UNION ALL SELECT event_category, event_subcategory, metric_name, metric_value, metric_unit, file_date FROM other_metric"
+      },
+      "phenomenons_us_vw": {
+        "source_table": "union_etl",
+        "target_view": "phenomenons_us_vw",
+        "query": "SELECT initcap(event_category) AS event_category, initcap(event_subcategory) AS event_subcategory, COALESCE(event_name, initcap(event_category)) || CASE WHEN event_description IS NOT NULL THEN E':\\n\\n' || event_description ELSE '' END AS event_ndesc, latitude, longitude, country_code, state_province, place_location, danger_rating, metric_name, metric_value, metric_unit, (SELECT string_agg(e.key || ': ' || (e.value #>> '{}') || CASE WHEN NULLIF(a.other_metrics, '')::jsonb ->> (e.key || '_unit') IS NOT NULL THEN ' (' || (NULLIF(a.other_metrics, '')::jsonb ->> (e.key || '_unit')) || ')' ELSE '' END, '; ' ORDER BY e.key) FROM jsonb_each(NULLIF(a.other_metrics, '')::jsonb) AS e(key, value) WHERE e.key NOT LIKE '%\\_unit') AS other_metrics, COALESCE(event_start, file_date::timestamp) AS event_start_date, event_end AS event_end_date FROM geo.union_etl AS a WHERE country_code = 'US'"
       }
     }
   }
