@@ -55,6 +55,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `phenomenons_ca_vw` | `country_code = 'CA'` | `geo.phenomenons_ca_vw` | [below](#phenomenons_ca_vw) |
 | `phenomenons_cs_amer_vw` | `country_code IN (<Americas ISO list>)` | `geo.phenomenons_cs_amer_vw` | [below](#phenomenons_cs_amer_vw) |
 | `phenomenons_ru_vw` | `country_code = 'RU'` | `geo.phenomenons_ru_vw` | [below](#phenomenons_ru_vw) |
+| `phenomenons_europe_vw` | `country_code IN (<Europe ISO list>)` | `geo.phenomenons_europe_vw` | [below](#phenomenons_europe_vw) |
 
 One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country/region map views — see the sections below.
 
@@ -233,6 +234,24 @@ Live shape: 995 rows (flood 728, fire 135, earthquake 131, volcano 1).
 
 ```bash
 python run_etl.py VIEW phenomenons_ru_vw
+```
+
+## phenomenons_europe_vw
+
+`views/phenomenons_europe_vw.py` (`datasets.view.phenomenons_europe_vw`): the Europe twin — **byte-identical** `SELECT` to [`phenomenons_us_vw`](#phenomenons_us_vw), filtered to **strict UN M49 Europe without Russia**:
+
+```sql
+WHERE country_code IN ('AD','AL','AT','AX','BA','BE','BG','BY','CH','CZ','DE','DK','EE','ES','FI','FO','FR',
+                       'GB','GG','GI','GR','HR','HU','IE','IM','IS','IT','JE','LI','LT','LU','LV','MC','MD',
+                       'ME','MK','MT','NL','NO','PL','PT','RO','RS','SE','SI','SJ','SK','SM','UA','VA','XK')
+```
+
+51 codes: every UN M49 European state/territory/microstate (`SM`, `FO`, `XK`, `AX`, `SJ`, …) **minus `RU`**. Per the agreed definition the transcontinental M49-“Western Asia” edge cases are **excluded** — `TR`, `CY`, `AM`, `AZ`, `GE` (tests pin `RU`/`TR`/`CY`/`AM`/`AZ`/`GE`/`ZZ`/`US`/`CA` absent). Same tuple exported as `COUNTRY_CODES`.
+
+Live shape: 2,614 rows across 22 country codes (largest: FR 431, RO 420, DE 315, ES 238).
+
+```bash
+python run_etl.py VIEW phenomenons_europe_vw
 ```
 
 ## Dropping a view
