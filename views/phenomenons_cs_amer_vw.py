@@ -10,8 +10,12 @@ Central + South America and the Caribbean) minus ``US`` and ``CA`` — a bare
 ``NOT IN ('US','CA')`` would wrongly pull in Europe, Africa, Asia and
 Oceania:
 
-``AG AI AR AW BB BL BO BQ BR BS BZ CL CO CR CU CW DM DO EC FK GD GF GL GP
-GT GY HN HT JM KN LC MF MQ MS MX NI PA PE PM PR PY SR SX TC TT UY VC VE VG VI``
+``AG AI AR AW BB BL BM BO BQ BR BS BV BZ CL CO CR CU CW DM DO EC FK GD GF GL
+GP GS GT GY HN HT JM KN KY LC MF MQ MS MX NI PA PE PM PR PY SR SV SX TC TT
+UY VC VE VG VI``
+
+Audited against the UN M49 Americas set (55 codes incl. ``BM``, ``BV``,
+``GS``, ``KY``, ``SV`` — some with no records yet, kept proactively).
 
 Everything else — ``initcap`` categories, the ``event_ndesc`` formula,
 ``danger_rating`` passthrough, metric columns, the ``key: value (unit)``
@@ -43,10 +47,12 @@ COUNTRY_CODES: tuple[str, ...] = (
     "AW",
     "BB",
     "BL",
+    "BM",
     "BO",
     "BQ",
     "BR",
     "BS",
+    "BV",
     "BZ",
     "CL",
     "CO",
@@ -61,12 +67,14 @@ COUNTRY_CODES: tuple[str, ...] = (
     "GF",
     "GL",
     "GP",
+    "GS",
     "GT",
     "GY",
     "HN",
     "HT",
     "JM",
     "KN",
+    "KY",
     "LC",
     "MF",
     "MQ",
@@ -79,6 +87,7 @@ COUNTRY_CODES: tuple[str, ...] = (
     "PR",
     "PY",
     "SR",
+    "SV",
     "SX",
     "TC",
     "TT",

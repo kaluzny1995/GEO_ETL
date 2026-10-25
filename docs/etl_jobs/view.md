@@ -217,14 +217,14 @@ python run_etl.py VIEW phenomenons_ca_vw
 `views/phenomenons_cs_amer_vw.py` (`datasets.view.phenomenons_cs_amer_vw`): the third map twin — **byte-identical** `SELECT` to [`phenomenons_us_vw`](#phenomenons_us_vw), filtered to **both Americas without the United States and Canada**:
 
 ```sql
-WHERE country_code IN ('AG','AI','AR','AW','BB','BL','BO','BQ','BR','BS','BZ','CL','CO','CR','CU','CW',
-                       'DM','DO','EC','FK','GD','GF','GL','GP','GT','GY','HN','HT','JM','KN','LC','MF',
-                       'MQ','MS','MX','NI','PA','PE','PM','PR','PY','SR','SX','TC','TT','UY','VC','VE','VG','VI')
+WHERE country_code IN ('AG','AI','AR','AW','BB','BL','BM','BO','BQ','BR','BS','BV','BZ','CL','CO','CR','CU','CW',
+                       'DM','DO','EC','FK','GD','GF','GL','GP','GS','GT','GY','HN','HT','JM','KN','KY','LC','MF',
+                       'MQ','MS','MX','NI','PA','PE','PM','PR','PY','SR','SV','SX','TC','TT','UY','VC','VE','VG','VI')
 ```
 
-The list is every ISO 3166-1 alpha-2 code of the Americas (UN M49 Northern + Central + South America and the Caribbean — countries *and* territories, since GDACS/seismic catalogs assign them) minus `US`/`CA`. A bare `NOT IN ('US','CA')` would wrongly include Europe, Africa, Asia and Oceania. The same tuple is exported as `COUNTRY_CODES` from the script, and tests pin: query `SELECT` == US view's, whitelist == `COUNTRY_CODES`, `US`/`CA`/`ZZ` absent.
+55 codes: every ISO 3166-1 alpha-2 code of the Americas (UN M49 Northern + Central + South America and the Caribbean — countries *and* territories, since GDACS/seismic catalogs assign them) minus `US`/`CA`. Audited against the UN M49 Americas set (region `019`): the audit found and added `BM`, `BV`, `GS`, `KY`, `SV` — the last two carry records (8 + 3 rows), the rest are kept proactively for future data. A bare `NOT IN ('US','CA')` would wrongly include Europe, Africa, Asia and Oceania. The same tuple is exported as `COUNTRY_CODES` from the script, and tests pin: query `SELECT` == US view's, whitelist == `COUNTRY_CODES`, `US`/`CA`/`ZZ` absent, the five audited codes present.
 
-Live shape: 4,495 rows across 27 country codes (largest: BR, MX, CO, AR, PA).
+Live shape: 4,506 rows across 29 country codes (largest: BR, MX, CO, AR, PA).
 
 ```bash
 python run_etl.py VIEW phenomenons_cs_amer_vw
@@ -300,11 +300,13 @@ python run_etl.py VIEW phenomenons_africa_vw
 `views/phenomenons_aus_oc_vw.py` (`datasets.view.phenomenons_aus_oc_vw`): the Australia/Oceania twin — **byte-identical** `SELECT` to [`phenomenons_us_vw`](#phenomenons_us_vw), filtered to **strict UN M49 Oceania** (all four sub-regions):
 
 ```sql
-WHERE country_code IN ('AS','AU','CC','CK','CX','FJ','FM','GU','KI','MH','MP','NC','NF','NR','NU','NZ','PF',
+WHERE country_code IN ('AS','AU','CC','CK','CX','FJ','FM','GU','HM','KI','MH','MP','NC','NF','NR','NU','NZ','PF',
                        'PG','PN','PW','SB','TK','TO','TV','UM','VU','WF','WS')
 ```
 
-28 codes: **Australia & New Zealand** (`AU CC CX NF NZ`), **Melanesia** (`FJ NC PG SB VU`), **Micronesia** (`FM GU KI MH MP NR PW UM`), **Polynesia** (`AS CK NU PF PN TK TO TV WF WS`) — all four pinned by test. Disjoint from the Europe/Asia/Africa whitelists (pinned): Indian-Ocean territories (`RE`/`YT`/`SH`/`IO`) stay with Africa, `TL` with Asia, `AQ`/`GS` belong to no region view.
+29 codes: **Australia & New Zealand** (`AU CC CX HM NF NZ`), **Melanesia** (`FJ NC PG SB VU`), **Micronesia** (`FM GU KI MH MP NR PW UM`), **Polynesia** (`AS CK NU PF PN TK TO TV WF WS`) — all four pinned by test. Disjoint from the Europe/Asia/Africa whitelists (pinned): Indian-Ocean territories (`RE`/`YT`/`SH`/`IO`) stay with Africa, `TL` with Asia, `AQ`/`GS` belong to no region view.
+
+Completeness (audited against the UN M49/ISO-3166 dataset): every Oceania code is present **even with zero records today** (e.g. `HM` Heard & McDonald Islands) so new events are picked up automatically.
 
 Live shape: 3,890 rows across 11 country codes (fire 2,504, earthquake 525, flood 832, drought 16, storm 13) — AU 2,601, PG 869, VU 138, NC 88, TO 64.
 
@@ -319,15 +321,16 @@ python run_etl.py VIEW phenomenons_aus_oc_vw
 ```sql
 WHERE latitude IS NOT NULL AND longitude IS NOT NULL          -- geocode guard
   AND ( country_code = 'ZZ'                                   -- provider's no-country/open-water marker
-     OR event_subcategory = 'sea_lake_ice'                    -- iceberg & sea-ice events (incl. AQ)
+     OR country_code = 'AQ'                                   -- Antarctica: no continent view -> water/ice domain
+     OR event_subcategory = 'sea_lake_ice'                    -- iceberg & sea-ice events
      OR (coalesce(event_name,'') || ' ' || coalesce(place_location,'') || ' ' || coalesce(event_description,''))
         ~* '\y(ocean|sea|gulf|strait|offshore|coast)\y|off the coast|open water'
   )
 ```
 
-`bay`/`maritime` were dropped after auditing case-insensitive matches: they hit land places (`Pedro Bay`, `Cruz Bay`, Alaska's `Maritime` region) — pinned by test.
+`bay`/`maritime` were dropped after auditing case-insensitive matches: they hit land places (`Pedro Bay`, `Cruz Bay`, Alaska's `Maritime` region) — pinned by test. `AQ` routes *every* Antarctic event here so no `country_code` goes uncovered (a coverage audit against all 135 codes in `union_etl` showed only `ZZ`, `AQ`, `GS`, `SV` outside the region whitelists; `GS`/`SV` moved to `cs_amer`).
 
-Live shape: 2,361 rows (storm 1,774, earthquake 526, iceberg 61). **Known trade-off:** water events carrying a *real* country code with no maritime wording (e.g. `114 km E of ..., Japan` offshore quakes) are missed — that would need `CREATE EXTENSION postgis` + a land-polygon table (`ST_Intersects(land, ST_MakePoint(lon,lat))`), deliberately avoided for now; a few land places named after water (`Ocean City`, `Sea Ranch`) still match.
+Live shape: 2,392 rows (storm 1,774, earthquake 557, iceberg 61). **Known trade-off:** water events carrying a *real* country code with no maritime wording (e.g. `114 km E of ..., Japan` offshore quakes) are missed — that would need `CREATE EXTENSION postgis` + a land-polygon table (`ST_Intersects(land, ST_MakePoint(lon,lat))`), deliberately avoided for now; a few land places named after water (`Ocean City`, `Sea Ranch`) still match.
 
 ```bash
 python run_etl.py VIEW phenomenons_waters_vw

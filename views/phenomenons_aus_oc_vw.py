@@ -5,20 +5,21 @@ same denormalized, one-row-per-snapshot display query for **map
 visualization in Looker Studio**, filtered to the **strict UN M49
 definition of Oceania** (all four sub-regions):
 
-* **Australia and New Zealand**: ``AU``, ``NZ``, ``NF``, ``CX``, ``CC``;
+* **Australia and New Zealand**: ``AU``, ``NZ``, ``NF``, ``CX``, ``CC``,
+  ``HM``;
 * **Melanesia**: ``FJ``, ``NC``, ``PG``, ``SB``, ``VU``;
 * **Micronesia**: ``FM``, ``GU``, ``KI``, ``MH``, ``MP``, ``NR``, ``PW``,
   ``UM``;
 * **Polynesia**: ``AS``, ``CK``, ``NU``, ``PF``, ``PN``, ``TK``, ``TO``,
-  ``TV``, ``WF``, ``WS``, ``NU`` — 28 codes in total.
+  ``TV``, ``WF``, ``WS``, ``NU`` — 29 codes in total.
 
 Complementary to the other regional twins (disjoint whitelists, pinned by
 tests): Indian-Ocean territories stay with Africa (``RE``, ``YT``, ``SH``,
 ``IO``), ``TL`` stays with Asia, ``RU``/``ZZ`` are excluded, and sub-antarctic
 codes (``AQ``, ``GS``) belong to no region view.
 
-``AS AU CC CK CX FJ FM GU KI MH MP NC NF NR NU NZ PF PG PN PW SB TK TO TV UM
-VU WF WS``
+``AS AU CC CK CX FJ FM GU HM KI MH MP NC NF NR NU NZ PF PG PN PW SB TK TO TV
+UM VU WF WS``
 
 Everything else — ``initcap`` categories, the ``event_ndesc`` formula,
 ``danger_rating`` passthrough, metric columns, the ``key: value (unit)``
@@ -53,6 +54,7 @@ COUNTRY_CODES: tuple[str, ...] = (
     "FJ",
     "FM",
     "GU",
+    "HM",
     "KI",
     "MH",
     "MP",

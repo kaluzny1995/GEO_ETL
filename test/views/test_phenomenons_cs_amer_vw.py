@@ -40,7 +40,12 @@ def test_whitelist_matches_the_query_and_excludes_us_canada_and_unknown():
 
     assert codes_in_query == COUNTRY_CODES
     assert not {"US", "CA", "ZZ"} & set(COUNTRY_CODES)
-    assert len(COUNTRY_CODES) == 50
+    assert len(COUNTRY_CODES) == 55
+
+
+def test_whitelist_covers_the_five_m49_codes_missed_by_the_first_audit():
+    # BM/KY had no records yet; SV (8 rows) and GS (3 rows) were uncovered.
+    assert set(COUNTRY_CODES) >= {"BM", "BV", "GS", "KY", "SV"}
 
 
 def test_whitelist_is_ordered_and_upper_case():

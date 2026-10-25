@@ -7,7 +7,7 @@ from views.phenomenons_europe_vw import COUNTRY_CODES as EUROPE_CODES
 from views.phenomenons_us_vw import PhenomenonsUsVwScript
 
 #: The four UN M49 Oceania sub-regions the whitelist must cover.
-AUSTRALIA_NEW_ZEALAND = frozenset(["AU", "CC", "CX", "NF", "NZ"])
+AUSTRALIA_NEW_ZEALAND = frozenset(["AU", "CC", "CX", "HM", "NF", "NZ"])
 MELANESIA = frozenset(["FJ", "NC", "PG", "SB", "VU"])
 MICRONESIA = frozenset(["FM", "GU", "KI", "MH", "MP", "NR", "PW", "UM"])
 POLYNESIA = frozenset(["AS", "CK", "NU", "PF", "PN", "TK", "TO", "TV", "WF", "WS"])
@@ -48,7 +48,7 @@ def test_whitelist_matches_the_query():
     codes_in_query = tuple(part.strip().strip("'") for part in in_list.split(","))
 
     assert codes_in_query == COUNTRY_CODES
-    assert len(COUNTRY_CODES) == 28
+    assert len(COUNTRY_CODES) == 29
 
 
 def test_whitelist_covers_all_four_m49_oceania_sub_regions():

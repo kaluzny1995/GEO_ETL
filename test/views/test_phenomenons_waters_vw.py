@@ -42,6 +42,11 @@ def test_query_flags_open_water_by_country_code_zz():
     assert "country_code IN (" not in query
 
 
+def test_query_routes_all_antarctic_rows_here():
+    # Antarctica has no continent view — every AQ event must land in waters.
+    assert "country_code = 'AQ'" in PhenomenonsWatersVwScript.QUERY
+
+
 def test_query_flags_iceberg_rows_by_subcategory():
     assert "event_subcategory = 'sea_lake_ice'" in PhenomenonsWatersVwScript.QUERY
 

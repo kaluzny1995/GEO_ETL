@@ -12,9 +12,11 @@ event text (with a geocode guard), per the agreed definition:
 2. ``country_code = 'ZZ'`` — the provider's *no country* marker, used for
    open-water rows (mid-ocean typhoons, offshore/undersea earthquake
    epicenters, drifting icebergs);
-3. ``event_subcategory = 'sea_lake_ice'`` — iceberg/sea-ice events (e.g.
-   Antarctic ``AQ`` icebergs, which do carry a country code);
-4. **maritime keywords** in ``event_name``/``place_location``/
+3. ``country_code = 'AQ'`` — Antarctica has no continent view, so all of
+   its events (icebergs, sea-ice, polar/quadrant earthquakes) are routed
+   to the water/ice domain here;
+4. ``event_subcategory = 'sea_lake_ice'`` — iceberg/sea-ice events;
+5. **maritime keywords** in ``event_name``/``place_location``/
    ``event_description`` — ``ocean``, ``sea``, ``gulf``, ``strait``,
    ``offshore``, ``coast``, or the phrases ``off the coast`` /
    ``open water`` (PG word-boundary ``\\y`` regex, case-insensitive
@@ -29,7 +31,7 @@ would be needed to catch those; the heuristic was chosen deliberately to
 avoid any extension/helper-table infrastructure. Conversely a handful of
 land places named after water still match (``Ocean City``, ``Sea Ranch``).
 
-Live shape: 2,361 rows (storm 1,774, earthquake 526, iceberg 61).
+Live shape: 2,392 rows (storm 1,774, earthquake 557, iceberg 61).
 ``country_code`` stays in the output so ``ZZ``/``AQ``/… rows are visible in
 Looker Studio.
 
