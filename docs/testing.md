@@ -56,6 +56,7 @@ The same suite also runs in an isolated tox environment (`tox -e py311`) — see
 | `test/views/test_phenomenons_cs_amer_vw.py` | phenomenons_cs_amer_vw Americas twin (50-code whitelist, US/CA/ZZ exclusion, identical `SELECT` vs US view, registry entry) |
 | `test/views/test_phenomenons_ru_vw.py` | phenomenons_ru_vw Russia twin (RU filter, US-query equality beyond the country code, shared display shape, registry entry) |
 | `test/views/test_phenomenons_europe_vw.py` | phenomenons_europe_vw Europe twin (51-code M49 whitelist minus RU, TR/CY/AM/AZ/GE/ZZ exclusion, identical `SELECT` vs US view, registry entry) |
+| `test/views/test_phenomenons_asia_vw.py` | phenomenons_asia_vw Asia twin (51-code M49 whitelist minus RU, edge cases included, disjoint from Europe, identical `SELECT` vs US view, registry entry) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (column mapping, source coordinate pass-through, forecast-window collapse) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (category/place/country mapping, stamped geocode pass-through with description-state precedence) |
 | `test/single_etl/test_gdacs_event_etl.py` | GDACS SINGLE_ETL script (category/metric/country mapping, stamped geocode pass-through with alpha-3 precedence) |

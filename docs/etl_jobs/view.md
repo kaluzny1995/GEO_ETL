@@ -56,6 +56,7 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `phenomenons_cs_amer_vw` | `country_code IN (<Americas ISO list>)` | `geo.phenomenons_cs_amer_vw` | [below](#phenomenons_cs_amer_vw) |
 | `phenomenons_ru_vw` | `country_code = 'RU'` | `geo.phenomenons_ru_vw` | [below](#phenomenons_ru_vw) |
 | `phenomenons_europe_vw` | `country_code IN (<Europe ISO list>)` | `geo.phenomenons_europe_vw` | [below](#phenomenons_europe_vw) |
+| `phenomenons_asia_vw` | `country_code IN (<Asia ISO list>)` | `geo.phenomenons_asia_vw` | [below](#phenomenons_asia_vw) |
 
 One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country/region map views — see the sections below.
 
@@ -252,6 +253,24 @@ Live shape: 2,614 rows across 22 country codes (largest: FR 431, RO 420, DE 315,
 
 ```bash
 python run_etl.py VIEW phenomenons_europe_vw
+```
+
+## phenomenons_asia_vw
+
+`views/phenomenons_asia_vw.py` (`datasets.view.phenomenons_asia_vw`): the Asia twin — **byte-identical** `SELECT` to [`phenomenons_us_vw`](#phenomenons_us_vw), filtered to **strict UN M49 Asia without Russia**:
+
+```sql
+WHERE country_code IN ('AE','AF','AM','AZ','BD','BH','BN','BT','CN','CY','GE','HK','ID','IL','IN','IQ','IR','JO',
+                       'JP','KG','KH','KP','KR','KW','KZ','LA','LB','LK','MM','MN','MO','MV','MY','NP','OM','PH',
+                       'PK','PS','QA','SA','SG','SY','TH','TJ','TL','TM','TR','TW','UZ','VN','YE')
+```
+
+51 codes: all five M49 Asian sub-regions (Eastern, Southern, South-eastern, Western, Central) minus `RU`, including `HK`/`MO` micro-territories. **Complementary to the Europe view** — the whitelists are disjoint (pinned by a cross-view test): the M49-“Western Asia” edge cases excluded from Europe (`TR`, `CY`, `AM`, `AZ`, `GE`) live **here**, Oceania (`AU`, `NZ`, `PG`) and `ZZ` do not.
+
+Live shape: 4,601 rows across 33 country codes (flood 2,499, fire 1,172, earthquake 803, drought 80, storm 40, volcano 7).
+
+```bash
+python run_etl.py VIEW phenomenons_asia_vw
 ```
 
 ## Dropping a view
