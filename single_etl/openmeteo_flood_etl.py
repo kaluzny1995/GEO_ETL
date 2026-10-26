@@ -17,9 +17,12 @@ river's baseline percentiles, the configured flood threshold, the ratio the
 day's discharge stands in it and the reference level it exceeded in the
 source's own wording (``Q95``, ``Q99``), and ``danger_rating`` maps that onto
 the shared severity scale (``extreme`` above ``Q99``, ``high`` above ``Q95``,
-``none`` at or below the threshold). A river the reference does not cover (or
-a missing file) rates ``no_rating`` — it keeps both the scale word and the
-threshold keys out of the claim that the river is safe.
+``no_rating`` at or below the threshold — the row answers "no flood danger" in
+the vocabulary every source shares). A river the reference does not cover (or
+a missing file) also rates ``no_rating`` — it keeps the
+threshold keys out of the claim that the river is safe. ``event_subcategory``
+carries the shared flood default ``water discharge`` — a daily river value has
+no subtype of its own.
 
 Run::
 
@@ -294,14 +297,14 @@ def _danger_rating() -> Column:
         ``extreme`` for a discharge strictly above the river's ``Q99``,
         ``high`` for one strictly above its ``Q95`` — the configured
         ``threshold_percentile`` sets the floor, so the ladder matches the
-        flood flag — ``none`` for a rated river at or below it (the row says
-        "no flood danger", not "unknown"), and ``no_rating`` when the row
+        flood flag — ``no_rating`` for a rated river at or below it (the row says
+        "no flood danger", not "unknown") as well as for a row that
         cannot be rated at all: a river the threshold reference does not cover,
         a run before the file was built, or a row without a discharge.
     """
     rated = F.col(_threshold_column(_threshold_level())).isNotNull() & F.col("discharge_m3s").isNotNull()
     words = {level: _danger_word(level).value for level in _ladder_levels()}
-    return F.when(rated, F.coalesce(_exceeded(words), F.lit(DangerRating.NONE))).otherwise(
+    return F.when(rated, F.coalesce(_exceeded(words), F.lit(DangerRating.NO_RATING))).otherwise(
         F.lit(DangerRating.NO_RATING)
     )
 
@@ -374,7 +377,7 @@ class OpenMeteoFloodEtlScript(SingleEtlScript):
             F.lit(_cfg.subsource_name).alias("subsource_name"),
             _event_name().alias("event_name"),
             F.lit(_cfg.event_category).alias("event_category"),
-            F.lit(None).cast("string").alias("event_subcategory"),
+            F.lit("water discharge").alias("event_subcategory"),
             F.lit(None).cast("string").alias("event_description"),
             F.col("latitude"),
             F.col("longitude"),

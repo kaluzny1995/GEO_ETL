@@ -12,7 +12,8 @@ class AvalancheOrgEtl(EventEtl):
     * ``subsource_name`` — issuing center (e.g. ``Colorado Avalanche Information Center``).
     * ``event_name`` — ``NULL`` (a forecast has no event name), ``place_location`` — the
       forecast zone, ``state_province`` — the zone's 2-letter state code.
-    * ``event_category`` — ``avalanche``; ``event_subcategory`` — ``NULL`` (no subtypes).
+    * ``event_category`` — ``avalanche``; ``event_subcategory`` — ``avalanche``
+      (a forecast zone carries no subtype).
     * ``metric_name`` — ``size`` by convention; ``metric_value`` —
       the zone's expected avalanche size, the largest destructive size class
       (``D1`` … ``D5``, half steps allowed) the forecast publishes as

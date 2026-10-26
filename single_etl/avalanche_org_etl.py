@@ -104,9 +104,10 @@ class AvalancheOrgEtlScript(SingleEtlScript):
         allowed) the forecast publishes as ``avalanche_size``, ``NULL`` while
         the forecast publishes no problems (off-season, unrated, or a day
         outside the live product's window) — with ``metric_unit`` from the
-        config alongside it. ``danger_rating`` carries the NAPADS level mapped
-        onto the shared severity scale, and unrated zones (``danger_level = -1``)
-        rate ``no_rating``.
+        config alongside it. ``event_subcategory`` repeats the category word
+        (``avalanche``) — a forecast zone carries no subtype. ``danger_rating``
+        carries the NAPADS level mapped onto the shared severity scale, and
+        unrated zones (``danger_level = -1``) rate ``no_rating``.
         The rating's scale index, the avalanche-warning product and the season
         state travel in :func:`_other_metrics`, so a danger transition or a
         warning issuance can be detected from the target table alone.
@@ -134,7 +135,7 @@ class AvalancheOrgEtlScript(SingleEtlScript):
             F.col("center_name").alias("subsource_name"),
             F.lit(None).cast("string").alias("event_name"),
             F.lit(_cfg.event_category).alias("event_category"),
-            F.lit(None).cast("string").alias("event_subcategory"),
+            F.lit(_cfg.event_category).alias("event_subcategory"),
             F.lit(None).cast("string").alias("event_description"),
             F.col("latitude"),
             F.col("longitude"),

@@ -13,8 +13,9 @@ class OpenMeteoFloodEtl(EventEtl):
       with).
     * ``event_name`` — ``"<river_name> discharge"`` (``Amazon discharge``),
       ``NULL`` when the river name is blank.
-    * ``event_category`` — always ``flood``; ``event_subcategory`` /
-      ``event_description`` — ``NULL`` (no subtype or prose).
+    * ``event_category`` — always ``flood``; ``event_subcategory`` — the
+      shared flood default ``water discharge``; ``event_description`` —
+      ``NULL`` (no prose).
     * ``country_code`` — the source ``country`` name mapped through the
       script's 54-entry ISO map (``USA`` → ``US``, ``UK`` → ``GB``,
       ``DRC`` → ``CD``); a name the map does not know falls back to the
@@ -35,8 +36,8 @@ class OpenMeteoFloodEtl(EventEtl):
     * ``danger_rating`` — the flood danger of the day on the shared scale:
       ``extreme`` above the river's ``Q99``, ``high`` above its ``Q95``
       (the ladder runs from the level ``threshold_percentile`` names in
-      ``config.json`` up), ``none`` at or below it, ``no_rating`` for a river
-      the threshold reference does not cover — and a strict ladder: a flat
+      ``config.json`` up), ``no_rating`` at or below it — and for a river
+      the threshold reference does not cover; a strict ladder: a flat
       baseline never rates a day.
     * ``other_metrics`` — the threshold reference the script joins on
       ``river_name`` + ``country`` (``discharge_p50`` … ``discharge_p99``

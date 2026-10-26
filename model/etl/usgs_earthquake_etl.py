@@ -17,7 +17,7 @@ class UsgsEarthquakeEtl(EventEtl):
       ``"Earthquake"`` alone when no country resolves.
     * ``event_category`` — always ``earthquake``; ``event_subcategory`` —
       the source ``event_type`` (``earthquake``, ``quarry blast``,
-      ``explosion``, ``ice quake``).
+      ``explosion``, ``ice quake``), ``other`` when the feed states none.
     * ``event_description`` — ``"<event_type> <status>"``
       (``earthquake reviewed``, ``quarry blast automatic``).
     * ``country_code`` — from the country name in ``place``: a US state

@@ -47,9 +47,8 @@ class DangerRating(enum.StrEnum):
 
     Attributes:
         NO_RATING: The source cannot rate the row (no rating product, unrated
-            off-season zone, missing reference or unknown code) — the value that
-            used to be ``NULL``.
-        NONE: The row is rated and reports no danger at all.
+            off-season zone, missing reference, unknown code or a rating that
+            reports no danger) — the value that used to be ``NULL``.
         LOW: Minor danger.
         MEDIUM: Moderate danger.
         HIGH: Serious danger.
@@ -57,7 +56,6 @@ class DangerRating(enum.StrEnum):
     """
 
     NO_RATING = "no_rating"
-    NONE = "none"
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"

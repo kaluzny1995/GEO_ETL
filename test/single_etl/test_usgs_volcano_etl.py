@@ -67,7 +67,7 @@ class TestConvert:
         assert row.subsource_name == "Alaska Volcano Observatory"
         assert row.event_name == "Volcano - Great Sitkin"
         assert row.event_category == "volcano"
-        assert row.event_subcategory == "Daily Update"
+        assert row.event_subcategory == "volcano"
         assert row.event_description == "AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava continues."
         assert row.latitude == 52.0765
         assert row.longitude == -176.1109
@@ -103,7 +103,7 @@ class TestConvert:
     @pytest.mark.parametrize(
         ("alert_level", "color_code", "expected_rating"),
         [
-            ("NORMAL", "GREEN", "none"),
+            ("NORMAL", "GREEN", "no_rating"),
             ("ADVISORY", "YELLOW", "low"),
             ("WATCH", "ORANGE", "high"),
             ("WARNING", "RED", "extreme"),
@@ -115,7 +115,7 @@ class TestConvert:
             ("", "", "no_rating"),
             (None, None, "no_rating"),
             ("bogus", "bogus", "no_rating"),
-            ("NORMAL", "bogus", "none"),
+            ("NORMAL", "bogus", "no_rating"),
             ("bogus", "ORANGE", "high"),
         ],
     )
@@ -240,20 +240,18 @@ class TestConvert:
         assert row.state_province == "ZZ"
 
     @pytest.mark.parametrize(
-        ("notice_type_name", "expected_subcategory"),
+        ("notice_type_name", "notice_type"),
         [
-            ("Daily Update", "Daily Update"),
-            ("Volcano Activity Notification", "Volcano Activity Notification"),
+            ("Daily Update", "DU"),
+            ("Volcano Activity Notification", "VV"),
             ("", "DU"),
             (None, "DU"),
         ],
     )
-    def test_subcategory_is_the_full_notice_type_with_code_fallback(
-        self, spark_session, notice_type_name, expected_subcategory
-    ):
-        (row,) = _convert(spark_session, _source_row(notice_type_name=notice_type_name))
+    def test_the_notice_type_never_reaches_the_subcategory(self, spark_session, notice_type_name, notice_type):
+        (row,) = _convert(spark_session, _source_row(notice_type_name=notice_type_name, notice_type=notice_type))
 
-        assert row.event_subcategory == expected_subcategory
+        assert row.event_subcategory == "volcano"
 
     @pytest.mark.parametrize(
         ("overrides", "expected_place"),
@@ -281,19 +279,13 @@ class TestConvert:
 
         assert row.event_description is None
 
-    @pytest.mark.parametrize("notice_type_name", [None, "", "   "])
-    def test_blank_notice_type_name_falls_back_to_the_code(self, spark_session, notice_type_name):
-        (row,) = _convert(spark_session, _source_row(notice_type_name=notice_type_name))
-
-        assert row.event_subcategory == "DU"
-
     def test_missing_notice_details_keep_the_feed_fields(self, spark_session):
         (row,) = _convert(
             spark_session,
             _source_row(notice_type_name=None, latitude=None, longitude=None, region=None, synopsis=None),
         )
 
-        assert row.event_subcategory == "DU"
+        assert row.event_subcategory == "volcano"
         assert row.latitude is None and row.longitude is None
         assert row.state_province == "ZZ"
         assert row.event_description is None

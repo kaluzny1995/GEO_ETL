@@ -69,7 +69,7 @@ class TestConvert:
         assert row.metric_name == "wind speed"
         assert row.metric_value == 55.5552
         assert row.metric_unit == "km/h"
-        assert row.danger_rating == "none"
+        assert row.danger_rating == "no_rating"
         assert row.other_metrics is None
         assert row.event_start == dt.datetime(2026, 9, 29, 15, 0, 0)
         assert row.event_end == dt.datetime(2026, 9, 29, 21, 0, 0)
@@ -82,9 +82,13 @@ class TestConvert:
             ("Tropical Depression (maximum wind speed of 56 km/h)", "tropical depression"),
             ("Tropical Storm (maximum wind speed of 70 km/h)", "tropical storm"),
             ("Hurricane/Typhoon > 74 mph (maximum wind speed of 120 km/h)", "hurricane"),
+            ("", "storm"),
+            (None, "storm"),
         ],
     )
-    def test_cyclone_intensity_subcategory(self, spark_session, severity_text, expected_subcategory):
+    def test_cyclone_subcategory_from_the_text_or_the_category(
+        self, spark_session, severity_text, expected_subcategory
+    ):
         (row,) = _convert(spark_session, _source_row(severity_text=severity_text))
 
         assert row.event_category == "storm"
@@ -110,7 +114,7 @@ class TestConvert:
         )
 
         assert row.event_category == "earthquake"
-        assert row.event_subcategory is None
+        assert row.event_subcategory == "other"
         assert row.subsource_name == "NEIC"
         assert row.country_code == "CO"
         assert row.state_province is None
@@ -118,7 +122,7 @@ class TestConvert:
         assert row.metric_name == "magnitude"
         assert row.metric_value == 4.5
         assert row.metric_unit == "Mw"
-        assert row.danger_rating == "none"
+        assert row.danger_rating == "no_rating"
         assert row.event_start == row.event_end == dt.datetime(2026, 9, 29, 21, 50, 29)
 
     def test_wildfire_mapping(self, spark_session):
@@ -174,7 +178,7 @@ class TestConvert:
     @pytest.mark.parametrize(
         ("alert_level", "expected_rating"),
         [
-            ("Green", "none"),
+            ("Green", "no_rating"),
             ("Orange", "medium"),
             ("Red", "high"),
             ("red", "high"),
@@ -190,14 +194,14 @@ class TestConvert:
         assert row.danger_rating == expected_rating
 
     @pytest.mark.parametrize(
-        ("event_type", "severity_unit", "severity_text", "expected_category"),
+        ("event_type", "severity_unit", "severity_text", "expected_category", "expected_subcategory"),
         [
-            ("FL", "", "Magnitude 0", "flood"),
-            ("VO", None, None, "volcano"),
+            ("FL", "", "Magnitude 0", "flood", "water discharge"),
+            ("VO", None, None, "volcano", "volcano"),
         ],
     )
     def test_undefined_severity_keeps_metric_value_zero_and_unit_null(
-        self, spark_session, event_type, severity_unit, severity_text, expected_category
+        self, spark_session, event_type, severity_unit, severity_text, expected_category, expected_subcategory
     ):
         (row,) = _convert(
             spark_session,
@@ -214,7 +218,7 @@ class TestConvert:
         )
 
         assert row.event_category == expected_category
-        assert row.event_subcategory is None
+        assert row.event_subcategory == expected_subcategory
         assert row.metric_name == "magnitude"
         assert row.metric_value == 0.0
         assert row.metric_unit is None

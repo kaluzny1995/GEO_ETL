@@ -15,10 +15,9 @@ class UsgsVolcanoEtl(EventEtl):
       (``Volcano - Great Sitkin``); ``"Volcano"`` alone when the name is
       blank.
     * ``event_category`` — always ``volcano``; ``event_subcategory`` — the
-      notice type's full name the downloader stamped as ``notice_type_name``
-      (``Daily Update``, ``Weekly Update``, ``Volcano Activity
-      Notification``), falling back to the feed's own code when the name
-      is missing.
+      same word ``volcano``: a notice is a volcano report, not a subtype of
+      one, so the notice type (``Daily Update``, ``Weekly Update``,
+      ``Volcano Activity Notification``) stays in the plain table.
     * ``event_description`` — the stamped ``synopsis`` status line
       (``AVO Great Sitkin ORANGE/WATCH - Slow eruption of lava …``), ``NULL``
       when blank.
@@ -38,11 +37,11 @@ class UsgsVolcanoEtl(EventEtl):
       eruption record, ``0`` for a volcano NCEI does not list (e.g. Great
       Sitkin); ``metric_unit`` — always ``VEI``.
     * ``danger_rating`` — the notice's alert level and aviation color code
-      mapped onto the shared scale: ``none`` (``NORMAL`` / ``GREEN``),
-      ``low`` (``ADVISORY`` / ``YELLOW``), ``high`` (``WATCH`` / ``ORANGE``),
-      ``extreme`` (``WARNING`` / ``RED``) — the harsher of the two answers —
-      ``no_rating`` when the notice carries neither a known alert level nor a
-      known color code.
+      mapped onto the shared scale: ``no_rating`` (``NORMAL`` / ``GREEN``,
+      or a notice carrying neither a known alert level nor a known color
+      code), ``low`` (``ADVISORY`` / ``YELLOW``), ``high`` (``WATCH`` /
+      ``ORANGE``), ``extreme`` (``WARNING`` / ``RED``) — the harsher of the
+      two answers wins.
     * ``event_start`` — ``notice_date`` (when the notice was issued, full
       precision); ``event_end`` — ``NULL`` (a notice is an instant).
     * ``other_metrics`` — ``{"color_code": …, "alert_level": …, "vnum":

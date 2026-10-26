@@ -99,7 +99,7 @@ class TestConvert:
         assert row.subsource_name == "GLOFAS"
         assert row.event_name == "Amazon discharge"
         assert row.event_category == "flood"
-        assert row.event_subcategory is None
+        assert row.event_subcategory == "water discharge"
         assert row.event_description is None
         assert row.latitude == -3.14
         assert row.longitude == -59.98
@@ -197,13 +197,13 @@ class TestConvert:
 
 
 class TestThresholdReference:
-    def test_below_the_threshold_rates_none_and_still_reports_the_ratio(self, spark_session, tmp_path):
+    def test_below_the_threshold_rates_no_rating_and_still_reports_the_ratio(self, spark_session, tmp_path):
         script = OpenMeteoFloodEtlScript(thresholds_path=_thresholds_csv(tmp_path))
 
         (row,) = _convert(spark_session, _source_row(), script=script)
         metrics = json.loads(row.other_metrics)
 
-        assert row.danger_rating == "none"
+        assert row.danger_rating == "no_rating"
         assert "exceedance_level" not in metrics
         assert metrics["threshold_percentile"] == 0.95
         assert metrics["threshold"] == 215774.0
@@ -223,11 +223,11 @@ class TestThresholdReference:
     @pytest.mark.parametrize(
         ("discharge_m3s", "expected_rating", "expected_exceeded", "expected_level"),
         [
-            (215774.0, "none", False, None),  # exactly the configured threshold — not exceeded
+            (215774.0, "no_rating", False, None),  # exactly the configured threshold — not exceeded
             (215775.0, "high", True, "Q95"),
             (226985.0, "high", True, "Q95"),  # exactly Q99 — not exceeded there, so the ladder stops at Q95
             (226986.0, "extreme", True, "Q99"),
-            (215773.0, "none", False, None),
+            (215773.0, "no_rating", False, None),
         ],
     )
     def test_the_rating_is_the_highest_level_the_day_exceeded(

@@ -81,9 +81,9 @@ class TestConvert:
         [
             ("WF", "wildfire"),
             ("RX", "prescribed fire"),
-            (None, None),
-            ("", None),
-            ("XX", None),
+            (None, "fire"),
+            ("", "fire"),
+            ("XX", "fire"),
         ],
     )
     def test_subcategory_comes_from_fire_type(self, spark_session, fire_type, expected_subcategory):

@@ -59,7 +59,7 @@ class DangerRatedEtlConfig(SingleEtlDatasetConfig):
 
     Attributes:
         danger_rating_map: The source's native value → one of the
-            :class:`~model.enums.DangerRating` words (``none`` … ``extreme``).
+            :class:`~model.enums.DangerRating` words (``no_rating`` … ``extreme``).
             A value outside the scale fails validation, so a typo in
             ``config.json`` fails at import; a native value the map does not
             list is rated ``no_rating`` by the script.

@@ -190,7 +190,7 @@ python run_etl.py VIEW metrics_volcano_vw
 | `event_category`, `event_subcategory` | `initcap()`-capitalized (`earthquake` → `Earthquake`) |
 | `event_ndesc` | display name: `event_name` (fallback: capitalized category) + `":\n\n" + event_description` when a description exists |
 | `latitude`, `longitude`, `country_code`, `state_province`, `place_location` | map pin + tooltip fields |
-| `danger_rating` | the row's categorical rating passed through (`low` / `medium` / `high` / `extreme` / `none` / `no_rating`) |
+| `danger_rating` | the row's categorical rating passed through (`low` / `medium` / `high` / `extreme` / `no_rating`) |
 | `metric_name`, `metric_value`, `metric_unit` | the row's own metric, passed through |
 | `other_metrics` | Looker-friendly text: `key: value (unit)` pairs joined by `"; "` (e.g. `danger_level: -1 (NAPADS level); off_season: true`), `*_unit` companions consumed |
 | `event_start_date` | `event_start`, falling back to midnight of `file_date` when NULL |

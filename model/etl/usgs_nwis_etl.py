@@ -15,7 +15,8 @@ class UsgsNwisEtl(EventEtl):
       first letter upper-cased (``Streamflow - Potomac river``);
       ``"Streamflow"`` alone when no usable name exists.
     * ``event_category`` — always ``flood`` (the same category the
-      OpenMeteo discharge snapshots use); ``event_subcategory`` — ``NULL``.
+      OpenMeteo discharge snapshots use); ``event_subcategory`` — the shared
+      flood default ``water discharge``.
     * ``event_description`` — the ``qualifiers`` expanded to their full
       names (``P`` → ``provisional``, ``A,e`` → ``approved for
       publication, estimated``); an unknown code is kept verbatim, a
@@ -35,8 +36,9 @@ class UsgsNwisEtl(EventEtl):
       source reports a day, not a datetime); ``event_end`` — ``NULL`` (a
       daily mean has no end).
     * ``danger_rating`` — the NWS flood category of the day's peak stage
-      mapped onto the shared scale (``no_flooding`` → ``none``, ``action`` →
-      ``low``, ``minor`` → ``medium``, ``moderate`` → ``high``, ``major`` →
+      mapped onto the shared scale (``no_flooding`` → ``no_rating``,
+      ``action`` → ``low``,
+      ``minor`` → ``medium``, ``moderate`` → ``high``, ``major`` →
       ``extreme``); ``no_rating`` for an empty or unknown category — an
       uncovered gauge and a day without a stage.
     * ``other_metrics`` — ``gauge_height`` (the day's peak) beside the

@@ -14,8 +14,10 @@ class EonetEventEtl(EventEtl):
       (``severeStorms`` / ``wildfires`` / ``seaLakeIce``), snake_cased for any
       other category; ``event_subcategory`` — the storm type parsed from
       ``event_name`` (``hurricane``, ``typhoon``, ``tropical storm``,
-      ``tropical cyclone``, ``cyclone``), ``wildfire`` for fires,
-      ``sea_lake_ice`` for ice, ``NULL`` when neither is known.
+      ``tropical cyclone``, ``cyclone``, the category word ``storm`` when the
+      name carries no type keyword), ``wildfire`` for fires,
+      ``sea_lake_ice`` for ice, ``NULL`` for a category the ETL does not
+      harmonise.
     * ``place_location`` — ``event_name`` with its type prefix stripped
       (``Wildfire``, ``Prescribed Fire``, ``Incident Complex``,
       ``Emergency Stabilization BAER``); ``NULL`` when the remainder is not a

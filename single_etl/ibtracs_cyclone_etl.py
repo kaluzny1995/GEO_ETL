@@ -42,12 +42,17 @@ def _event_subcategory() -> Column:
 
     Returns:
         The ``usa_status`` word (`_cfg.status_words`), else the ``nature``
-        word (`_cfg.nature_words`); ``NULL`` when neither reports a type
-        (blank status next to ``nature = NR`` in non-US basins).
+        word (`_cfg.nature_words`), else the category word ``storm`` itself —
+        every IBTrACS row is a cyclone, so a point neither agency typed
+        (blank status next to ``nature = NR`` in non-US basins) still is one.
     """
     status = F.create_map(*[F.lit(item) for pair in _cfg.status_words.items() for item in pair])
     nature = F.create_map(*[F.lit(item) for pair in _cfg.nature_words.items() for item in pair])
-    return F.coalesce(status[F.upper(F.trim(F.col("usa_status")))], nature[F.upper(F.trim(F.col("nature")))])
+    return F.coalesce(
+        status[F.upper(F.trim(F.col("usa_status")))],
+        nature[F.upper(F.trim(F.col("nature")))],
+        F.lit("storm"),
+    )
 
 
 def _country_code(geocode_country: Column) -> Column:

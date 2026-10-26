@@ -143,6 +143,17 @@ def _event_description() -> Column:
     )
 
 
+def _event_subcategory() -> Column:
+    """The feed's ``event_type`` (``earthquake``, ``quarry blast``, …), ``other`` when it states none.
+
+    Returns:
+        The trimmed source word; a missing or blank ``event_type`` — the feed
+        reports no subtype for the event — resolves to ``other``.
+    """
+    event_type = F.trim(F.col("event_type"))
+    return F.coalesce(F.when(event_type != "", event_type), F.lit("other"))
+
+
 def _other_metrics() -> Column:
     """Depth and station count with their unit keys as a JSON object string.
 
@@ -196,7 +207,7 @@ class UsgsEarthquakeEtlScript(SingleEtlScript):
             F.col("net").alias("subsource_name"),
             _event_name(_country_name(suffix, F.col("geocode_country"))).alias("event_name"),
             F.lit(_cfg.event_category).alias("event_category"),
-            F.col("event_type").alias("event_subcategory"),
+            _event_subcategory().alias("event_subcategory"),
             _event_description().alias("event_description"),
             F.col("latitude"),
             F.col("longitude"),

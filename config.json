@@ -229,7 +229,7 @@
           "ZWE": "ZW"
         },
         "danger_rating_map": {
-          "green": "none",
+          "green": "no_rating",
           "orange": "medium",
           "red": "high"
         }
@@ -628,7 +628,7 @@
           "***": "value unavailable"
         },
         "danger_rating_map": {
-          "no_flooding": "none",
+          "no_flooding": "no_rating",
           "action": "low",
           "minor": "medium",
           "moderate": "high",
@@ -649,13 +649,13 @@
         "casualties_unit": "people",
         "damage_unit": "million USD",
         "danger_rating_map": {
-          "normal": "none",
+          "normal": "no_rating",
           "advisory": "low",
           "watch": "high",
           "warning": "extreme"
         },
         "color_danger_rating_map": {
-          "green": "none",
+          "green": "no_rating",
           "yellow": "low",
           "orange": "high",
           "red": "extreme"

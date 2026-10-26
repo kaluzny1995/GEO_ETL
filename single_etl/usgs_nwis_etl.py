@@ -13,8 +13,11 @@ Next to the plain table the script joins the flood-category reference CSV
 downloader, one row per gauge with the NWS ``action``/``minor``/``moderate``/
 ``major`` stage thresholds) on ``site_id``, so a row can say more than "the
 discharge was X": ``danger_rating`` carries the NWS category the day's peak
-stage reached (``action`` … ``major``, a peak below every threshold stays
-``NULL``) and ``other_metrics`` the peak itself against those thresholds.
+stage reached (``action`` … ``major``, a peak below every threshold — or one
+the gauge's thresholds do not cover — stays ``no_rating``) and
+``other_metrics`` the peak itself against those thresholds.
+``event_subcategory`` carries the shared flood default ``water discharge`` —
+a gauge day has no subtype of its own.
 
 Run::
 
@@ -150,10 +153,10 @@ def _danger_rating() -> Column:
     """The NWS flood category of the day's peak stage mapped onto the shared severity scale.
 
     Returns:
-        ``none`` for ``no_flooding`` (the gauge is rated and nothing is
+        ``no_rating`` for ``no_flooding`` (the gauge is rated and nothing is
         expected), then ``low`` for ``action``, ``medium`` for ``minor``,
         ``high`` for ``moderate`` and ``extreme`` for ``major`` from
-        `_cfg.danger_rating_map`; ``no_rating`` when the row carries no
+        `_cfg.danger_rating_map`; ``no_rating`` also when the row carries no
         category the map knows — an empty category, ``NULL`` or an unexpected
         code (the NWS could not classify the day) — never ``NULL`` itself.
     """
@@ -289,7 +292,7 @@ class UsgsNwisEtlScript(SingleEtlScript):
             F.col("site_id").alias("subsource_name"),
             _event_name(river).alias("event_name"),
             F.lit(_cfg.event_category).alias("event_category"),
-            F.lit(None).cast("string").alias("event_subcategory"),
+            F.lit("water discharge").alias("event_subcategory"),
             _event_description().alias("event_description"),
             F.col("latitude"),
             F.col("longitude"),

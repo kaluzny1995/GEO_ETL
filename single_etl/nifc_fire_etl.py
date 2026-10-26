@@ -34,9 +34,15 @@ _cfg = load_dataset(__file__, "single_etl", NifcFireEtlConfig)
 
 
 def _event_subcategory() -> Column:
-    """``event_subcategory`` from ``fire_type`` (``_cfg.fire_type_map``), ``NULL`` when blank or unknown."""
+    """``event_subcategory`` from ``fire_type`` (`_cfg.fire_type_map`), the category word when unknown.
+
+    Returns:
+        ``wildfire`` / ``prescribed fire`` for the source's own ``WF`` /
+        ``RX`` codes; a blank or unknown ``fire_type`` (a perimeter the layer
+        types as nothing) resolves to ``fire``.
+    """
     known = F.create_map(*[F.lit(item) for pair in _cfg.fire_type_map.items() for item in pair])
-    return known[F.trim(F.col("fire_type"))]
+    return F.coalesce(known[F.trim(F.col("fire_type"))], F.lit("fire"))
 
 
 def _state_province(geocode_state: Column) -> Column:

@@ -7,8 +7,10 @@ Field conventions (identical for every source, so the tables can be merged):
 * ``event_name`` — name of the event itself; ``NULL`` for sources that only describe a
   place or a standing state of affairs (a forecast zone has no event name).
 * ``event_category`` / ``event_subcategory`` — catastrophe class and its subtype
-  (e.g. ``cyclone`` / ``hurricane``); ``event_subcategory`` stays ``NULL`` when the
-  source has no subtype.
+  (e.g. ``storm`` / ``hurricane``); a source that has no subtype of its own writes
+  the shared default of its category — ``avalanche``, ``fire``, ``flood`` →
+  ``water discharge``, ``storm``, ``volcano`` and ``other`` for an untyped
+  earthquake — rather than ``NULL``.
 * ``country_code`` — ISO 3166-1 alpha-2 (2 letters); a multi-country event is exploded
   into one row per country. ``state_province`` — ISO 3166-2 subdivision code (2 letters).
 * ``place_location`` — the named place the row is about (forecast zone, city, basin),
@@ -17,8 +19,8 @@ Field conventions (identical for every source, so the tables can be merged):
   …); ``metric_value`` / ``metric_unit`` stay ``NULL`` until the source actually
   reports a value.
 * ``danger_rating`` — the row's severity on the shared scale every source is
-  mapped onto: ``no_rating`` (the source cannot rate the row), ``none`` (rated,
-  no danger), ``low``, ``medium``, ``high``, ``extreme`` — the words of
+  mapped onto: ``no_rating`` (the source cannot rate the row — including one it
+  rates as no danger at all), ``low``, ``medium``, ``high``, ``extreme`` — the words of
   :class:`model.enums.DangerRating`, so the merged ``union_etl`` is comparable
   across sources. The scripts never write ``NULL``; the column stays nullable
   only so rows loaded by older versions of the ETL keep loading.

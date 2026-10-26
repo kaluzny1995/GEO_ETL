@@ -3,9 +3,11 @@
 Reads the typed plain table ``geo.usgs_volcano`` and writes every notice row
 into ``geo.usgs_volcano_etl`` using the schema from
 ``model/etl/event_etl.py``, so it can be merged with the other ``*_etl``
-tables. The notice details (coordinates, region, status line and full notice
-type) are already stamped into the source CSVs by the downloader in
-GEO_Download and arrive through the plain table, and so is the reverse-geocoded
+tables. The notice details (coordinates, region and status line) are already
+stamped into the source CSVs by the downloader in
+GEO_Download and arrive through the plain table — as does the notice type
+(``notice_type_name`` / ``notice_type``), which this ETL drops: a notice is a
+volcano report, not a subtype of one — and so is the reverse-geocoded
 subdivision of the notice point (``geocode_state``, stamped at download time
 through GEO_Download's ``data/reverse_geocode.csv``) and the volcano's
 significant-eruption record from the NCEI/WDS Significant Volcanic Eruptions
@@ -39,19 +41,6 @@ def _event_name() -> Column:
     name = F.trim(F.col("volcano_name"))
     named = F.when(name != "", F.concat(F.lit(_cfg.event_name_prefix), name))
     return F.coalesce(named, F.lit(_cfg.event_name_fallback))
-
-
-def _event_subcategory() -> Column:
-    """The full notice type stamped by the downloader, falling back to the feed's own code.
-
-    Returns:
-        ``Daily Update``, ``Weekly Update``, ``Volcano Activity
-        Notification`` … from ``notice_type_name``; the source
-        ``notice_type`` column (``DU``, ``WU``, ``VV``) answers when the
-        stamped name is missing, and a blank in both is ``NULL``.
-    """
-    name = F.trim(F.col("notice_type_name"))
-    return F.coalesce(F.when(name != "", name), F.trim(F.col("notice_type")))
 
 
 def _place_location(region: Column) -> Column:
@@ -94,11 +83,11 @@ def _danger_rating() -> Column:
     of the two answers wins.
 
     Returns:
-        ``none`` (``NORMAL``/``GREEN``), ``low`` (``ADVISORY``/``YELLOW``),
+        ``no_rating`` (``NORMAL``/``GREEN``), ``low`` (``ADVISORY``/``YELLOW``),
         ``high`` (``WATCH``/``ORANGE``) or ``extreme``
-        (``WARNING``/``RED``); ``no_rating`` when the notice carries neither a
-        known alert level nor a known color code. The VEI is not a rating of
-        this notice — it stays in ``metric_value``.
+        (``WARNING``/``RED``); ``no_rating`` also when the notice carries
+        neither a known alert level nor a known color code. The VEI is not a
+        rating of this notice — it stays in ``metric_value``.
     """
     ranks = {rating.value: rank for rank, rating in enumerate(DangerRating)}
 
@@ -194,10 +183,13 @@ class UsgsVolcanoEtlScript(SingleEtlScript):
 
         One row per volcano per notice per snapshot: the feed supplies the
         volcano, observatory, alert level and notice time, the downloader-stamped
-        detail columns supply the coordinates, region, status line, full
-        notice type and the NCEI eruption numbers (``vei``, ``casualties``,
-        ``damage``) — the country is always ``US`` and the subdivision is
-        the stamped ``geocode_state`` of the notice point. The metric is the
+        detail columns supply the coordinates, region and status line, and the
+        NCEI eruption numbers (``vei``, ``casualties``,
+        ``damage``) — the country is always ``US``, the subdivision is
+        the stamped ``geocode_state`` of the notice point, and
+        ``event_subcategory`` carries the category word ``volcano`` (the notice
+        type stays in the plain table — a notice is a volcano report, not a
+        subtype of one). The metric is the
         VEI (Volcanic Explosivity Index, ``metric_name`` from the config):
         the largest significant-eruption VEI NCEI records for the volcano,
         ``0`` when NCEI lists none, with ``metric_unit`` always present.
@@ -217,7 +209,7 @@ class UsgsVolcanoEtlScript(SingleEtlScript):
             F.col("observatory_name").alias("subsource_name"),
             _event_name().alias("event_name"),
             F.lit(_cfg.event_category).alias("event_category"),
-            _event_subcategory().alias("event_subcategory"),
+            F.lit(_cfg.event_category).alias("event_subcategory"),
             _description(F.col("synopsis")).alias("event_description"),
             F.col("latitude"),
             F.col("longitude"),

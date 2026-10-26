@@ -78,20 +78,22 @@ def _event_category() -> Column:
 
 
 def _event_subcategory(category: Column) -> Column:
-    """Storm type from ``event_name``; the fire and ice defaults from the category.
+    """Storm type from ``event_name``; the fire, ice and storm defaults from the category.
 
     Args:
         category: The row's ``event_category`` expression.
 
     Returns:
         ``hurricane`` / ``typhoon`` / ``tropical storm`` / ``tropical cyclone`` /
-        ``cyclone`` for storms, ``wildfire`` for fires, ``sea_lake_ice`` for ice,
-        ``NULL`` when no keyword applies.
+        ``cyclone`` for storms (the category word ``storm`` itself when the
+        name carries no type keyword), ``wildfire`` for fires, ``sea_lake_ice``
+        for ice; ``NULL`` for a category EONET names but the ETL does not
+        harmonise (``volcanic_ash``, ``landslides``, …).
     """
     name = F.lower(F.trim(F.col("event_name")))
     storm_type = F.regexp_extract(name, r"(hurricane|typhoon|tropical storm|tropical cyclone|cyclone)", 1)
     return (
-        F.when(category == "storm", F.when(storm_type != "", storm_type))
+        F.when(category == "storm", F.coalesce(F.when(storm_type != "", storm_type), F.lit("storm")))
         .when(category == "fire", F.lit("wildfire"))
         .when(category == "iceberg", F.lit("sea_lake_ice"))
         .otherwise(F.lit(None).cast("string"))

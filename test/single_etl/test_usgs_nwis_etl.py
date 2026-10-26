@@ -95,7 +95,7 @@ class TestConvert:
         assert row.subsource_name == "USGS-01646500"
         assert row.event_name == "Streamflow - Potomac river"
         assert row.event_category == "flood"
-        assert row.event_subcategory is None
+        assert row.event_subcategory == "water discharge"
         assert row.event_description == "provisional"
         assert row.latitude == 39.0016667
         assert row.longitude == -77.1591667
@@ -200,7 +200,7 @@ class TestConvert:
     @pytest.mark.parametrize(
         ("flood_category", "expected_rating"),
         [
-            ("no_flooding", "none"),
+            ("no_flooding", "no_rating"),
             ("action", "low"),
             ("minor", "medium"),
             ("moderate", "high"),
@@ -231,7 +231,7 @@ class TestConvert:
     def test_a_missing_reference_file_still_reports_the_peak(self, spark_session):
         (row,) = _convert(spark_session, _source_row(gauge_height=2.94, flood_category="no_flooding"))
 
-        assert row.danger_rating == "none"
+        assert row.danger_rating == "no_rating"
         assert json.loads(row.other_metrics) == {"gauge_height": 2.94, "gauge_height_unit": "ft"}
 
 

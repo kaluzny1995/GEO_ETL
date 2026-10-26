@@ -134,10 +134,10 @@ class TestConvert:
 
         assert row.event_subcategory == expected_subcategory
 
-    def test_blank_status_and_unreported_nature_stay_null(self, spark_session):
+    def test_blank_status_and_unreported_nature_fall_back_to_the_category(self, spark_session):
         (row,) = _convert(spark_session, _source_row(usa_status=" ", nature="NR"))
 
-        assert row.event_subcategory is None
+        assert row.event_subcategory == "storm"
 
     @pytest.mark.parametrize(
         ("basin", "subbasin", "expected_place"),

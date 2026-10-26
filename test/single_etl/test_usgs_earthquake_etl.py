@@ -178,6 +178,12 @@ class TestConvert:
         assert row.event_description == expected_description
         assert row.event_subcategory == event_type
 
+    @pytest.mark.parametrize("event_type", [None, "", "   "])
+    def test_an_untyped_event_subcategory_is_other(self, spark_session, event_type):
+        (row,) = _convert(spark_session, _source_row(event_type=event_type))
+
+        assert row.event_subcategory == "other"
+
     @pytest.mark.parametrize("status", [None, "", "   "])
     def test_blank_status_drops_that_part_of_the_description(self, spark_session, status):
         (row,) = _convert(spark_session, _source_row(status=status))

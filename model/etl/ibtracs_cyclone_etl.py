@@ -18,8 +18,8 @@ class IbtracsCycloneEtl(EventEtl):
       ``disturbance``, ``low``, …), falling back to the cross-agency
       ``nature`` (``tropical``, ``disturbance``, ``extratropical``,
       ``subtropical``, ``contradictory``) when no US agency reported a
-      status, ``NULL`` when neither states a type (``nature = NR`` in
-      non-US basins).
+      status, ``storm`` when neither states a type (``nature = NR`` in
+      non-US basins) — every row is a cyclone.
     * ``place_location`` — the IBTrACS region name: the basin's full name
       extended with the sub-basin (``North Atlantic - Gulf of Mexico``,
       ``Eastern North Pacific - Central Pacific``, …); just the basin name

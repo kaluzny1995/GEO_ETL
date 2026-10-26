@@ -173,11 +173,11 @@ class TestConvert:
         assert row.metric_value == 0.0
         assert row.metric_unit == "N/m²"
 
-    def test_storm_without_a_type_keyword_has_no_subcategory(self, spark_session):
+    def test_storm_without_a_type_keyword_falls_back_to_the_category(self, spark_session):
         (row,) = _convert(spark_session, _source_row(event_name="Storm System 42"))
 
         assert row.event_category == "storm"
-        assert row.event_subcategory is None
+        assert row.event_subcategory == "storm"
 
     def test_tropical_cyclone_storm_subcategory(self, spark_session):
         (row,) = _convert(spark_session, _source_row(event_name="Tropical Cyclone 01B"))

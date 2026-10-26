@@ -16,6 +16,10 @@ PySpark scripts run on the host and connect to a Spark standalone cluster manage
 
 The `docker-compose.yaml` lives in [GEO_E2E](../../GEO_E2E) — start the three services with the command from [Usage — Start the Spark cluster](usage.md#2-start-the-spark-cluster).
 
+### Starting with the machine
+
+Every long-running service in the compose file carries `restart: always`, and the Docker daemon itself is enabled at boot — so once a container has been created and started once, it comes back automatically after a reboot (master, both workers, the Airflow stack), no login or manual `docker compose up` needed. `airflow-init` (one-shot init) and `airflow-cli` (debug profile) are deliberately excluded. Note that with `restart: always` a manual `docker compose stop` only sticks until the next reboot — switch the policy to `unless-stopped` if a stopped service should stay stopped.
+
 ### Spark Web UI
 
 Open http://localhost:8083 in your browser to access the Spark Master Web UI. From there you can:

@@ -53,7 +53,7 @@ class TestConvert:
         assert row.event_name is None
         assert row.place_location == "Bridgeport"
         assert row.event_category == "avalanche"
-        assert row.event_subcategory is None
+        assert row.event_subcategory == "avalanche"
         assert row.event_description is None
         assert row.latitude == 38.5 and row.longitude == -119.5
         assert row.country_code == "US"

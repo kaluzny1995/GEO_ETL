@@ -41,7 +41,7 @@ def _event_category() -> Column:
 
 
 def _event_subcategory(category: Column) -> Column:
-    """The cyclone's intensity class, the fire and drought defaults from the text.
+    """The cyclone's intensity class, the category defaults, the drought kind from the text.
 
     Args:
         category: The row's ``event_category`` expression.
@@ -49,19 +49,26 @@ def _event_subcategory(category: Column) -> Column:
     Returns:
         ``tropical depression`` / ``tropical storm`` / ``hurricane`` for
         cyclones (GDACS's own class in ``severity_text``, ``Hurricane/Typhoon``
-        counted as ``hurricane`` to match the EONET keyword), ``wildfire`` for
-        fires, ``agricultural drought`` for droughts, ``NULL`` when the source
-        states no subtype.
+        counted as ``hurricane`` to match the EONET keyword, the category word
+        ``storm`` itself when GDACS states no class), ``wildfire`` for
+        fires, ``agricultural drought`` for droughts, and the shared defaults
+        for the categories without a source subtype: ``other`` for
+        earthquakes, ``water discharge`` for floods and ``volcano`` for
+        volcanic events. Droughts GDACS does not qualify (and event types
+        the category map does not know) stay ``NULL``.
     """
     text = F.lower(F.trim(F.col("severity_text")))
     drought_kind = F.regexp_extract(text, r"for ([a-z]+) drought", 1)
+    intensity = (
+        F.when(text.contains("tropical depression"), F.lit("tropical depression"))
+        .when(text.contains("tropical storm"), F.lit("tropical storm"))
+        .when(text.contains("hurricane"), F.lit("hurricane"))
+    )
     return (
-        F.when(
-            category == "storm",
-            F.when(text.contains("tropical depression"), F.lit("tropical depression"))
-            .when(text.contains("tropical storm"), F.lit("tropical storm"))
-            .when(text.contains("hurricane"), F.lit("hurricane")),
-        )
+        F.when(category == "storm", F.coalesce(intensity, F.lit("storm")))
+        .when(category == "earthquake", F.lit("other"))
+        .when(category == "flood", F.lit("water discharge"))
+        .when(category == "volcano", F.lit("volcano"))
         .when(category == "fire", F.lit("wildfire"))
         .when(category == "drought", F.when(drought_kind != "", F.concat_ws(" ", drought_kind, F.lit("drought"))))
         .otherwise(F.lit(None).cast("string"))
@@ -145,11 +152,11 @@ def _danger_rating() -> Column:
     """The alert level mapped onto the shared severity scale (`_cfg.danger_rating_map`).
 
     Returns:
-        ``none`` for ``Green`` (no significant impact expected), ``medium`` for
-        ``Orange`` and ``high`` for ``Red``; ``no_rating`` when the row carries
-        no alert level the map knows (blank, ``NULL`` or an unexpected code) —
-        the value never comes back ``NULL``, so ``no_rating`` marks the rows
-        GDACS does not rate.
+        ``no_rating`` for ``Green`` (no significant impact expected), ``medium``
+        for ``Orange`` and ``high`` for ``Red``; ``no_rating`` also when the row
+        carries no alert level the map knows (blank, ``NULL`` or an unexpected
+        code) — the value never comes back ``NULL``, so ``no_rating`` marks both
+        the green-alert rows and the rows GDACS does not rate.
     """
     known = F.create_map(*[F.lit(item) for pair in _cfg.danger_rating_map.items() for item in pair])
     return F.coalesce(known[F.lower(F.trim(F.col("alert_level")))], F.lit(DangerRating.NO_RATING))

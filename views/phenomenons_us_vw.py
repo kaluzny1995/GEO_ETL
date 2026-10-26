@@ -15,7 +15,7 @@ Display columns (in order):
 * ``latitude``, ``longitude``, ``country_code``, ``state_province``,
   ``place_location`` — passed through for the map pin and its tooltip;
 * ``danger_rating`` — the row's categorical rating passed through as stored
-  (``low`` / ``medium`` / ``high`` / ``extreme`` / ``none`` / ``no_rating``);
+  (``low`` / ``medium`` / ``high`` / ``extreme`` / ``no_rating``);
 * ``metric_name``, ``metric_value``, ``metric_unit`` — the row's own metric;
 * ``other_metrics`` — **Looker Studio friendly text**: every non-``*_unit``
   JSON entry rendered as ``key: value (unit)`` pairs joined by ``"; "``

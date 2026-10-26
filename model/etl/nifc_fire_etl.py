@@ -14,7 +14,7 @@ class NifcFireEtl(EventEtl):
     * ``event_name`` — the perimeter ``incident_name``, ``NULL`` when blank.
     * ``event_category`` — always ``fire``; ``event_subcategory`` — from
       ``fire_type``: ``WF`` → ``wildfire``, ``RX`` → ``prescribed fire``,
-      ``NULL`` when the source states no type.
+      ``fire`` when the source states no type.
     * ``country_code`` — always ``US`` (the layer only publishes US
       perimeters); ``state_province`` — the source ``state`` when present,
       otherwise the download-time stamped ``geocode_state`` (filled in for
