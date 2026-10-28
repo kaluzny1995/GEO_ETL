@@ -24,6 +24,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import EonetEventEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.column_helpers import literal_map
 from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", EonetEventEtlConfig)
@@ -72,7 +73,7 @@ def _state_province(description_state: Column, geocode_state: Column) -> Column:
 
 def _event_category() -> Column:
     """``event_category`` from ``category_id`` (``_cfg.category_map``), snake_cased otherwise."""
-    known = F.create_map(*[F.lit(item) for pair in _cfg.category_map.items() for item in pair])
+    known = literal_map(_cfg.category_map)
     snake_cased = F.lower(F.regexp_replace(F.col("category_id"), r"([a-z0-9])([A-Z])", "$1_$2"))
     return F.coalesce(known[F.col("category_id")], snake_cased)
 

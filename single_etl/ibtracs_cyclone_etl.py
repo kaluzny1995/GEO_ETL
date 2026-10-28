@@ -32,6 +32,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import IbtracsCycloneEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.column_helpers import literal_map, state_province
 from utils.metric_units import KNOT_TO_KMH, standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", IbtracsCycloneEtlConfig)
@@ -46,8 +47,8 @@ def _event_subcategory() -> Column:
         every IBTrACS row is a cyclone, so a point neither agency typed
         (blank status next to ``nature = NR`` in non-US basins) still is one.
     """
-    status = F.create_map(*[F.lit(item) for pair in _cfg.status_words.items() for item in pair])
-    nature = F.create_map(*[F.lit(item) for pair in _cfg.nature_words.items() for item in pair])
+    status = literal_map(_cfg.status_words)
+    nature = literal_map(_cfg.nature_words)
     return F.coalesce(
         status[F.upper(F.trim(F.col("usa_status")))],
         nature[F.upper(F.trim(F.col("nature")))],
@@ -69,19 +70,6 @@ def _country_code(geocode_country: Column) -> Column:
     return F.when(geocode_country != "", geocode_country).otherwise(F.lit(SingleEtlScript.UNKNOWN_CODE))
 
 
-def _state_province(geocode_state: Column) -> Column:
-    """The stamped subdivision, ``NULL`` when the stamp found none.
-
-    Args:
-        geocode_state: ``geocode_state`` column stamped into the CSVs at
-            download time.
-
-    Returns:
-        The point's subdivision code (``US-TX`` → ``TX``), or ``NULL``.
-    """
-    return F.when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
-
-
 def _place_location() -> Column:
     """The IBTrACS region name: the full basin name extended with the sub-basin.
 
@@ -92,8 +80,8 @@ def _place_location() -> Column:
         sub-basins (``NA``, ``MM``); ``NULL`` when the basin itself is
         unknown.
     """
-    basins = F.create_map(*[F.lit(item) for pair in _cfg.basin_names.items() for item in pair])
-    subbasins = F.create_map(*[F.lit(item) for pair in _cfg.subbasin_names.items() for item in pair])
+    basins = literal_map(_cfg.basin_names)
+    subbasins = literal_map(_cfg.subbasin_names)
     basin = basins[F.upper(F.trim(F.col("basin")))]
     subbasin = subbasins[F.upper(F.trim(F.col("subbasin")))]
     return (
@@ -123,7 +111,7 @@ def _sshs_label() -> Column:
         native wording the source itself uses — it travels in ``other_metrics``,
         while :func:`_danger_rating` holds the shared scale).
     """
-    labels = F.create_map(*[F.lit(item) for pair in _cfg.sshs_labels.items() for item in pair])
+    labels = literal_map(_cfg.sshs_labels)
     return labels[F.col("usa_sshs").cast("string")]
 
 
@@ -137,7 +125,7 @@ def _danger_rating() -> Column:
         ``usa_sshs`` ``NULL``, the ``unknown`` class (``-5``) or a code
         `_cfg.danger_rating_map` does not list.
     """
-    known = F.create_map(*[F.lit(item) for pair in _cfg.danger_rating_map.items() for item in pair])
+    known = literal_map(_cfg.danger_rating_map)
     return F.coalesce(known[F.col("usa_sshs").cast("string")], F.lit(DangerRating.NO_RATING))
 
 
@@ -232,7 +220,7 @@ class IbtracsCycloneEtlScript(SingleEtlScript):
             F.col("lat").alias("latitude"),
             F.col("lon").alias("longitude"),
             _country_code(F.col("geocode_country")).alias("country_code"),
-            _state_province(F.col("geocode_state")).alias("state_province"),
+            state_province(F.col("geocode_state")).alias("state_province"),
             _place_location().alias("place_location"),
             F.lit(_cfg.metric_name).alias("metric_name"),
             metric_value.alias("metric_value"),

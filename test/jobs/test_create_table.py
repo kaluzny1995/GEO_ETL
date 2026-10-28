@@ -5,28 +5,11 @@ from pydantic import BaseModel
 
 from factory import TableFactory
 from jobs.create_table import run
+from test.conftest import mock_app_config, mock_db_config
 
 
 class DummyModel(BaseModel):
     name: str
-
-
-def _mock_app_config():
-    cfg = MagicMock()
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {
-        "user": "user",
-        "password": "pass",
-        "driver": "org.postgresql.Driver",
-    }
-    return cfg
 
 
 @pytest.fixture
@@ -38,8 +21,8 @@ def mock_spark():
 
 class TestCreateTableRun:
     @patch("jobs.create_table.TableFactory.get", return_value=DummyModel)
-    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-    @patch("jobs.create_table.AppConfig.from_json", return_value=_mock_app_config())
+    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+    @patch("jobs.create_table.AppConfig.from_json", return_value=mock_app_config())
     @patch("jobs.create_table.execute_ddl")
     @patch("jobs.create_table.create_schema")
     def test_run_returns_success_message(
@@ -50,8 +33,8 @@ class TestCreateTableRun:
         assert "created" in result
 
     @patch("jobs.create_table.TableFactory.get", return_value=DummyModel)
-    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-    @patch("jobs.create_table.AppConfig.from_json", return_value=_mock_app_config())
+    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+    @patch("jobs.create_table.AppConfig.from_json", return_value=mock_app_config())
     @patch("jobs.create_table.execute_ddl")
     @patch("jobs.create_table.create_schema")
     def test_run_creates_geo_schema(
@@ -63,8 +46,8 @@ class TestCreateTableRun:
         assert call_args[0][1] == "geo"
 
     @patch("jobs.create_table.TableFactory.get", return_value=DummyModel)
-    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-    @patch("jobs.create_table.AppConfig.from_json", return_value=_mock_app_config())
+    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+    @patch("jobs.create_table.AppConfig.from_json", return_value=mock_app_config())
     @patch("jobs.create_table.execute_ddl")
     @patch("jobs.create_table.create_schema")
     def test_run_executes_ddl(self, mock_create_schema, mock_execute_ddl, mock_app, mock_db, mock_get, mock_spark):
@@ -85,8 +68,8 @@ class TestCreateTableRun:
         assert "avalanche_org_raw" in TableFactory.tables()
 
     @patch("jobs.create_table.TableFactory.get", return_value=DummyModel)
-    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-    @patch("jobs.create_table.AppConfig.from_json", return_value=_mock_app_config())
+    @patch("jobs.create_table.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+    @patch("jobs.create_table.AppConfig.from_json", return_value=mock_app_config())
     @patch("jobs.create_table.execute_ddl")
     @patch("jobs.create_table.create_schema")
     def test_run_logs_steps(self, mock_create_schema, mock_execute_ddl, mock_app, mock_db, mock_get, mock_spark):

@@ -62,7 +62,10 @@ def _delete_file_date(
     conn = _get_jdbc_connection(spark, jdbc_url, properties)
     try:
         stmt = conn.createStatement()
-        stmt.executeUpdate(f"DELETE FROM {schema}.{table_name} WHERE file_date = '{file_date}'")
+        try:
+            stmt.executeUpdate(f"DELETE FROM {schema}.{table_name} WHERE file_date = '{file_date}'")
+        finally:
+            stmt.close()
     finally:
         conn.close()
 

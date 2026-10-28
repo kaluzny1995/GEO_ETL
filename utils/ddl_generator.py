@@ -109,7 +109,10 @@ def _execute_jdbc(spark: SparkSession, ddl: str, jdbc_url: str, properties: dict
     conn = _get_jdbc_connection(spark, jdbc_url, properties)
     try:
         stmt = conn.createStatement()
-        stmt.execute(ddl)
+        try:
+            stmt.execute(ddl)
+        finally:
+            stmt.close()
     finally:
         conn.close()
 
@@ -130,10 +133,16 @@ def _query_jdbc(spark: SparkSession, sql: str, jdbc_url: str, properties: dict[s
     conn = _get_jdbc_connection(spark, jdbc_url, properties)
     try:
         stmt = conn.createStatement()
-        rs = stmt.executeQuery(sql)
-        if rs.next():
-            return rs.getObject(1)
-        return None
+        try:
+            rs = stmt.executeQuery(sql)
+            try:
+                if rs.next():
+                    return rs.getObject(1)
+                return None
+            finally:
+                rs.close()
+        finally:
+            stmt.close()
     finally:
         conn.close()
 

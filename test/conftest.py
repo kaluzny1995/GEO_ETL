@@ -47,14 +47,59 @@ def mock_app_config_raw2plain():
     return cfg
 
 
-def mock_db_config():
+def mock_db_config(driver: bool = True) -> MagicMock:
+    """SupabaseConnectionConfig mock: the JDBC URL + properties every job test shares.
+
+    Args:
+        driver: Include the JDBC driver property (all tests but the shared
+            single-ETL behaviour suite, whose frame mocks need it absent).
+
+    Returns:
+        The configured MagicMock.
+    """
     cfg = MagicMock()
     cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {
-        "user": "user",
-        "password": "pass",
-        "driver": "org.postgresql.Driver",
-    }
+    properties = {"user": "user", "password": "pass"}
+    if driver:
+        properties["driver"] = "org.postgresql.Driver"
+    cfg.get_jdbc_properties.return_value = properties
+    return cfg
+
+
+def mock_app_config(
+    *,
+    database: bool = True,
+    logging: bool = False,
+    spark: str | None = None,
+    data_directory: str | None = None,
+) -> MagicMock:
+    """AppConfig mock shared by the job and script tests.
+
+    Each scene of the suite reads a different subset of the config — the
+    keywords keep every test on exactly the fields it had when the helpers
+    lived per test file.
+
+    Args:
+        database: Set the ``geo`` schema and JDBC driver on ``cfg.database``.
+        logging: Set ``logs`` / level 20 on ``cfg.logging``.
+        spark: Set ``cfg.spark`` (master + app-name prefix) when given.
+        data_directory: Set ``cfg.data.directory`` when given.
+
+    Returns:
+        The configured MagicMock.
+    """
+    cfg = MagicMock()
+    if database:
+        cfg.database.db_schema = "geo"
+        cfg.database.jdbc_driver = "org.postgresql.Driver"
+    if logging:
+        cfg.logging.directory = "logs"
+        cfg.logging.level_int = 20
+    if spark is not None:
+        cfg.spark.master = "spark://localhost:7078"
+        cfg.spark.app_name_prefix = spark
+    if data_directory is not None:
+        cfg.data.directory = data_directory
     return cfg
 
 

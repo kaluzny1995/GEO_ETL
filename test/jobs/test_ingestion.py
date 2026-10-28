@@ -3,27 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from factory import Raw2PlainScriptFactory, UploadScriptFactory
-
-
-def _mock_app_config():
-    cfg = MagicMock()
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    cfg.logging.directory = "logs"
-    cfg.logging.level_int = 20
-    cfg.data.directory = "../GEO_Download/data"
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {
-        "user": "user",
-        "password": "pass",
-        "driver": "org.postgresql.Driver",
-    }
-    return cfg
+from test.conftest import mock_app_config, mock_db_config
 
 
 @pytest.fixture(autouse=True)
@@ -35,8 +15,11 @@ def _clean_factories():
     Raw2PlainScriptFactory.clear()
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch(
+    "jobs.ingestion.AppConfig.from_json",
+    return_value=mock_app_config(logging=True, data_directory="../GEO_Download/data"),
+)
 def test_ingestion_runs_upload_then_raw2plain(mock_app, mock_db):
     spark = MagicMock()
     upload_script = MagicMock()
@@ -56,8 +39,11 @@ def test_ingestion_runs_upload_then_raw2plain(mock_app, mock_db):
     assert "complete" in result
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch(
+    "jobs.ingestion.AppConfig.from_json",
+    return_value=mock_app_config(logging=True, data_directory="../GEO_Download/data"),
+)
 def test_ingestion_upload_before_raw2plain(mock_app, mock_db):
     spark = MagicMock()
     call_order = []
@@ -86,8 +72,11 @@ def test_ingestion_upload_before_raw2plain(mock_app, mock_db):
     assert call_order == ["upload", "raw2plain"]
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch(
+    "jobs.ingestion.AppConfig.from_json",
+    return_value=mock_app_config(logging=True, data_directory="../GEO_Download/data"),
+)
 def test_ingestion_passes_config_and_db_config(mock_app, mock_db):
     spark = MagicMock()
     upload_script = MagicMock()
@@ -106,8 +95,11 @@ def test_ingestion_passes_config_and_db_config(mock_app, mock_db):
     assert db_cfg is mock_db.return_value
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch(
+    "jobs.ingestion.AppConfig.from_json",
+    return_value=mock_app_config(logging=True, data_directory="../GEO_Download/data"),
+)
 def test_ingestion_passes_logger_to_upload_and_raw2plain(mock_app, mock_db):
     spark = MagicMock()
     upload_script = MagicMock()
@@ -125,8 +117,11 @@ def test_ingestion_passes_logger_to_upload_and_raw2plain(mock_app, mock_db):
     assert raw2plain_script.raw2plain.call_args.kwargs["logger"] is log
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch(
+    "jobs.ingestion.AppConfig.from_json",
+    return_value=mock_app_config(logging=True, data_directory="../GEO_Download/data"),
+)
 def test_ingestion_logs_steps(mock_app, mock_db):
     spark = MagicMock()
     UploadScriptFactory.register("t", MagicMock())
@@ -143,8 +138,11 @@ def test_ingestion_logs_steps(mock_app, mock_db):
     log.info.assert_any_call("Raw2Plain for t complete")
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch(
+    "jobs.ingestion.AppConfig.from_json",
+    return_value=mock_app_config(logging=True, data_directory="../GEO_Download/data"),
+)
 def test_ingestion_fails_when_nothing_to_ingest(mock_app, mock_db):
     """No new file and no pending raw rows → RuntimeError, so the E2E chain stops."""
     # Arrange
@@ -163,8 +161,11 @@ def test_ingestion_fails_when_nothing_to_ingest(mock_app, mock_db):
         run(spark, "t")
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch(
+    "jobs.ingestion.AppConfig.from_json",
+    return_value=mock_app_config(logging=True, data_directory="../GEO_Download/data"),
+)
 def test_ingestion_succeeds_when_only_upload_found_new_files(mock_app, mock_db):
     """A new CSV that produced no new plain rows is still a successful run."""
     # Arrange
@@ -185,8 +186,11 @@ def test_ingestion_succeeds_when_only_upload_found_new_files(mock_app, mock_db):
     assert "complete" in result
 
 
-@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.ingestion.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.ingestion.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch(
+    "jobs.ingestion.AppConfig.from_json",
+    return_value=mock_app_config(logging=True, data_directory="../GEO_Download/data"),
+)
 def test_ingestion_succeeds_when_only_raw2plain_has_pending_rows(mock_app, mock_db):
     """Raw rows left by an earlier crash are transformed — the run must not fail."""
     # Arrange

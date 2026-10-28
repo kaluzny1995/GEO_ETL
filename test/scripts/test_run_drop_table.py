@@ -1,32 +1,12 @@
 from unittest.mock import MagicMock, patch
 
-
-def _mock_app_config():
-    cfg = MagicMock()
-    cfg.spark.master = "spark://localhost:7078"
-    cfg.spark.app_name_prefix = "geo_etl"
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    cfg.logging.directory = "logs"
-    cfg.logging.level_int = 20
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {
-        "user": "user",
-        "password": "pass",
-        "driver": "org.postgresql.Driver",
-    }
-    return cfg
+from test.conftest import mock_app_config, mock_db_config
 
 
 @patch("run_drop_table.SparkSession.builder")
 @patch("run_drop_table.drop_table")
-@patch("run_drop_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_drop_table.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_drop_table.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_drop_table.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_drop_table.setup_logger")
 def test_drop_table_calls_correct_functions(mock_logger, mock_app, mock_db, mock_drop, mock_builder):
     import sys
@@ -45,8 +25,8 @@ def test_drop_table_calls_correct_functions(mock_logger, mock_app, mock_db, mock
 
 @patch("run_drop_table.SparkSession.builder")
 @patch("run_drop_table.drop_table")
-@patch("run_drop_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_drop_table.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_drop_table.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_drop_table.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_drop_table.setup_logger")
 def test_drop_table_logs_success(mock_logger, mock_app, mock_db, mock_drop, mock_builder):
     import sys
@@ -65,8 +45,8 @@ def test_drop_table_logs_success(mock_logger, mock_app, mock_db, mock_drop, mock
 
 @patch("run_drop_table.SparkSession.builder")
 @patch("run_drop_table.drop_table", side_effect=RuntimeError("boom"))
-@patch("run_drop_table.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_drop_table.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_drop_table.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_drop_table.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_drop_table.setup_logger")
 def test_drop_table_failure_is_reraised(mock_logger, mock_app, mock_db, mock_drop, mock_builder):
     import sys

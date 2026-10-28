@@ -155,6 +155,7 @@ GEO_ETL/
 │   │   └── spark-monitor.jar         # Packaged JAR (committed), installed into PySpark's jars/
 │   ├── upload_utils.py               # Shared upload logic (DRY: parse_file_date, get_max_file_date, upload template)
 │   └── view_utils.py                 # Shared view runner (run_view template, HISTORICAL only)
+│   └── column_helpers.py             # Shared Spark column expressions (literal_map, state_province)
 │
 ├── docs/                             # Documentation (this file included)
 │
@@ -260,4 +261,5 @@ GEO_ETL/
         ├── test_script_bases.py
         ├── test_spark_monitor.py
         └── test_view_utils.py            # Shared VIEW runner (subquery read, CREATE OR REPLACE VIEW, empty result)
+│       └── test_column_helpers.py        # Shared column helpers (literal_map, state_province)
 ```

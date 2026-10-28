@@ -1,27 +1,10 @@
 from unittest.mock import MagicMock, patch
 
 from model.enums import LoadType
+from test.conftest import mock_app_config, mock_db_config
 from utils.view_utils import LOAD_TYPE, run_view
 
 QUERY = "SELECT event_name, file_date FROM geo.union_etl WHERE source_name IS NOT NULL;"
-
-
-def _mock_app_config():
-    cfg = MagicMock()
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {
-        "user": "user",
-        "password": "pass",
-        "driver": "org.postgresql.Driver",
-    }
-    return cfg
 
 
 def _mock_spark(rows=("EQ",)):
@@ -41,7 +24,7 @@ class TestRunView:
         logger = MagicMock()
 
         with patch("utils.view_utils.execute_statement"):
-            run_view(spark, _mock_app_config(), _mock_db_config(), "union_etl", "union_vw", QUERY, logger=logger)
+            run_view(spark, mock_app_config(), mock_db_config(), "union_etl", "union_vw", QUERY, logger=logger)
 
         spark.read.jdbc.assert_called_once_with(
             url="jdbc:postgresql://db.example.com:5432/postgres",
@@ -55,8 +38,8 @@ class TestRunView:
 
     def test_defines_the_view_with_create_or_replace(self):
         spark = _mock_spark()
-        config = _mock_app_config()
-        db_config = _mock_db_config()
+        config = mock_app_config()
+        db_config = mock_db_config()
         expected_ddl = f"CREATE OR REPLACE VIEW geo.union_vw AS {QUERY.strip().rstrip(';')};"
 
         with patch("utils.view_utils.execute_statement") as mock_exec:
@@ -70,7 +53,7 @@ class TestRunView:
         spark = _mock_spark()
 
         with patch("utils.view_utils.execute_statement") as mock_exec:
-            run_view(spark, _mock_app_config(), _mock_db_config(), "union_etl", "union_vw", QUERY, logger=MagicMock())
+            run_view(spark, mock_app_config(), mock_db_config(), "union_etl", "union_vw", QUERY, logger=MagicMock())
 
         # The subquery wrapping must not see the statement terminator...
         assert spark.read.jdbc.call_args.kwargs["table"] == (
@@ -86,7 +69,7 @@ class TestRunView:
         spark = _mock_spark()
 
         with patch("utils.view_utils.execute_statement"):
-            outcome = run_view(spark, _mock_app_config(), _mock_db_config(), "union_etl", "union_vw", QUERY)
+            outcome = run_view(spark, mock_app_config(), mock_db_config(), "union_etl", "union_vw", QUERY)
 
         assert outcome.loaded is True
         assert outcome.summary == "HISTORICAL: defined view geo.union_vw over geo.union_etl"
@@ -95,7 +78,7 @@ class TestRunView:
         spark = _mock_spark(rows=())
 
         with patch("utils.view_utils.execute_statement"):
-            outcome = run_view(spark, _mock_app_config(), _mock_db_config(), "union_etl", "union_vw", QUERY)
+            outcome = run_view(spark, mock_app_config(), mock_db_config(), "union_etl", "union_vw", QUERY)
 
         assert outcome.loaded is False
         assert outcome.summary == "No records loaded into union_vw — query returned no rows from union_etl"
@@ -104,7 +87,7 @@ class TestRunView:
         spark = _mock_spark(rows=())
 
         with patch("utils.view_utils.execute_statement") as mock_exec:
-            run_view(spark, _mock_app_config(), _mock_db_config(), "union_etl", "union_vw", QUERY)
+            run_view(spark, mock_app_config(), mock_db_config(), "union_etl", "union_vw", QUERY)
 
         mock_exec.assert_not_called()
 
@@ -113,7 +96,7 @@ class TestRunView:
         logger = MagicMock()
 
         with patch("utils.view_utils.execute_statement"):
-            run_view(spark, _mock_app_config(), _mock_db_config(), "union_etl", "union_vw", QUERY, logger=logger)
+            run_view(spark, mock_app_config(), mock_db_config(), "union_etl", "union_vw", QUERY, logger=logger)
 
         messages = [call.args[0] for call in logger.info.call_args_list]
         assert "---- View started: geo.union_etl → geo.union_vw ----" in messages
@@ -123,6 +106,6 @@ class TestRunView:
         spark = _mock_spark()
 
         with patch("utils.view_utils.execute_statement"):
-            outcome = run_view(spark, _mock_app_config(), _mock_db_config(), "union_etl", "union_vw", QUERY)
+            outcome = run_view(spark, mock_app_config(), mock_db_config(), "union_etl", "union_vw", QUERY)
 
         assert outcome.loaded is True

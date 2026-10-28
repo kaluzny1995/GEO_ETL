@@ -25,6 +25,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import UsgsEarthquakeEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.column_helpers import literal_map
 from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", UsgsEarthquakeEtlConfig)
@@ -36,12 +37,12 @@ for _country, _iso_code in _cfg.country_code_map.items():
 
 def _country_map() -> Column:
     """Literal ``country name → ISO code`` map column built from `_cfg.country_code_map`."""
-    return F.create_map(*[F.lit(item) for pair in _cfg.country_code_map.items() for item in pair])
+    return literal_map(_cfg.country_code_map)
 
 
 def _country_name_map() -> Column:
     """Literal ``ISO code → country name`` map column built from `_country_name_by_code`."""
-    return F.create_map(*[F.lit(item) for pair in _country_name_by_code.items() for item in pair])
+    return literal_map(_country_name_by_code)
 
 
 def _place_suffix() -> Column:

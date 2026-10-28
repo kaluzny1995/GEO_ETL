@@ -28,6 +28,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import GdacsEventEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.column_helpers import literal_map, state_province
 from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", GdacsEventEtlConfig)
@@ -35,7 +36,7 @@ _cfg = load_dataset(__file__, "single_etl", GdacsEventEtlConfig)
 
 def _event_category() -> Column:
     """``event_category`` from ``event_type`` (``_cfg.category_map``), lowercased otherwise."""
-    known = F.create_map(*[F.lit(item) for pair in _cfg.category_map.items() for item in pair])
+    known = literal_map(_cfg.category_map)
     trimmed = F.trim(F.col("event_type"))
     return F.coalesce(known[trimmed], F.lower(trimmed))
 
@@ -86,26 +87,13 @@ def _country_code(geocode_country: Column) -> Column:
         The row's ISO 3166-1 alpha-2 country code; a code `_cfg.country_code_map`
         does not know (or a missing one) resolves from the stamped column.
     """
-    alpha2 = F.create_map(*[F.lit(item) for pair in _cfg.country_code_map.items() for item in pair])
+    alpha2 = literal_map(_cfg.country_code_map)
     source_alpha2 = alpha2[F.coalesce(F.upper(F.trim(F.col("country_code"))), F.lit(""))]
     return (
         F.when(source_alpha2.isNotNull(), source_alpha2)
         .when(geocode_country != "", geocode_country)
         .otherwise(F.lit(SingleEtlScript.UNKNOWN_CODE))
     )
-
-
-def _state_province(geocode_state: Column) -> Column:
-    """The stamped subdivision, ``NULL`` when the stamp found none.
-
-    Args:
-        geocode_state: ``geocode_state`` column stamped into the CSVs at
-            download time.
-
-    Returns:
-        The row's subdivision code (``US-TX`` → ``TX``), or ``NULL``.
-    """
-    return F.when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
 
 
 def _metric_name(category: Column) -> Column:
@@ -158,7 +146,7 @@ def _danger_rating() -> Column:
         code) — the value never comes back ``NULL``, so ``no_rating`` marks both
         the green-alert rows and the rows GDACS does not rate.
     """
-    known = F.create_map(*[F.lit(item) for pair in _cfg.danger_rating_map.items() for item in pair])
+    known = literal_map(_cfg.danger_rating_map)
     return F.coalesce(known[F.lower(F.trim(F.col("alert_level")))], F.lit(DangerRating.NO_RATING))
 
 
@@ -198,7 +186,7 @@ class GdacsEventEtlScript(SingleEtlScript):
             F.col("latitude"),
             F.col("longitude"),
             _country_code(F.col("geocode_country")).alias("country_code"),
-            _state_province(F.col("geocode_state")).alias("state_province"),
+            state_province(F.col("geocode_state")).alias("state_province"),
             _place_location().alias("place_location"),
             _metric_name(category).alias("metric_name"),
             metric_value.alias("metric_value"),

@@ -22,6 +22,7 @@ from single_etl.union_etl import UnionEtlScript
 from single_etl.usgs_earthquake_etl import UsgsEarthquakeEtlScript
 from single_etl.usgs_nwis_etl import UsgsNwisEtlScript
 from single_etl.usgs_volcano_etl import UsgsVolcanoEtlScript
+from test.conftest import mock_app_config, mock_db_config
 
 RUN_CASES = [
     (AvalancheOrgEtlScript, "geo.avalanche_org", "geo.avalanche_org_etl"),
@@ -42,20 +43,6 @@ INCREMENTAL_CASES = [
     (GdacsEventEtlScript, "geo.gdacs_event", "geo.gdacs_event_etl"),
     (IbtracsCycloneEtlScript, "geo.ibtracs_cyclone", "geo.ibtracs_cyclone_etl"),
 ]
-
-
-def _mock_config():
-    cfg = MagicMock()
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {"user": "user", "password": "pass"}
-    return cfg
 
 
 def _spark_with_rows():
@@ -97,7 +84,7 @@ class TestRun:
             _patch_convert(script_cls) as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=None),
         ):
-            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
+            outcome = script_cls().run(spark, mock_app_config(), mock_db_config(driver=False))
 
         # Assert
         assert outcome.loaded is True
@@ -119,7 +106,7 @@ class TestRun:
             _patch_convert(script_cls) as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
-            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
+            outcome = script_cls().run(spark, mock_app_config(), mock_db_config(driver=False))
 
         # Assert
         assert outcome.loaded is True
@@ -141,7 +128,9 @@ class TestRun:
             _patch_convert(script_cls) as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
-            outcome = script_cls().run(spark, _mock_config(), _mock_db_config(), load_type=LoadType.HISTORICAL)
+            outcome = script_cls().run(
+                spark, mock_app_config(), mock_db_config(driver=False), load_type=LoadType.HISTORICAL
+            )
 
         # Assert
         assert outcome.loaded is True
@@ -159,8 +148,8 @@ class TestRun:
         with patch.object(script_cls, "_convert"), patch("utils.etl_utils.get_max_file_date", return_value=None):
             outcome = script_cls().run(
                 spark,
-                _mock_config(),
-                _mock_db_config(),
+                mock_app_config(),
+                mock_db_config(driver=False),
                 load_type=LoadType.INCREMENTAL,
                 logger=logger,
             )
@@ -184,7 +173,7 @@ class TestRun:
             patch.object(script_cls, "_convert") as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
-            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
+            outcome = script_cls().run(spark, mock_app_config(), mock_db_config(driver=False))
 
         # Assert — the script reports the empty run, jobs/single_etl.py raises
         assert outcome.loaded is False
@@ -205,7 +194,7 @@ class TestRun:
             patch.object(script_cls, "_convert", return_value=converted) as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
-            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
+            outcome = script_cls().run(spark, mock_app_config(), mock_db_config(driver=False))
 
         # Assert
         assert outcome.loaded is False
@@ -223,7 +212,7 @@ class TestRun:
             patch.object(script_cls, "_convert") as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
-            script_cls().run(spark, _mock_config(), _mock_db_config())
+            script_cls().run(spark, mock_app_config(), mock_db_config(driver=False))
 
         # Assert
         expected_sources = [source_table] if isinstance(source_table, str) else list(source_table)
@@ -260,7 +249,7 @@ class TestStackedProvenance:
             patch.object(UnionEtlScript, "_convert"),
             patch("utils.etl_utils.get_max_file_date", side_effect=fake_max_file_date) as mock_max,
         ):
-            outcome = UnionEtlScript().run(spark, _mock_config(), _mock_db_config())
+            outcome = UnionEtlScript().run(spark, mock_app_config(), mock_db_config(driver=False))
 
         # Assert — one global query (load type) + one threshold query per source
         assert outcome.loaded is True
@@ -295,8 +284,8 @@ class TestStackedProvenance:
         ):
             outcome = UnionEtlScript().run(
                 spark,
-                _mock_config(),
-                _mock_db_config(),
+                mock_app_config(),
+                mock_db_config(driver=False),
                 logger=logger,
             )
 
@@ -327,7 +316,7 @@ class TestDeduplication:
             _patch_convert(script_cls) as mock_convert,
             patch("utils.etl_utils.get_max_file_date", return_value=dt.date(2026, 9, 28)),
         ):
-            outcome = script_cls().run(spark, _mock_config(), _mock_db_config())
+            outcome = script_cls().run(spark, mock_app_config(), mock_db_config(driver=False))
 
         # Assert — the frame written is the deduplicated one, keyed per file
         assert outcome.loaded is True

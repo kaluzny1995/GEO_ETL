@@ -101,7 +101,7 @@ _cfg = load_dataset(__file__, "single_etl", AvalancheOrgEtlConfig)
 
 
 def _event_category() -> Column:
-    known = F.create_map(*[F.lit(item) for pair in _cfg.category_map.items() for item in pair])
+    known = literal_map(_cfg.category_map)  # utils.column_helpers
     ...
 ```
 

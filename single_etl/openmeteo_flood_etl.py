@@ -44,6 +44,7 @@ from model.config import AppConfig
 from model.config.datasets import OpenMeteoFloodEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.column_helpers import literal_map, state_province
 
 _cfg = load_dataset(__file__, "single_etl", OpenMeteoFloodEtlConfig)
 
@@ -101,26 +102,12 @@ def _country_code(geocode_country: Column) -> Column:
         the reference point, and an empty stamp counts as a miss
         (``SingleEtlScript.UNKNOWN_CODE``).
     """
-    mapping = F.create_map(*[F.lit(item) for pair in _cfg.country_code_map.items() for item in pair])
+    mapping = literal_map(_cfg.country_code_map)
     return F.coalesce(
         mapping[F.trim(F.col("country"))],
         F.when(geocode_country != "", geocode_country),
         F.lit(SingleEtlScript.UNKNOWN_CODE),
     )
-
-
-def _state_province(geocode_state: Column) -> Column:
-    """The stamped subdivision of the reference point, ``NULL`` when empty.
-
-    Args:
-        geocode_state: ``geocode_state`` column stamped into the CSVs at
-            download time.
-
-    Returns:
-        The stamped answer; an empty string (no subdivision found) or a
-        ``NULL`` (no coordinate) resolves to ``NULL``.
-    """
-    return F.when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
 
 
 def _event_name() -> Column:
@@ -382,7 +369,7 @@ class OpenMeteoFloodEtlScript(SingleEtlScript):
             F.col("latitude"),
             F.col("longitude"),
             _country_code(F.col("geocode_country")).alias("country_code"),
-            _state_province(F.col("geocode_state")).alias("state_province"),
+            state_province(F.col("geocode_state")).alias("state_province"),
             _place_location().alias("place_location"),
             F.lit(_cfg.metric_name).alias("metric_name"),
             F.coalesce(F.col("discharge_m3s"), F.lit(0.0)).alias("metric_value"),

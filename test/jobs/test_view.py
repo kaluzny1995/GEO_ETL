@@ -3,27 +3,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from factory import ViewScriptFactory
+from test.conftest import mock_app_config, mock_db_config
 from utils.etl_utils import EtlOutcome
-
-
-def _mock_app_config():
-    cfg = MagicMock()
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    cfg.logging.directory = "logs"
-    cfg.logging.level_int = 20
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {
-        "user": "user",
-        "password": "pass",
-        "driver": "org.postgresql.Driver",
-    }
-    return cfg
 
 
 @pytest.fixture(autouse=True)
@@ -33,8 +14,8 @@ def _clean_registry():
     ViewScriptFactory.clear()
 
 
-@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.view.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.view.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_view_runs_registered_script(mock_app, mock_db):
     spark = MagicMock()
     script = MagicMock()
@@ -51,8 +32,8 @@ def test_view_runs_registered_script(mock_app, mock_db):
     assert "HISTORICAL: defined view geo.example_vw over geo.example_etl" in result
 
 
-@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.view.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.view.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_view_passes_logger(mock_app, mock_db):
     spark = MagicMock()
     logger = MagicMock()
@@ -66,8 +47,8 @@ def test_view_passes_logger(mock_app, mock_db):
     assert script.run.call_args[1]["logger"] is logger
 
 
-@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.view.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.view.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_view_passes_no_load_type(mock_app, mock_db):
     """Views are HISTORICAL-only — the job never hands a load type to the script."""
     script = MagicMock()
@@ -80,8 +61,8 @@ def test_view_passes_no_load_type(mock_app, mock_db):
     assert "load_type" not in script.run.call_args[1]
 
 
-@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.view.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.view.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_view_unknown_script_raises(mock_app, mock_db):
     from jobs.view import run
 
@@ -89,8 +70,8 @@ def test_view_unknown_script_raises(mock_app, mock_db):
         run(MagicMock(), "missing")
 
 
-@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.view.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.view.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_view_loads_configs(mock_app, mock_db):
     ViewScriptFactory.register("my_vw", MagicMock())
 
@@ -102,8 +83,8 @@ def test_view_loads_configs(mock_app, mock_db):
     mock_db.assert_called_once_with()
 
 
-@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.view.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.view.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.view.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_view_fails_when_query_returns_no_rows(mock_app, mock_db):
     """No rows from the query → RuntimeError, so the E2E chain stops and the view stays untouched."""
     # Arrange

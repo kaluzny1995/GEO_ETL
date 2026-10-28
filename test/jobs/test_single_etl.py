@@ -4,27 +4,8 @@ import pytest
 
 from factory import SingleEtlFactory
 from model.enums import LoadType
+from test.conftest import mock_app_config, mock_db_config
 from utils.etl_utils import EtlOutcome
-
-
-def _mock_app_config():
-    cfg = MagicMock()
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    cfg.logging.directory = "logs"
-    cfg.logging.level_int = 20
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {
-        "user": "user",
-        "password": "pass",
-        "driver": "org.postgresql.Driver",
-    }
-    return cfg
 
 
 @pytest.fixture(autouse=True)
@@ -34,8 +15,8 @@ def _clean_registry():
     SingleEtlFactory.clear()
 
 
-@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.single_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.single_etl.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_single_etl_runs_registered_script(mock_app, mock_db):
     spark = MagicMock()
     script = MagicMock()
@@ -53,8 +34,8 @@ def test_single_etl_runs_registered_script(mock_app, mock_db):
     assert "HISTORICAL: wrote to geo.example_target" in result
 
 
-@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.single_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.single_etl.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_single_etl_passes_load_type(mock_app, mock_db):
     spark = MagicMock()
     script = MagicMock()
@@ -68,8 +49,8 @@ def test_single_etl_passes_load_type(mock_app, mock_db):
     assert script.run.call_args[1]["load_type"] is LoadType.HISTORICAL
 
 
-@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.single_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.single_etl.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_single_etl_passes_logger(mock_app, mock_db):
     spark = MagicMock()
     logger = MagicMock()
@@ -83,8 +64,8 @@ def test_single_etl_passes_logger(mock_app, mock_db):
     assert script.run.call_args[1]["logger"] is logger
 
 
-@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.single_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.single_etl.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_single_etl_unknown_script_raises(mock_app, mock_db):
     from jobs.single_etl import run
 
@@ -92,8 +73,8 @@ def test_single_etl_unknown_script_raises(mock_app, mock_db):
         run(MagicMock(), "missing")
 
 
-@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.single_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.single_etl.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_single_etl_loads_configs(mock_app, mock_db):
     SingleEtlFactory.register("my_etl", MagicMock(return_value="done"))
 
@@ -105,8 +86,8 @@ def test_single_etl_loads_configs(mock_app, mock_db):
     mock_db.assert_called_once_with()
 
 
-@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.single_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.single_etl.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.single_etl.AppConfig.from_json", return_value=mock_app_config(logging=True))
 def test_single_etl_fails_when_nothing_loaded(mock_app, mock_db):
     """No record in the target table → RuntimeError, so the E2E chain stops."""
     # Arrange

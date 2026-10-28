@@ -28,6 +28,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import NifcFireEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.column_helpers import literal_map
 from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", NifcFireEtlConfig)
@@ -41,7 +42,7 @@ def _event_subcategory() -> Column:
         ``RX`` codes; a blank or unknown ``fire_type`` (a perimeter the layer
         types as nothing) resolves to ``fire``.
     """
-    known = F.create_map(*[F.lit(item) for pair in _cfg.fire_type_map.items() for item in pair])
+    known = literal_map(_cfg.fire_type_map)
     return F.coalesce(known[F.trim(F.col("fire_type"))], F.lit("fire"))
 
 

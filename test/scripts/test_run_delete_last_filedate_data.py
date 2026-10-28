@@ -4,34 +4,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
-def _mock_app_config():
-    cfg = MagicMock()
-    cfg.spark.master = "spark://localhost:7078"
-    cfg.spark.app_name_prefix = "geo_etl"
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    cfg.logging.directory = "logs"
-    cfg.logging.level_int = 20
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {
-        "user": "user",
-        "password": "pass",
-        "driver": "org.postgresql.Driver",
-    }
-    return cfg
+from test.conftest import mock_app_config, mock_db_config
 
 
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_deletes_from_both_tables(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
@@ -56,8 +36,8 @@ def test_deletes_from_both_tables(mock_logger, mock_app, mock_db, mock_max_date,
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_derives_plain_table_name(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
@@ -81,8 +61,8 @@ def test_derives_plain_table_name(mock_logger, mock_app, mock_db, mock_max_date,
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value=None)
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
@@ -99,8 +79,8 @@ def test_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_date, mock_
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_etl_suffix_deletes_only_the_etl_table(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
@@ -127,8 +107,8 @@ def test_etl_suffix_deletes_only_the_etl_table(mock_logger, mock_app, mock_db, m
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value=None)
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_etl_suffix_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
@@ -142,23 +122,21 @@ def test_etl_suffix_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_
     mock_conn.assert_not_called()
 
 
+@pytest.mark.parametrize("arg", ["data_quality", "data_quality_raw", "data_quality_etl"])
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
-def test_rejects_the_data_quality_table(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
+def test_rejects_the_data_quality_table(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder, arg):
     import sys
-
-    import pytest
 
     from run_delete_last_filedate_data import main
 
-    for arg in ("data_quality", "data_quality_raw", "data_quality_etl"):
-        sys.argv = ["run_delete_last_filedate_data.py", arg]
-        with pytest.raises(ValueError, match="data_quality"):
-            main()
+    sys.argv = ["run_delete_last_filedate_data.py", arg]
+    with pytest.raises(ValueError, match="data_quality"):
+        main()
 
     mock_conn.assert_not_called()
     mock_max_date.assert_not_called()
@@ -168,8 +146,8 @@ def test_rejects_the_data_quality_table(mock_logger, mock_app, mock_db, mock_max
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_logs_delete_info(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
@@ -192,8 +170,8 @@ def test_logs_delete_info(mock_logger, mock_app, mock_db, mock_max_date, mock_co
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_stops_spark_after_completion(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
@@ -214,8 +192,8 @@ def test_stops_spark_after_completion(mock_logger, mock_app, mock_db, mock_max_d
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
 def test_stops_spark_on_exception(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys

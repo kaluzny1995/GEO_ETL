@@ -33,6 +33,7 @@ from pyspark.sql import functions as F
 from model.config.datasets import AvalancheOrgEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.column_helpers import literal_map
 
 _cfg = load_dataset(__file__, "single_etl", AvalancheOrgEtlConfig)
 
@@ -53,7 +54,7 @@ def _danger_rating() -> Column:
     rating = F.lower(F.coalesce(F.trim(F.col("danger_rating")), F.lit("")))
     level = F.col("danger_level")
     unrated = level.isNull() | (level <= 0) | rating.isin("", "no rating", "no_rating")
-    known = F.create_map(*[F.lit(item) for pair in _cfg.danger_rating_map.items() for item in pair])
+    known = literal_map(_cfg.danger_rating_map)
     return F.coalesce(F.when(~unrated, known[level.cast("string")]), F.lit(DangerRating.NO_RATING))
 
 

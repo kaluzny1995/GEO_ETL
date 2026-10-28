@@ -203,79 +203,87 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
     df_full = retry_connection(
         lambda: spark.read.jdbc(url=jdbc_url, table=source, properties=properties), logger=logger
     )
-    df = df_full if max_stored is None else df_full.filter(F.col(FILE_DATE_COL) > F.lit(max_stored.isoformat()))
-
-    if not retry_connection(lambda: df.head(1), logger=logger):
-        if max_stored is None:
-            logger.warning(f"No data in {source} — no metrics written")
-            return f"No data in {source} — no metrics written."
-        logger.warning(f"No new file_date to measure for {table_name} — metrics are up to date")
-        return f"No new file_date for {table_name} — metrics are up to date."
-
-    if overall:
-        load_type = "OVERALL"
-    elif max_stored is None:
-        load_type = "HISTORICAL"
-    else:
-        load_type = "INCREMENTAL"
-
-    metrics_df = data_quality_rows(df, table_name=table_name, model=model, overall=overall).cache()
+    # The frame is scanned three times (empty check, dated metrics, overall
+    # snapshot) — cache it after the read and release it in a finally block.
+    df_full.cache()
     try:
-        row_count = retry_connection(metrics_df.count, logger=logger)
-        if overall:
-            logger.info(f"Computed {row_count} metrics for all rows of {table_name} (OVERALL)")
-        else:
-            file_date_count = retry_connection(
-                lambda: metrics_df.select(FILE_DATE_COL).distinct().count(), logger=logger
-            )
-            logger.info(
-                f"Computed {row_count} metrics for {file_date_count} file_date(s) in {table_name} ({load_type})"
-            )
+        df = df_full if max_stored is None else df_full.filter(F.col(FILE_DATE_COL) > F.lit(max_stored.isoformat()))
+
+        if not retry_connection(lambda: df.head(1), logger=logger):
+            if max_stored is None:
+                logger.warning(f"No data in {source} — no metrics written")
+                return f"No data in {source} — no metrics written."
+            logger.warning(f"No new file_date to measure for {table_name} — metrics are up to date")
+            return f"No new file_date for {table_name} — metrics are up to date."
 
         if overall:
-            delete_sql = (
-                f"DELETE FROM {schema}.{METRICS_TABLE} "
-                f"WHERE table_name = '{table_name}' AND file_date = '{OVERALL_FILE_DATE}'"
-            )
+            load_type = "OVERALL"
         elif max_stored is None:
-            delete_sql = (
-                f"DELETE FROM {schema}.{METRICS_TABLE} "
-                f"WHERE table_name = '{table_name}' AND file_date <> '{OVERALL_FILE_DATE}'"
-            )
+            load_type = "HISTORICAL"
         else:
-            delete_sql = (
-                f"DELETE FROM {schema}.{METRICS_TABLE} "
-                f"WHERE table_name = '{table_name}' AND file_date > '{max_stored.isoformat()}' "
-                f"AND file_date <> '{OVERALL_FILE_DATE}'"
+            load_type = "INCREMENTAL"
+
+        metrics_df = data_quality_rows(df, table_name=table_name, model=model, overall=overall).cache()
+        try:
+            row_count = retry_connection(metrics_df.count, logger=logger)
+            if overall:
+                logger.info(f"Computed {row_count} metrics for all rows of {table_name} (OVERALL)")
+            else:
+                file_date_count = retry_connection(
+                    lambda: metrics_df.select(FILE_DATE_COL).distinct().count(), logger=logger
+                )
+                logger.info(
+                    f"Computed {row_count} metrics for {file_date_count} file_date(s) in {table_name} ({load_type})"
+                )
+
+            if overall:
+                delete_sql = (
+                    f"DELETE FROM {schema}.{METRICS_TABLE} "
+                    f"WHERE table_name = '{table_name}' AND file_date = '{OVERALL_FILE_DATE}'"
+                )
+            elif max_stored is None:
+                delete_sql = (
+                    f"DELETE FROM {schema}.{METRICS_TABLE} "
+                    f"WHERE table_name = '{table_name}' AND file_date <> '{OVERALL_FILE_DATE}'"
+                )
+            else:
+                delete_sql = (
+                    f"DELETE FROM {schema}.{METRICS_TABLE} "
+                    f"WHERE table_name = '{table_name}' AND file_date > '{max_stored.isoformat()}' "
+                    f"AND file_date <> '{OVERALL_FILE_DATE}'"
+                )
+
+            def _replace_stored_metrics() -> None:
+                logger.info(f"Replacing stored metrics for {table_name}...")
+                execute_statement(spark, delete_sql, jdbc_url, properties)
+                logger.info(f"Writing to {schema}.{METRICS_TABLE}...")
+                metrics_df.write.jdbc(
+                    url=jdbc_url, table=f"{schema}.{METRICS_TABLE}", mode="append", properties=properties
+                )
+
+            retry_connection(_replace_stored_metrics, logger=logger)
+            logger.info(f"Data quality metrics complete: {row_count} rows written to {schema}.{METRICS_TABLE}")
+        finally:
+            metrics_df.unpersist()
+
+        overall_row_count = 0
+        if not overall:
+            overall_row_count = _refresh_overall_snapshot(
+                spark,
+                df_full,
+                schema=schema,
+                table_name=table_name,
+                model=model,
+                jdbc_url=jdbc_url,
+                properties=properties,
+                logger=logger,
             )
 
-        def _replace_stored_metrics() -> None:
-            logger.info(f"Replacing stored metrics for {table_name}...")
-            execute_statement(spark, delete_sql, jdbc_url, properties)
-            logger.info(f"Writing to {schema}.{METRICS_TABLE}...")
-            metrics_df.write.jdbc(url=jdbc_url, table=f"{schema}.{METRICS_TABLE}", mode="append", properties=properties)
-
-        retry_connection(_replace_stored_metrics, logger=logger)
-        logger.info(f"Data quality metrics complete: {row_count} rows written to {schema}.{METRICS_TABLE}")
-    finally:
-        metrics_df.unpersist()
-
-    overall_row_count = 0
-    if not overall:
-        overall_row_count = _refresh_overall_snapshot(
-            spark,
-            df_full,
-            schema=schema,
-            table_name=table_name,
-            model=model,
-            jdbc_url=jdbc_url,
-            properties=properties,
-            logger=logger,
+        if overall:
+            return f"Data quality (OVERALL) for {table_name} written to {schema}.{METRICS_TABLE} — {row_count} metrics."
+        return (
+            f"Data quality ({load_type}) for {table_name} written to {schema}.{METRICS_TABLE} — "
+            f"{row_count} metrics (overall snapshot: {overall_row_count})."
         )
-
-    if overall:
-        return f"Data quality (OVERALL) for {table_name} written to {schema}.{METRICS_TABLE} — {row_count} metrics."
-    return (
-        f"Data quality ({load_type}) for {table_name} written to {schema}.{METRICS_TABLE} — "
-        f"{row_count} metrics (overall snapshot: {overall_row_count})."
-    )
+    finally:
+        df_full.unpersist()

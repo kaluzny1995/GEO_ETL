@@ -6,28 +6,11 @@ import pytest
 from pydantic import BaseModel
 
 from jobs.data_quality import run
+from test.conftest import mock_app_config, mock_db_config
 
 
 class DummyModel(BaseModel):
     name: str
-
-
-def _mock_app_config():
-    cfg = MagicMock()
-    cfg.database.db_schema = "geo"
-    cfg.database.jdbc_driver = "org.postgresql.Driver"
-    return cfg
-
-
-def _mock_db_config():
-    cfg = MagicMock()
-    cfg.get_jdbc_url.return_value = "jdbc:postgresql://db.example.com:5432/postgres"
-    cfg.get_jdbc_properties.return_value = {
-        "user": "user",
-        "password": "pass",
-        "driver": "org.postgresql.Driver",
-    }
-    return cfg
 
 
 def _metric_row_count():
@@ -87,8 +70,8 @@ def mock_spark():
 @patch("jobs.data_quality.execute_statement")
 @patch("jobs.data_quality.execute_ddl")
 @patch("jobs.data_quality.create_schema")
-@patch("jobs.data_quality.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.data_quality.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.data_quality.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.data_quality.AppConfig.from_json", return_value=mock_app_config())
 @patch("jobs.data_quality.TableFactory.get", return_value=DummyModel)
 class TestHistoricalRun:
     """No metrics stored yet → every file_date is measured."""
@@ -282,8 +265,8 @@ class TestHistoricalRun:
 @patch("jobs.data_quality.execute_statement")
 @patch("jobs.data_quality.execute_ddl")
 @patch("jobs.data_quality.create_schema")
-@patch("jobs.data_quality.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.data_quality.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.data_quality.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.data_quality.AppConfig.from_json", return_value=mock_app_config())
 @patch("jobs.data_quality.TableFactory.get", return_value=DummyModel)
 class TestIncrementalRun:
     """Metrics already stored → only newer file_dates are measured."""
@@ -467,8 +450,8 @@ class TestIncrementalRun:
 @patch("jobs.data_quality.execute_statement")
 @patch("jobs.data_quality.execute_ddl")
 @patch("jobs.data_quality.create_schema")
-@patch("jobs.data_quality.SupabaseConnectionConfig.from_env", return_value=_mock_db_config())
-@patch("jobs.data_quality.AppConfig.from_json", return_value=_mock_app_config())
+@patch("jobs.data_quality.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
+@patch("jobs.data_quality.AppConfig.from_json", return_value=mock_app_config())
 @patch("jobs.data_quality.TableFactory.get", return_value=DummyModel)
 class TestOverallRun:
     """``overall=True`` measures every row as one ``'overall'`` snapshot."""

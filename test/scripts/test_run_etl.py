@@ -3,19 +3,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from model.enums import JobType, LoadType
-
-
-def _mock_app_config():
-    cfg = MagicMock()
-    cfg.logging.directory = "logs"
-    cfg.logging.level_int = 20
-    cfg.spark.master = "spark://localhost:7078"
-    cfg.spark.app_name_prefix = "GEO_ETL"
-    return cfg
+from test.conftest import mock_app_config
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_dispatches_create_job(mock_logger, mock_create, mock_config, mock_spark):
@@ -32,7 +24,7 @@ def test_main_dispatches_create_job(mock_logger, mock_create, mock_config, mock_
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_dispatches_ingestion_job(mock_logger, mock_create, mock_config, mock_spark):
@@ -49,7 +41,7 @@ def test_main_dispatches_ingestion_job(mock_logger, mock_create, mock_config, mo
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_dispatches_data_quality_job(mock_logger, mock_create, mock_config, mock_spark):
@@ -66,7 +58,7 @@ def test_main_dispatches_data_quality_job(mock_logger, mock_create, mock_config,
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_data_quality_passes_plain_table_name(mock_logger, mock_create, mock_config, mock_spark):
@@ -84,7 +76,7 @@ def test_data_quality_passes_plain_table_name(mock_logger, mock_create, mock_con
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_passes_table_name_to_job(mock_logger, mock_create, mock_config, mock_spark):
@@ -103,7 +95,7 @@ def test_main_passes_table_name_to_job(mock_logger, mock_create, mock_config, mo
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_creates_spark_session(mock_logger, mock_create, mock_config, mock_spark):
@@ -121,7 +113,7 @@ def test_main_creates_spark_session(mock_logger, mock_create, mock_config, mock_
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_stops_spark_after_job(mock_logger, mock_create, mock_config, mock_spark):
@@ -139,7 +131,7 @@ def test_main_stops_spark_after_job(mock_logger, mock_create, mock_config, mock_
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_stops_spark_on_exception(mock_logger, mock_create, mock_config, mock_spark):
@@ -158,7 +150,7 @@ def test_main_stops_spark_on_exception(mock_logger, mock_create, mock_config, mo
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_passes_logger_to_job(mock_logger, mock_create, mock_config, mock_spark):
@@ -177,7 +169,7 @@ def test_main_passes_logger_to_job(mock_logger, mock_create, mock_config, mock_s
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_invalid_job_type_exits(mock_logger, mock_create, mock_config, mock_spark):
@@ -191,7 +183,7 @@ def test_main_invalid_job_type_exits(mock_logger, mock_create, mock_config, mock
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_ingestion_log_uses_name_without_raw(mock_logger, mock_create, mock_config, mock_spark):
@@ -210,7 +202,7 @@ def test_ingestion_log_uses_name_without_raw(mock_logger, mock_create, mock_conf
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_ingestion_passes_raw_name_to_job(mock_logger, mock_create, mock_config, mock_spark):
@@ -228,7 +220,7 @@ def test_ingestion_passes_raw_name_to_job(mock_logger, mock_create, mock_config,
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_create_log_keeps_raw_suffix(mock_logger, mock_create, mock_config, mock_spark):
@@ -246,7 +238,7 @@ def test_create_log_keeps_raw_suffix(mock_logger, mock_create, mock_config, mock
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_data_quality_passes_overall_flag(mock_logger, mock_create, mock_config, mock_spark):
@@ -264,7 +256,7 @@ def test_data_quality_passes_overall_flag(mock_logger, mock_create, mock_config,
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_overall_defaults_to_false(mock_logger, mock_create, mock_config, mock_spark):
@@ -282,7 +274,7 @@ def test_overall_defaults_to_false(mock_logger, mock_create, mock_config, mock_s
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_overall_rejected_for_other_jobs(mock_logger, mock_create, mock_config, mock_spark):
@@ -299,7 +291,7 @@ def test_overall_rejected_for_other_jobs(mock_logger, mock_create, mock_config, 
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_dispatches_single_etl_job(mock_logger, mock_create, mock_config, mock_spark):
@@ -316,7 +308,7 @@ def test_main_dispatches_single_etl_job(mock_logger, mock_create, mock_config, m
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_single_etl_passes_script_name(mock_logger, mock_create, mock_config, mock_spark):
@@ -334,7 +326,7 @@ def test_single_etl_passes_script_name(mock_logger, mock_create, mock_config, mo
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_single_etl_defaults_to_auto_load_type(mock_logger, mock_create, mock_config, mock_spark):
@@ -352,7 +344,7 @@ def test_single_etl_defaults_to_auto_load_type(mock_logger, mock_create, mock_co
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_single_etl_passes_forced_load_type(mock_logger, mock_create, mock_config, mock_spark):
@@ -370,7 +362,7 @@ def test_single_etl_passes_forced_load_type(mock_logger, mock_create, mock_confi
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_single_etl_incremental_load_type(mock_logger, mock_create, mock_config, mock_spark):
@@ -388,7 +380,7 @@ def test_single_etl_incremental_load_type(mock_logger, mock_create, mock_config,
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_load_type_rejected_for_other_jobs(mock_logger, mock_create, mock_config, mock_spark):
@@ -405,7 +397,7 @@ def test_load_type_rejected_for_other_jobs(mock_logger, mock_create, mock_config
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_dispatches_view_job(mock_logger, mock_create, mock_config, mock_spark):
@@ -422,7 +414,7 @@ def test_main_dispatches_view_job(mock_logger, mock_create, mock_config, mock_sp
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_view_passes_script_name(mock_logger, mock_create, mock_config, mock_spark):
@@ -440,7 +432,7 @@ def test_view_passes_script_name(mock_logger, mock_create, mock_config, mock_spa
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_view_never_passes_a_load_type(mock_logger, mock_create, mock_config, mock_spark):
@@ -459,7 +451,7 @@ def test_view_never_passes_a_load_type(mock_logger, mock_create, mock_config, mo
 
 
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_view_load_type_rejected(mock_logger, mock_create, mock_config, mock_spark):
@@ -515,7 +507,7 @@ def test_merge_logs_by_timestamp_merges_python_spark_and_memory(tmp_path):
 @patch("run_etl.register_memory_logger")
 @patch("run_etl._StderrCapture")
 @patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=_mock_app_config())
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
 def test_main_merges_captured_spark_logs_into_main_log(

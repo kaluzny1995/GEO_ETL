@@ -39,6 +39,7 @@ from model.config import AppConfig
 from model.config.datasets import UsgsNwisEtlConfig, load_dataset
 from model.enums import DangerRating
 from single_etl.single_etl_script import SingleEtlScript
+from utils.column_helpers import literal_map, state_province
 from utils.metric_units import standardized_metric
 
 _cfg = load_dataset(__file__, "single_etl", UsgsNwisEtlConfig)
@@ -59,7 +60,7 @@ _FLOOD_CATEGORY_SCHEMA = StructType(
 
 def _qualifier_map() -> Column:
     """Literal ``qualifier code → full name`` map column built from `_cfg.qualifier_names`."""
-    return F.create_map(*[F.lit(item) for pair in _cfg.qualifier_names.items() for item in pair])
+    return literal_map(_cfg.qualifier_names)
 
 
 def _sentence_case(column: Column) -> Column:
@@ -135,20 +136,6 @@ def _event_description() -> Column:
     )
 
 
-def _state_province(geocode_state: Column) -> Column:
-    """The stamped subdivision of the gauge point, ``NULL`` when empty.
-
-    Args:
-        geocode_state: ``geocode_state`` column stamped into the CSVs at
-            download time.
-
-    Returns:
-        The stamped answer; an empty string (no subdivision found) or a
-        ``NULL`` (no coordinate) resolves to ``NULL``.
-    """
-    return F.when(geocode_state != "", geocode_state).otherwise(F.lit(None).cast("string"))
-
-
 def _danger_rating() -> Column:
     """The NWS flood category of the day's peak stage mapped onto the shared severity scale.
 
@@ -160,7 +147,7 @@ def _danger_rating() -> Column:
         category the map knows — an empty category, ``NULL`` or an unexpected
         code (the NWS could not classify the day) — never ``NULL`` itself.
     """
-    known = F.create_map(*[F.lit(item) for pair in _cfg.danger_rating_map.items() for item in pair])
+    known = literal_map(_cfg.danger_rating_map)
     return F.coalesce(known[F.lower(F.trim(F.col("flood_category")))], F.lit(DangerRating.NO_RATING))
 
 
@@ -297,7 +284,7 @@ class UsgsNwisEtlScript(SingleEtlScript):
             F.col("latitude"),
             F.col("longitude"),
             F.lit(_cfg.country_code).alias("country_code"),
-            _state_province(F.col("geocode_state")).alias("state_province"),
+            state_province(F.col("geocode_state")).alias("state_province"),
             _place_location(river, place).alias("place_location"),
             F.lit(_cfg.metric_name).alias("metric_name"),
             metric_value.alias("metric_value"),

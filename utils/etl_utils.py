@@ -14,6 +14,7 @@ import logging
 from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
+from pyspark import StorageLevel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
@@ -212,16 +213,27 @@ def run_etl(
         return EtlOutcome(False, f"No records loaded into {target_table} — no rows to process in {source_label}")
 
     result_df = convert_fn(source_df)
-    if not result_df.head(1):
-        return EtlOutcome(False, f"No records loaded into {target_table} — {source_label} converted to zero rows")
+    # The empty-check and the two dedup counts would each re-run the whole JDBC
+    # read + convert lineage — cache the converted frame once and release it in a
+    # finally block (the dedup below may reassign result_df; the cached original
+    # is the one that must be unpersisted).
+    cached_df = result_df
+    cached_df.persist(StorageLevel.MEMORY_AND_DISK)
+    try:
+        if not result_df.head(1):
+            return EtlOutcome(False, f"No records loaded into {target_table} — {source_label} converted to zero rows")
 
-    if dedup_keys:
-        before = result_df.count()
-        result_df = dedup(result_df, dedup_keys)
-        removed = before - result_df.count()
-        logger.info(f"Deduplication on ({', '.join(dedup_keys)}, {FILE_DATE_COL}) removed {removed} of {before} rows")
+        if dedup_keys:
+            before = result_df.count()
+            result_df = dedup(result_df, dedup_keys)
+            removed = before - result_df.count()
+            logger.info(
+                f"Deduplication on ({', '.join(dedup_keys)}, {FILE_DATE_COL}) removed {removed} of {before} rows"
+            )
 
-    logger.info(f"Writing to {schema}.{target_table}...")
-    result_df.write.jdbc(url=jdbc_url, table=f"{schema}.{target_table}", mode="append", properties=properties)
-    logger.info(f"Single ETL complete: written to {schema}.{target_table}")
-    return EtlOutcome(True, f"{resolved.value}: wrote to {schema}.{target_table}")
+        logger.info(f"Writing to {schema}.{target_table}...")
+        result_df.write.jdbc(url=jdbc_url, table=f"{schema}.{target_table}", mode="append", properties=properties)
+        logger.info(f"Single ETL complete: written to {schema}.{target_table}")
+        return EtlOutcome(True, f"{resolved.value}: wrote to {schema}.{target_table}")
+    finally:
+        cached_df.unpersist()

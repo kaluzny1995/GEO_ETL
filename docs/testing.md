@@ -13,6 +13,31 @@ The only exception is the `spark_session` fixture in `test/conftest.py` — a se
 
 The same suite also runs in an isolated tox environment (`tox -e py311`) — see [Code quality](development.md#tox-environments) for the full check matrix.
 
+For quick feedback during active work, run only the files that cover the area you changed:
+
+```bash
+pytest test/single_etl/test_shared_etl_behavior.py test/util/test_column_helpers.py test/single_etl/ -q
+pytest test/util/test_etl_utils.py test/jobs/test_single_etl.py -q
+```
+
+- `test/single_etl/test_shared_etl_behavior.py` is the fastest check that a SINGLE_ETL run still exercises the shared pipeline (read → `_convert()` → dedup → write → outcome) for all ten scripts;
+- `test/single_etl/test_<name>_etl.py` drills into the column mapping of one source script (e.g. the `state_province` behaviour, the map lookups, the metric and `other_metrics` shape);
+- `test/util/test_column_helpers.py` covers the two shared Spark column helpers (`literal_map`, `state_province`) — worth running whenever `utils/column_helpers.py` changes, since that module is the single place several scripts now share an implementation.
+
+### `test/util/test_column_helpers.py` in detail
+
+The helper tests are deliberately small and parametrize over their inputs: each
+test calls the helper then resolves the resulting column on a real local Spark
+frame (e.g. `literal_map({"USA": "US"})` looked up by `F.col("key")`, or
+`state_province(F.lit("WI"))` on a single-row frame). They pin down the contract
+each caller relies on — `literal_map` resolves every key to its value and falls
+through to NULL for an unknown key, `state_province` passes a non-blank stamp
+through unchanged and returns NULL for a blank one — so a future change to either
+helper has to stay explicit here rather than silently re-spelling the logic in each
+script. Because both helpers are pure `F.create_map(...)` / `F.when(...)`
+expressions with no external I/O, the suite is fast to run locally and cheap to
+parametrize.
+
 ## Test structure
 
 | Test Suite | What It Tests |

@@ -74,7 +74,14 @@ The step only ever sees the current batch — `HISTORICAL` reads the whole table
 
 Each run logs what it removed: `Deduplication on (event_category, event_name, latitude, longitude, event_start, file_date) removed 288 of 10818 rows`.
 
-> **Not the same predicate as `dup_row_pct`.** The DATA_QUALITY metric [`dup_row_pct`](../data-quality-metrics.md) tests full-row equality over **all 21 columns**; this step matches only `K + file_date`. Full-row equality implies key equality (the key columns are a subset of the row), so once this step has run, `dup_row_pct` is necessarily `0` for every `file_date` — and the step is strictly stronger, since it also collapses rows that differ in payload.
+> **Not the same predicate as `dup_row_pct`.**
+
+Some `_convert()` planners are shared across several source scripts so a duplicate implementation cannot drift apart: 
+
+- `utils.column_helpers.literal_map(mapping)` builds a Spark literal map column from any config mapping, which is exactly what a `F.create_map(*[F.lit(item) for pair in mapping.items() for item in pair])` call site used to spell out inline — used to look up a value by key in each script's category, country, danger-rating, label, qualifier, status, nature, basin, sub-basin and SSHS mappings (one script keeps a **different** pattern that builds its map from a derived `pairs` list and is not using the helper yet);
+- `utils.column_helpers.state_province(geocode_state)` returns the stamped `geocode_state` of a point as an uppercase ISO 3166-2 / subdivision code, or `NULL` when the stamp is blank — used by **four** source scripts (`gdacs_event_etl`, `ibtracs_cyclone_etl`, `usgs_nwis_etl`, `openmeteo_flood_etl`); the other six scripts each keep their own variant because their logic differs (earthquake uppercases the `net` column, nifc prefers the source's own `state` over the stamp, eonet splits the `description` state from the stamp, volcano returns `ZZ` instead of `NULL` for an empty stamp).
+
+Neither helper calls any external service — both are pure Spark expressions. The DATA_QUALITY metric [`dup_row_pct`](../data-quality-metrics.md) tests full-row equality over **all 21 columns**; this step matches only `K + file_date`. Full-row equality implies key equality (the key columns are a subset of the row), so once this step has run, `dup_row_pct` is necessarily `0` for every `file_date` — and the step is strictly stronger, since it also collapses rows that differ in payload.
 
 **Key sets per script** — `K` as declared in the class's `DEDUP_KEYS`; `file_date` is added by the runner and never belongs to `K` itself:
 
