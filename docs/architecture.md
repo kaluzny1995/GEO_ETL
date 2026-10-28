@@ -10,7 +10,7 @@ GEO_ETL/
 ├── environment.yml                   # Conda environment definition
 ├── pyproject.toml                    # Ruff, pytest, mypy and coverage configuration
 ├── tox.ini                           # Tox environments (lint, format, typecheck, py311, warnings)
-├── .env.example                      # Template for Supabase credentials (copy to .env, which is not in git)
+├── .env.example                      # Template for Supabase credentials (the real .env is gitignored; normally written by GEO_E2E's setup.sh — see docs/configuration.md)
 ├── run_etl.py                        # Main CLI entry point for ETL jobs
 ├── run_drop_table.py                 # Drop a table from Supabase
 ├── run_drop_schema.py                # Drop a schema from Supabase (if empty)

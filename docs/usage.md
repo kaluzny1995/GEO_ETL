@@ -13,7 +13,15 @@ conda activate geo_etl_311
 
 ### 2. Configure Supabase credentials
 
-Copy the template and fill in the values from the Supabase dashboard (**Connect → Connection pooling → Transaction pooler**; the password is set at project creation or via **Generate password** in Project Settings → Database — full walkthrough in [Configuration — Supabase Credentials](configuration.md#supabase-credentials)):
+Do this in **GEO_E2E** — its bootstrap script writes this project's `.env` (the same five `SUPABASE_DB_*` values are used there for Airflow's metadata DB), so the credentials are configured once for the whole pipeline:
+
+```bash
+cd ../GEO_E2E
+./setup.sh          # add --force if .env.local already exists — it keeps your values
+cd ../GEO_ETL       # the script mirrored SUPABASE_DB_* into ./.env
+```
+
+Manual fallback (standalone or CI): copy the template and fill in the values from the Supabase dashboard (**Connect → Connection pooling → Transaction pooler**; the password is set at project creation or via **Generate password** in Project Settings → Database — full walkthrough in [Configuration — Supabase Credentials](configuration.md#supabase-credentials)):
 
 ```bash
 cp .env.example .env

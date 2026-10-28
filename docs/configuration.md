@@ -2,7 +2,7 @@
 
 # Configuration Reference
 
-Runtime settings live in two places: `config.json` in the project root (Spark, database, logging, data paths and dataset constants) and environment variables (Supabase credentials — see [Supabase Credentials](#supabase-credentials) below).
+Runtime settings live in two places: `config.json` in the project root (Spark, database, logging, data paths and dataset constants) and environment variables (Supabase credentials — **set up once in [GEO_E2E](../../GEO_E2E/README.md#2-configure-environment-variables-mandatory)**, see [Supabase Credentials](#supabase-credentials) below).
 
 ## Application Configuration
 
@@ -109,6 +109,8 @@ def _event_category() -> Column:
 
 ## Supabase Credentials
 
+> **Do the Supabase setup in GEO_E2E first.** The five values below are shared by the whole pipeline — GEO_E2E uses them for Airflow's metadata DB, this project for its JDBC writes — and their setup lives in **GEO_E2E**: run [`../GEO_E2E/setup.sh`](../../GEO_E2E/README.md#2-configure-environment-variables-mandatory) (or fill `GEO_E2E/.env.local` — full walkthrough in [GEO_E2E — Supabase metadata DB](../../GEO_E2E/docs/configuration.md#supabase-metadata-db-envlocal)) and the script mirrors them into this project's gitignored `.env`. What follows documents what the variables mean, how the JDBC URL is built and how to rotate or scope the credentials — keep it for standalone runs, CI and troubleshooting.
+
 Supabase database credentials are read from **environment variables**. A `.env` file in the project root is loaded automatically; `.env` is gitignored and only the `.env.example` template is committed. Variables already present in the shell (or CI) environment take precedence over `.env`.
 
 | Variable | Example | Description |
@@ -119,10 +121,12 @@ Supabase database credentials are read from **environment variables**. A `.env` 
 | `SUPABASE_DB_PORT` | `6543` | Transaction-pooler port |
 | `SUPABASE_DB_NAME` | `postgres` | Database name |
 
-Setup:
+Setup (normally already done by GEO_E2E — the manual fallback for standalone runs):
 
 ```bash
-cp .env.example .env   # then edit .env with your values
+cd ../GEO_E2E && ./setup.sh   # writes this project's .env with the SUPABASE_DB_* values
+# or, by hand:
+cp .env.example .env          # then edit .env with your values
 ```
 
 > **Note:** `6543` is Supabase's **transaction pooler** port (the direct primary listener uses `5432`; session mode on `6543` was deprecated in February 2025); the recommended value is `6543`, and every JDBC URL in this documentation uses the same value.

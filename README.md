@@ -64,10 +64,11 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 ## Quick start
 
 ```bash
-# 1. Create the environment and the credentials file
+# 1. Create the environment (the Supabase credentials file is written by GEO_E2E's setup)
 conda env create -f environment.yml
 conda activate geo_etl_311
-cp .env.example .env   # then edit .env with your Supabase credentials
+../GEO_E2E/setup.sh   # writes this repo's .env — add --force if GEO_E2E/.env.local exists
+#    manual fallback: cp .env.example .env and edit it (see docs/configuration.md)
 
 # 2. Start the Spark cluster (docker-compose lives in GEO_E2E)
 cd ../GEO_E2E
@@ -93,7 +94,7 @@ python run_etl.py CREATE <table_name>
 python run_etl.py SINGLE_ETL <table_name>
 ```
 
-Supabase credentials must be provided as environment variables, most conveniently in a gitignored `.env` file in the project root (copy `.env.example` and fill it in) — see [Configuration](docs/configuration.md). Full instructions, including verifying the schema, dropping tables, deleting the latest `file_date` and the standalone upload/raw2plain pipelines, are in [Usage](docs/usage.md).
+Supabase credentials must be provided as environment variables, most conveniently in the gitignored `.env` file in the project root. **Set them up once in [GEO_E2E](../GEO_E2E)** — run `../GEO_E2E/setup.sh`, which writes this project's `.env` with the same five `SUPABASE_DB_*` values it uses for Airflow's metadata DB (manual fallback: copy `.env.example` and fill it in). Details in [Configuration](docs/configuration.md). Full instructions, including verifying the schema, dropping tables, deleting the latest `file_date` and the standalone upload/raw2plain pipelines, are in [Usage](docs/usage.md).
 
 ## Related Projects
 
