@@ -8,19 +8,21 @@ using script relies on — in particular the four scripts that call the helpers 
 remaining six are free to keep their own variants.
 """
 
+import pytest
 from pyspark.sql import functions as F
 from pyspark.sql.types import StringType
-
-import pytest
 
 from utils.column_helpers import literal_map, state_province
 
 
-@pytest.mark.parametrize("mapping", [
-    {"USA": "US", "DEU": "DE"},
-    {"a": "b"},
-    {"_category_": "_subcategory_", "unknown": "xx"},
-])
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        {"USA": "US", "DEU": "DE"},
+        {"a": "b"},
+        {"_category_": "_subcategory_", "unknown": "xx"},
+    ],
+)
 def test_literal_map_returns_a_map_column(spark_session, mapping):
     """A literal map column built from any config mapping, all keys and values as
     literals, resolving the starred lookup and falling through otherwise."""
@@ -43,11 +45,14 @@ def test_literal_map_returns_a_map_column(spark_session, mapping):
     assert all(r["v"] is None for r in unknown)
 
 
-@pytest.mark.parametrize("mapping", [
-    {"USA": "US"},
-    {"cat": "other", "tc": "storm"},
-    {"action": "low", "minor": "medium", "major": "extreme"},
-])
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        {"USA": "US"},
+        {"cat": "other", "tc": "storm"},
+        {"action": "low", "minor": "medium", "major": "extreme"},
+    ],
+)
 def test_literal_map_signature_is_broad_enough(spark_session, mapping):
     """The helper accepts a plain ``dict`` as well as any value type the config
     maps may contain (e.g. a ``DangerRating`` enum), since each caller passes its
@@ -72,8 +77,8 @@ def test_literal_map_signature_is_broad_enough(spark_session, mapping):
 @pytest.mark.parametrize(
     "geocode_state, expected",
     [
-        ("WI", "WI"),              # passes through unchanged — no uppercasing
-        ("us-tx", "us-tx"),        # no case folding; scripts that want upper own that
+        ("WI", "WI"),  # passes through unchanged — no uppercasing
+        ("us-tx", "us-tx"),  # no case folding; scripts that want upper own that
         (" oregon ", " oregon "),  # no trimming; scripts that want strip own that
         ("", None),
         (None, None),

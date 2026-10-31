@@ -99,4 +99,6 @@ Supabase credentials must be provided as environment variables, most convenientl
 ## Related Projects
 
 - **GEO_Download** — downloads raw CSV data from public APIs
-- **GEO_E2E** — orchestrates downloads via Celery + RabbitMQ; also runs the Spark cluster via Docker Compose
+- **GEO_E2E** — orchestrates the whole pipeline with an Apache Airflow DAG (`geo_pipeline`), which spawns `run_download.py` and `run_etl.py` as subprocesses; also hosts the `docker-compose.yaml` that runs the Spark cluster this ETL connects to
+- **GEO_API** — FastAPI layer serving the finished data (`geo.data_quality` metrics, `geo.union_etl` event counts) from the same Supabase project; shares the five `SUPABASE_DB_*` credentials written by GEO_E2E's `setup.sh`
+- **GEO_APP** — React dashboard over GEO_API (data quality & quantity views); no direct coupling to this project
