@@ -6,7 +6,7 @@ GIS Data ETL Pipeline — PySpark-based extract-transform-load processes for geo
 
 GEO_ETL is the transformation layer in the GIS data pipeline. It reads raw CSV files produced by [GEO_Download](../GEO_Download), applies transformations and enrichment using PySpark, and outputs clean, analysis-ready datasets into Supabase (PostgreSQL).
 
-PySpark scripts run locally and connect to a Spark standalone cluster managed by Docker Compose (configured in [GEO_E2E](../GEO_E2E)). The cluster exposes a master at `spark://localhost:7078` with two workers.
+PySpark scripts normally run inside the `geo_airflow_spark` image and connect to the Spark standalone cluster over the Compose network (`spark://geo-spark-master:7078`). For host-side development they can also run locally against the published master at `spark://localhost:7078`.
 
 ## Features
 
@@ -61,6 +61,33 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 - **GEO_Download** — must be a sibling directory (source of raw CSVs)
 - **GEO_E2E** — hosts the `docker-compose.yaml` that runs the Spark cluster
 
+## Docker
+
+GEO_ETL is baked into the **`geo_airflow_spark`** image by the Compose stack in
+[GEO_E2E](../GEO_E2E):
+
+- Runtime files are copied to `/opt/geo/GEO_ETL`; the `geo_etl_311` conda environment
+  (PySpark 3.5.5 + `findspark`) lives at `/opt/conda/envs/geo_etl_311`.
+- `/opt/geo/GEO_ETL/.env` is refreshed from the Compose `SUPABASE_DB_*` values by
+  `airflow-init` on every start — never baked into an image layer.
+- Inside the Compose network the Spark master is `spark://geo-spark-master:7078`
+  (set through `SPARK_MASTER_URL`); `config.json` keeps `spark://localhost:7078` for
+  local runs.
+- Airflow and Spark share the `geo_data` volume at `/opt/geo/GEO_Download/data`, so
+  drivers and executors see the same CSVs.
+
+```bash
+cd ../GEO_E2E
+docker compose up -d --build
+```
+
+After changing GEO_ETL, rebuild the Airflow/Spark image:
+
+```bash
+docker compose build airflow-init
+docker compose up -d
+```
+
 ## Quick start
 
 ```bash
@@ -72,7 +99,7 @@ conda activate geo_etl_311
 
 # 2. Start the Spark cluster (docker-compose lives in GEO_E2E)
 cd ../GEO_E2E
-docker compose up -d geo_spark_master geo_spark_worker_1 geo_spark_worker_2
+docker compose up -d geo-spark-master geo-spark-worker-1 geo-spark-worker-2
 cd ../GEO_ETL
 
 # 3. Verify cluster connectivity

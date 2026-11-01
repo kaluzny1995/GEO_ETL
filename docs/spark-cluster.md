@@ -2,23 +2,31 @@
 
 # Spark Cluster & PySpark
 
-PySpark scripts run on the host and connect to a Spark standalone cluster managed by Docker Compose in [GEO_E2E](../../GEO_E2E). The cluster exposes a master at `spark://localhost:7078` with two workers; CSV files from [GEO_Download](../../GEO_Download) are mounted read-only into every node at the same absolute path.
+The Spark standalone cluster is part of the **`geo_airflow_spark`** image built by the Docker Compose stack in [GEO_E2E](../../GEO_E2E). Inside the Compose network the master is `spark://geo-spark-master:7078`; host-side PySpark scripts keep using `spark://localhost:7078`, which is published by Compose. CSV files live in the shared `geo_data` named volume mounted at `/opt/geo/GEO_Download/data` in the Airflow and Spark containers.
 
 ## Cluster Configuration
 
-| Service | Container | Hostname | Ports | Resources |
-|---------|-----------|----------|-------|-----------|
-| Spark Master | `geo_spark_master` | `geo-spark-master` | 7078 (cluster), 8083 (Web UI) | — |
-| Spark Worker 1 | `geo_spark_worker_1` | — | 8084 (Web UI) | 2 cores, 2g RAM |
-| Spark Worker 2 | `geo_spark_worker_2` | — | 8085 (Web UI) | 2 cores, 2g RAM |
+| Service | Hostname | Ports | Resources |
+|---------|----------|-------|-----------|
+| `geo-spark-master` | `geo-spark-master` | 7078 (cluster), 8083 (Web UI) | — |
+| `geo-spark-worker-1` | `geo-spark-worker-1` | 8084 (Web UI) | 2 cores, 2g RAM |
+| `geo-spark-worker-2` | `geo-spark-worker-2` | 8085 (Web UI) | 2 cores, 2g RAM |
+
+The master and both workers run the same image (`geo_airflow_spark`); only the container command differs.
 
 ### Starting the cluster
 
-The `docker-compose.yaml` lives in [GEO_E2E](../../GEO_E2E) — start the three services with the command from [Usage — Start the Spark cluster](usage.md#2-start-the-spark-cluster).
+The `docker-compose.yaml` lives in [GEO_E2E](../../GEO_E2E) — build the shared image and start the three services with the command from [Usage — Start the Spark cluster](usage.md#3-start-the-spark-cluster):
+
+```bash
+cd ../GEO_E2E
+docker compose build airflow-init
+docker compose up -d geo-spark-master geo-spark-worker-1 geo-spark-worker-2
+```
 
 ### Starting with the machine
 
-Every long-running service in the compose file carries `restart: always`, and the Docker daemon itself is enabled at boot — so once a container has been created and started once, it comes back automatically after a reboot (master, both workers, the Airflow stack), no login or manual `docker compose up` needed. `airflow-init` (one-shot init) and `airflow-cli` (debug profile) are deliberately excluded. Note that with `restart: always` a manual `docker compose stop` only sticks until the next reboot — switch the policy to `unless-stopped` if a stopped service should stay stopped.
+Every long-running service in the compose file carries `restart: unless-stopped`, and the Docker daemon itself is enabled at boot — so once a container has been created and started once, it comes back automatically after a reboot (master, both workers, the Airflow stack), no login or manual `docker compose up` needed. `airflow-init` and `airflow-dag-activate` are one-shot jobs and `airflow-cli` is behind the `debug` profile; none of them restart automatically. `docker compose stop` stays stopped across reboots with `unless-stopped`.
 
 ### Spark Web UI
 
@@ -35,39 +43,31 @@ Individual worker Web UIs are available at:
 
 ## Custom Spark image
 
-GEO_E2E's `docker/spark/` directory holds a Dockerfile based on `apache/spark:3.5.5` that adds the Hadoop AWS and PostgreSQL JARs:
+GEO_E2E's `docker/geo_airflow_spark/Dockerfile` builds the `geo_airflow_spark` image: Airflow 3.3.2, Anaconda, the `geo_e2e_311` / `geo_download_311` / `geo_etl_311` environments and Spark 3.5.5 copied from `apache/spark:3.5.5`. The same image runs Airflow and the Spark master/workers:
 
 ```bash
-cd ../GEO_E2E/docker/spark
-docker build -t geo_spark_custom .
+cd ../GEO_E2E
+docker compose build airflow-init
+docker compose up -d
 ```
 
-GEO_E2E's `docker-compose.yaml` builds this image itself (`build: ./docker/spark` for master and both workers), so after changing the Dockerfile run `docker compose build` in GEO_E2E and recreate the cluster — no manual tagging or compose edits needed. The `geo_spark_custom` tag above is only for other compose files or registries that expect a pre-built image name.
+`docker compose restart` does not rebuild the image. The PostgreSQL JDBC and `spark-monitor` JARs are copied at build time from `docker/geo_airflow_spark/jars/` into both `/opt/spark/jars/` and the `geo_etl_311` environment's PySpark `jars/` directory.
 
 ## Spark JARs
 
-The JARs in `docker/spark/jars/` are excluded from git in [GEO_E2E](../../GEO_E2E) (its `.gitignore` ignores `/docker/spark/jars/*` but keeps the `.gitkeep`). After cloning, download the required JARs manually:
-
-```bash
-cd ../GEO_E2E/docker/spark/jars
-curl -fSL -O https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar
-curl -fSL -O https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar
-curl -fSL -O https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar
-```
+The JARs in `docker/geo_airflow_spark/jars/` are part of the build context:
 
 | JAR | Version | Purpose |
 |-----|---------|---------|
-| `hadoop-aws` | 3.3.4 | S3A filesystem client (for future S3/MinIO access) |
-| `aws-java-sdk-bundle` | 1.12.262 | AWS SDK dependency required by hadoop-aws |
 | `postgresql` | 42.7.4 | PostgreSQL JDBC driver for Supabase connectivity |
 | `spark-monitor` | — | Stage memory logging SparkListener (built from `utils/spark_listener/`, see [Logging — Stage memory monitoring](logging.md#stage-memory-monitoring)) |
 
-These JARs are copied into the Spark Docker image during build.
+The optional S3A JARs (`hadoop-aws`, `aws-java-sdk-bundle`) are not needed by this solution and are excluded from the image build context.
 
-The PostgreSQL JDBC driver must also be available locally for the PySpark driver (which runs on the host). Copy it to the PySpark installation:
+The PostgreSQL JDBC driver must also be available locally for host-side PySpark drivers. Copy it to the PySpark installation:
 
 ```bash
-cp ../GEO_E2E/docker/spark/jars/postgresql-42.7.4.jar $(python -c "import pyspark, os; print(os.path.join(os.path.dirname(pyspark.__file__), 'jars'))")
+cp ../GEO_E2E/docker/geo_airflow_spark/jars/postgresql-42.7.4.jar $(python -c "import pyspark, os; print(os.path.join(os.path.dirname(pyspark.__file__), 'jars'))")
 ```
 
 ## Connecting from PySpark
@@ -86,7 +86,9 @@ df = spark.read.csv("/path/to/GEO_Download/data/USGS_Earthquake/*.csv", header=T
 df.show()
 ```
 
-> **Note:** The data path must be accessible from both the driver (host) and workers (Docker containers). The Docker Compose in GEO_E2E mounts `GEO_DATA_DIR` at the same absolute path on both sides.
+Inside the `geo_airflow_spark` containers the same code uses `spark://geo-spark-master:7078` (GEO_ETL reads it from `SPARK_MASTER_URL`) and `/opt/geo/GEO_Download/data`.
+
+> **Note:** For host-side runs the data path must be accessible from both the driver (host) and workers (Docker containers); mount it at the same absolute path. The Dockerized pipeline uses the `geo_data` named volume at `/opt/geo/GEO_Download/data` for the Airflow driver and every Spark executor, so no host path is needed.
 
 ### Verify cluster connectivity
 

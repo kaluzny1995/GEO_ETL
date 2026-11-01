@@ -142,7 +142,7 @@ usage, Spark execution/storage memory, spill metrics, and GC time.
 | `utils/spark_listener/spark-monitor.jar` | Packaged JAR installed into PySpark's `jars/` directory | Yes |
 | `utils/spark_monitor.py` | Python wrapper — `register_memory_logger()` | Yes |
 
-The `.java` source, the `.class` bytecode and the `.jar` are all committed.  The only JAR-related `.gitignore` rule is `/docker/spark/jars/*` (with a `!.gitkeep` exception) in [GEO_E2E](../../GEO_E2E), which keeps the large third-party JARs (~270 MB total: `hadoop-aws`, `aws-java-sdk-bundle`, `postgresql`) out of that repository — there is no `*.jar` rule.  Rebuild the `.jar` only when the Java source changes (or if the file is missing); JDK 11+ with `javac` and `jar` is required for that step.
+The `.java` source, the `.class` bytecode and the `.jar` are all committed. The Docker build context [GEO_E2E](../../GEO_E2E) keeps `docker/geo_airflow_spark/jars/postgresql-42.7.4.jar` and `docker/geo_airflow_spark/jars/spark-monitor.jar` committed as well, so a fresh clone can build the image without downloading JARs. Rebuild the `.jar` only when the Java source changes (or if the file is missing); JDK 11+ with `javac` and `jar` is required for that step.
 
 ### How to build the .jar from source
 
@@ -168,8 +168,8 @@ jar cf spark-monitor.jar sparkmonitor/
 # 5. Install into PySpark's JAR directory (driver side)
 cp spark-monitor.jar "$JARS_DIR/"
 
-# 6. Also copy to Spark image build context (worker side)
-cp spark-monitor.jar ../../GEO_E2E/docker/spark/jars/
+# 6. Also copy to the image build context (worker + driver inside the image)
+cp spark-monitor.jar ../../GEO_E2E/docker/geo_airflow_spark/jars/
 
 # 7. Clean up intermediate files
 rm -rf sparkmonitor/
@@ -181,14 +181,15 @@ rm -rf sparkmonitor/
 
 When setting up the project on a new machine, use the committed `.jar` (rebuild from source only if the Java sources changed — see above), then:
 
-**1. Rebuild the Spark Docker image** (includes `spark-monitor.jar` for workers):
+**1. Rebuild the Airflow/Spark image** (copies `spark-monitor.jar` into `/opt/spark/jars` and the `geo_etl_311` PySpark JARs):
 
 ```bash
-cd ../GEO_E2E/docker/spark
-docker build -t geo_spark_custom .
+cd ../GEO_E2E
+docker compose build airflow-init
+docker compose up -d
 ```
 
-GEO_E2E's `docker-compose.yaml` builds this image directly from `docker/spark/` (`build: ./docker/spark` for master and both workers), so run `docker compose build` in [GEO_E2E](../../GEO_E2E) and recreate the cluster instead of pointing the compose file at the `geo_spark_custom` tag.
+The Dockerfile builds the same `geo_airflow_spark` image for Airflow and both Spark workers, so no manual image tag or Compose edit is needed.
 
 **2. Copy the JAR to the host-side PySpark** (driver runs on the host, not in Docker):
 

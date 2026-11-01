@@ -100,6 +100,9 @@ class AppConfig(BaseModel):
     def from_json(path: str | None = None) -> "AppConfig":
         """Load configuration from a JSON file.
 
+        ``SPARK_MASTER_URL`` (when set) overrides ``spark.master`` so the same config works
+        locally (``localhost``) and inside Docker Compose (the Spark service name).
+
         Args:
             path: Path to the JSON config file. Defaults to ``config.json``
                 in the project root.
@@ -110,4 +113,10 @@ class AppConfig(BaseModel):
         if path is None:
             path = CONFIG_PATH
         with open(path) as f:
-            return AppConfig(**json.load(f))
+            data = json.load(f)
+        # Container runs connect to the Compose service name instead of localhost. Keeping
+        # this as an environment override leaves the repository config usable for local runs.
+        spark_master = os.environ.get("SPARK_MASTER_URL")
+        if spark_master:
+            data.setdefault("spark", {})["master"] = spark_master
+        return AppConfig(**data)

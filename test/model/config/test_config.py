@@ -113,6 +113,15 @@ class TestAppConfig:
         assert cfg.logging.directory == "logs"
         assert cfg.data.directory == "../GEO_Download/data"
 
+    def test_from_json_spark_master_env_override(self, monkeypatch, tmp_path):
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(VALID_CONFIG))
+        monkeypatch.setenv("SPARK_MASTER_URL", "spark://geo-spark-master:7078")
+
+        cfg = AppConfig.from_json(str(config_path))
+
+        assert cfg.spark.master == "spark://geo-spark-master:7078"
+
     def test_from_json_missing_file(self):
         with pytest.raises(FileNotFoundError):
             AppConfig.from_json("/nonexistent/config.json")

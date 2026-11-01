@@ -30,7 +30,7 @@ The environment sections of `config.json`:
 
 | Section | Key | Default | Description |
 |---------|-----|---------|-------------|
-| `spark.master` | — | — | Spark cluster master URL |
+| `spark.master` | — | — | Spark cluster master URL; `SPARK_MASTER_URL` overrides it at runtime (Compose sets `spark://geo-spark-master:7078`) |
 | `spark.app_name_prefix` | — | `"geo_etl"` | Prefix for Spark application names |
 | `database.db_schema` | — | — | PostgreSQL schema name |
 | `database.jdbc_driver` | — | — | JDBC driver class |

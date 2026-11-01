@@ -256,4 +256,4 @@ GEO_ETL/
 │       └── test_column_helpers.py        # Shared column helpers (literal_map, state_province)
 ```
 
-The custom Spark image lives in [GEO_E2E](../../GEO_E2E) under `docker/spark/` (`Dockerfile` + JARs) and is built by its `docker-compose.yaml` — see [Spark cluster — Custom Spark image](spark-cluster.md#custom-spark-image).
+The Spark image lives in [GEO_E2E](../../GEO_E2E) under `docker/geo_airflow_spark/` (`Dockerfile` + JARs) and is built by its `docker-compose.yaml` as `geo_airflow_spark` — see [Spark cluster — Custom Spark image](spark-cluster.md#custom-spark-image).
