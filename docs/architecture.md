@@ -174,14 +174,6 @@ GEO_ETL/
 │   ├── pyspark_csv_test/             # CSV test script logs
 │   └── pyspark_supabase_test/        # Supabase test script logs
 │
-├── spark_cluster_image/              # Docker image for Spark cluster
-│   ├── Dockerfile                    # Custom Spark image (apache/spark:3.5.5 + JARs)
-│   └── jars/
-│       ├── hadoop-aws-3.3.4.jar
-│       ├── aws-java-sdk-bundle-1.12.262.jar
-│       ├── postgresql-42.7.4.jar
-│       └── spark-monitor.jar         # Stage memory SparkListener (copied from utils/spark_listener/)
-│
 └── test/                             # Unit tests (pytest)
     ├── conftest.py                   # Shared test helpers (mock_F_upload, mock_F_raw2plain, mock_app_config_upload, mock_app_config_raw2plain, mock_db_config, mock_spark_upload, mock_spark_raw2plain) + the spark_session fixture
     ├── factory/
@@ -263,3 +255,5 @@ GEO_ETL/
         └── test_view_utils.py            # Shared VIEW runner (subquery read, CREATE OR REPLACE VIEW, empty result)
 │       └── test_column_helpers.py        # Shared column helpers (literal_map, state_province)
 ```
+
+The custom Spark image lives in [GEO_E2E](../../GEO_E2E) under `docker/spark/` (`Dockerfile` + JARs) and is built by its `docker-compose.yaml` — see [Spark cluster — Custom Spark image](spark-cluster.md#custom-spark-image).

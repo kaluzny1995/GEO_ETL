@@ -67,7 +67,7 @@ PySpark scripts run locally and connect to a Spark standalone cluster managed by
 # 1. Create the environment (the Supabase credentials file is written by GEO_E2E's setup)
 conda env create -f environment.yml
 conda activate geo_etl_311
-../GEO_E2E/setup.sh   # writes this repo's .env — also when GEO_E2E/.env.local already exists
+../GEO_E2E/setup.sh   # writes this repo's .env — also when GEO_E2E/.env already exists
 #    manual fallback: cp .env.example .env and edit it (see docs/configuration.md)
 
 # 2. Start the Spark cluster (docker-compose lives in GEO_E2E)

@@ -109,7 +109,7 @@ def _event_category() -> Column:
 
 ## Supabase Credentials
 
-> **Do the Supabase setup in GEO_E2E first.** The five values below are shared by the whole pipeline — GEO_E2E uses them for Airflow's metadata DB, this project for its JDBC writes — and their setup lives in **GEO_E2E**: run [`../GEO_E2E/setup.sh`](../../GEO_E2E/README.md#2-configure-environment-variables-mandatory) (or fill `GEO_E2E/.env.local` — full walkthrough in [GEO_E2E — Supabase metadata DB](../../GEO_E2E/docs/configuration.md#supabase-metadata-db-envlocal)) and the script mirrors them into this project's gitignored `.env`. What follows documents what the variables mean, how the JDBC URL is built and how to rotate or scope the credentials — keep it for standalone runs, CI and troubleshooting.
+> **Do the Supabase setup in GEO_E2E first.** The five values below are shared by the whole pipeline — GEO_E2E uses them for Airflow's metadata DB, this project for its JDBC writes — and their setup lives in **GEO_E2E**: run [`../GEO_E2E/setup.sh`](../../GEO_E2E/README.md#2-configure-environment-variables-mandatory) (or fill `GEO_E2E/.env` — full walkthrough in [GEO_E2E — Supabase metadata DB](../../GEO_E2E/docs/configuration.md#supabase-metadata-db-env)) and the script mirrors them into this project's gitignored `.env`. What follows documents what the variables mean, how the JDBC URL is built and how to rotate or scope the credentials — keep it for standalone runs, CI and troubleshooting.
 
 Supabase database credentials are read from **environment variables**. A `.env` file in the project root is loaded automatically; `.env` is gitignored and only the `.env.example` template is committed. Variables already present in the shell (or CI) environment take precedence over `.env`.
 

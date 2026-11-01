@@ -17,7 +17,7 @@ Do this in **GEO_E2E** — its bootstrap script writes this project's `.env` (th
 
 ```bash
 cd ../GEO_E2E
-./setup.sh          # re-uses an existing .env.local (--force regenerates it) and mirrors it
+./setup.sh          # re-uses an existing .env (--force regenerates it) and mirrors it
 cd ../GEO_ETL       # the script mirrored SUPABASE_DB_* into ./.env
 ```
 

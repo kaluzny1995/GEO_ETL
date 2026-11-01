@@ -10,7 +10,6 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/
-/spark_cluster_image/jars/
 metastore_db/
 derby.log
 spark-warehouse/

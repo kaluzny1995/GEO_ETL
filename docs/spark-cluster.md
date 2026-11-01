@@ -35,21 +35,21 @@ Individual worker Web UIs are available at:
 
 ## Custom Spark image
 
-`spark_cluster_image/` holds a Dockerfile based on `apache/spark:3.5.5` that adds the Hadoop AWS and PostgreSQL JARs:
+GEO_E2E's `docker/spark/` directory holds a Dockerfile based on `apache/spark:3.5.5` that adds the Hadoop AWS and PostgreSQL JARs:
 
 ```bash
-cd spark_cluster_image
+cd ../GEO_E2E/docker/spark
 docker build -t geo_spark_custom .
 ```
 
-GEO_E2E's `docker-compose.yaml` builds this image itself (`build: ../GEO_ETL/spark_cluster_image` for master and both workers), so after changing the Dockerfile run `docker compose build` in GEO_E2E and recreate the cluster — no manual tagging or compose edits needed. The `geo_spark_custom` tag above is only for other compose files or registries that expect a pre-built image name.
+GEO_E2E's `docker-compose.yaml` builds this image itself (`build: ./docker/spark` for master and both workers), so after changing the Dockerfile run `docker compose build` in GEO_E2E and recreate the cluster — no manual tagging or compose edits needed. The `geo_spark_custom` tag above is only for other compose files or registries that expect a pre-built image name.
 
 ## Spark JARs
 
-The `spark_cluster_image/jars/` directory is excluded from git (listed in `.gitignore`). After cloning, download the required JARs manually:
+The JARs in `docker/spark/jars/` are excluded from git in [GEO_E2E](../../GEO_E2E) (its `.gitignore` ignores `/docker/spark/jars/*` but keeps the `.gitkeep`). After cloning, download the required JARs manually:
 
 ```bash
-cd spark_cluster_image/jars
+cd ../GEO_E2E/docker/spark/jars
 curl -fSL -O https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar
 curl -fSL -O https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar
 curl -fSL -O https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.4/postgresql-42.7.4.jar
@@ -67,7 +67,7 @@ These JARs are copied into the Spark Docker image during build.
 The PostgreSQL JDBC driver must also be available locally for the PySpark driver (which runs on the host). Copy it to the PySpark installation:
 
 ```bash
-cp spark_cluster_image/jars/postgresql-42.7.4.jar $(python -c "import pyspark, os; print(os.path.join(os.path.dirname(pyspark.__file__), 'jars'))")
+cp ../GEO_E2E/docker/spark/jars/postgresql-42.7.4.jar $(python -c "import pyspark, os; print(os.path.join(os.path.dirname(pyspark.__file__), 'jars'))")
 ```
 
 ## Connecting from PySpark
