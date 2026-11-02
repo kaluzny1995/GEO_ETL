@@ -2,7 +2,7 @@
 
 # Spark Cluster & PySpark
 
-The Spark standalone cluster is part of the **`geo_airflow_spark`** image built by the Docker Compose stack in [GEO_E2E](../../GEO_E2E). Inside the Compose network the master is `spark://geo-spark-master:7078`; host-side PySpark scripts keep using `spark://localhost:7078`, which is published by Compose. CSV files live in the shared `geo_data` named volume mounted at `/opt/geo/GEO_Download/data` in the Airflow and Spark containers.
+The Spark standalone cluster is part of the **`geo_airflow_spark`** image built by the Docker Compose stack in [GEO_E2E](../../GEO_E2E). Inside the Compose network the master is `spark://geo-spark-master:7078`; host-side PySpark scripts keep using `spark://localhost:7078`, which is published by Compose. CSV files live in the host `GEO_Download/data` folder bind-mounted at `/opt/geo/GEO_Download/data` in the Airflow and Spark containers.
 
 ## Cluster Configuration
 
@@ -88,7 +88,7 @@ df.show()
 
 Inside the `geo_airflow_spark` containers the same code uses `spark://geo-spark-master:7078` (GEO_ETL reads it from `SPARK_MASTER_URL`) and `/opt/geo/GEO_Download/data`.
 
-> **Note:** For host-side runs the data path must be accessible from both the driver (host) and workers (Docker containers); mount it at the same absolute path. The Dockerized pipeline uses the `geo_data` named volume at `/opt/geo/GEO_Download/data` for the Airflow driver and every Spark executor, so no host path is needed.
+> **Note:** For host-side runs the data path must be accessible from both the driver (host) and workers (Docker containers); mount it at the same absolute path. The Dockerized pipeline bind-mounts the host `GEO_Download/data` folder (`GEO_DATA_DIR`) at `/opt/geo/GEO_Download/data` for the Airflow driver and every Spark executor, so host and containers use the same path.
 
 ### Verify cluster connectivity
 

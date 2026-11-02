@@ -46,7 +46,7 @@ The `.env` file is gitignored. In CI, export the same variables instead — no f
 
 ### 3. Start the Spark cluster
 
-The cluster is managed by Docker Compose in [GEO_E2E](../../GEO_E2E). For a host-conda run, build the shared image once and start only the Spark services (the `geo_data` named volume is used by default; mount the host data directory at the same absolute path if the host driver needs it):
+The cluster is managed by Docker Compose in [GEO_E2E](../../GEO_E2E). For a host-conda run, build the shared image once and start only the Spark services (the host `GEO_Download/data` folder is bind-mounted by default via `GEO_DATA_DIR` in `GEO_E2E/.env`):
 
 ```bash
 cd ../GEO_E2E
