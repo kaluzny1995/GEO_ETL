@@ -195,10 +195,13 @@ def main() -> None:
     stderr_capture = _StderrCapture()
     stderr_capture.start()
 
-    # Connect to Spark cluster
-    spark = (
-        SparkSession.builder.master(config.spark.master).appName(f"{app_prefix}_{job_name}_{table_name}").getOrCreate()
-    )
+    # Connect to Spark cluster. The memory and partition caps come from config.json
+    # (overridable through SPARK_* environment variables in Docker) so a single ETL job
+    # cannot reserve the whole host.
+    builder = SparkSession.builder.master(config.spark.master).appName(f"{app_prefix}_{job_name}_{table_name}")
+    for key, value in config.spark.session_options.items():
+        builder = builder.config(key, value)
+    spark = builder.getOrCreate()
 
     # Register stage-level memory logger
     memory_log = os.path.join(log_dir, "memory", f"stage_memory_{dt.datetime.now():%Y%m%d_%H%M%S}.log")

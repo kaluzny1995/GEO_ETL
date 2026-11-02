@@ -2,7 +2,7 @@
 
 # Configuration Reference
 
-Runtime settings live in two places: `config.json` in the project root (Spark, database, logging, data paths and dataset constants) and environment variables (Supabase credentials — **set up once in [GEO_E2E](../../GEO_E2E/README.md#2-configure-environment-variables-mandatory)**, see [Supabase Credentials](#supabase-credentials) below).
+Runtime settings live in two places: `config.json` in the project root (Spark, database, logging, data paths and dataset constants) and environment variables (Supabase credentials — **set up once in [GEO_E2E](../../GEO_E2E/README.md#1-configure-credentials--mandatory-before-docker-compose-up)**, see [Supabase Credentials](#supabase-credentials) below).
 
 ## Application Configuration
 
@@ -12,7 +12,12 @@ The environment sections of `config.json`:
 {
   "spark": {
     "master": "spark://localhost:7078",
-    "app_name_prefix": "geo_etl"
+    "app_name_prefix": "geo_etl",
+    "driver_memory": "1g",
+    "executor_memory": "1g",
+    "executor_cores": 1,
+    "shuffle_partitions": 8,
+    "max_result_size": "256m"
   },
   "database": {
     "db_schema": "geo",
@@ -32,13 +37,18 @@ The environment sections of `config.json`:
 |---------|-----|---------|-------------|
 | `spark.master` | — | — | Spark cluster master URL; `SPARK_MASTER_URL` overrides it at runtime (Compose sets `spark://geo-spark-master:7078`) |
 | `spark.app_name_prefix` | — | `"geo_etl"` | Prefix for Spark application names |
+| `spark.driver_memory` | `"1g"` | — | PySpark driver heap cap; `SPARK_DRIVER_MEMORY` overrides it |
+| `spark.executor_memory` | `"1g"` | — | Executor heap cap; `SPARK_EXECUTOR_MEMORY` overrides it |
+| `spark.executor_cores` | `1` | — | Cores per executor; `SPARK_EXECUTOR_CORES` overrides it |
+| `spark.shuffle_partitions` | `8` | — | Default shuffle partition count; `SPARK_SHUFFLE_PARTITIONS` overrides it |
+| `spark.max_result_size` | `"256m"` | — | Driver result cap; `SPARK_MAX_RESULT_SIZE` overrides it |
 | `database.db_schema` | — | — | PostgreSQL schema name |
 | `database.jdbc_driver` | — | — | JDBC driver class |
 | `logging.directory` | `"logs"` | — | Root directory for log files |
 | `logging.level` | `"INFO"` | — | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
 | `data.directory` | `"../GEO_Download/data"` | — | Relative path to CSV data source |
 
-The file is loaded through `AppConfig.from_json()` (`model/config/app_config.py`), which returns nested `SparkConfig`, `DatabaseConfig`, `LoggingConfig` and `DataConfig` objects.
+The file is loaded through `AppConfig.from_json()` (`model/config/app_config.py`), which returns nested `SparkConfig`, `DatabaseConfig`, `LoggingConfig` and `DataConfig` objects. The `spark.*` memory/parallelism caps are applied by `run_etl.py` to every `SparkSession`; they keep the Airflow scheduler's 4 GB container limit meaningful. Docker Compose supplies the `SPARK_*` overrides from `.env` (see [GEO_E2E — Resource tuning](../../GEO_E2E/docs/configuration.md#resource-tuning-env)).
 
 ## Dataset Constants
 
@@ -109,7 +119,7 @@ def _event_category() -> Column:
 
 ## Supabase Credentials
 
-> **Do the Supabase setup in GEO_E2E first.** The five values below are shared by the whole pipeline — GEO_E2E uses them for Airflow's metadata DB, this project for its JDBC writes — and their setup lives in **GEO_E2E**: run [`../GEO_E2E/setup.sh`](../../GEO_E2E/README.md#2-configure-environment-variables-mandatory) (or fill `GEO_E2E/.env` — full walkthrough in [GEO_E2E — Supabase metadata DB](../../GEO_E2E/docs/configuration.md#supabase-metadata-db-env)) and the script mirrors them into this project's gitignored `.env`. What follows documents what the variables mean, how the JDBC URL is built and how to rotate or scope the credentials — keep it for standalone runs, CI and troubleshooting.
+> **Do the Supabase setup in GEO_E2E first.** The five values below are shared by the whole pipeline — GEO_E2E uses them for Airflow's metadata DB, this project for its JDBC writes — and their setup lives in **GEO_E2E**: run [`../GEO_E2E/setup.sh`](../../GEO_E2E/README.md#1-configure-credentials--mandatory-before-docker-compose-up) (or fill `GEO_E2E/.env` — full walkthrough in [GEO_E2E — Supabase metadata DB](../../GEO_E2E/docs/configuration.md#supabase-metadata-db-env)) and the script mirrors them into this project's gitignored `.env`. What follows documents what the variables mean, how the JDBC URL is built and how to rotate or scope the credentials — keep it for standalone runs, CI and troubleshooting.
 
 Supabase database credentials are read from **environment variables**. A `.env` file in the project root is loaded automatically; `.env` is gitignored and only the `.env.example` template is committed. Variables already present in the shell (or CI) environment take precedence over `.env`.
 

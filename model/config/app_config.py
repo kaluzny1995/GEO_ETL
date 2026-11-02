@@ -20,17 +20,40 @@ LOG_LEVEL_MAP = {
 
 
 class SparkConfig(BaseModel):
-    """Spark cluster connection settings.
+    """Spark cluster connection and resource settings.
 
     Attributes:
         master: Spark master URL (e.g. ``"spark://localhost:7078"``).
         app_name_prefix: Prefix for Spark application names.
+        driver_memory: Heap cap for the PySpark driver JVM (runs inside the Airflow
+            scheduler container in Docker).
+        executor_memory: Heap cap for each Spark executor.
+        executor_cores: Cores allocated to each executor.
+        shuffle_partitions: Default number of shuffle partitions; a low value keeps the
+            small GIS datasets from spawning hundreds of tiny tasks.
+        max_result_size: Maximum size of a result collected to the driver.
     """
 
     model_config = ConfigDict(frozen=True)
 
     master: str
     app_name_prefix: str = "geo_etl"
+    driver_memory: str = "1g"
+    executor_memory: str = "1g"
+    executor_cores: int = 1
+    shuffle_partitions: int = 8
+    max_result_size: str = "256m"
+
+    @property
+    def session_options(self) -> dict[str, str]:
+        """Return the Spark configuration keys derived from these settings."""
+        return {
+            "spark.driver.memory": self.driver_memory,
+            "spark.executor.memory": self.executor_memory,
+            "spark.executor.cores": str(self.executor_cores),
+            "spark.sql.shuffle.partitions": str(self.shuffle_partitions),
+            "spark.driver.maxResultSize": self.max_result_size,
+        }
 
 
 class DatabaseConfig(BaseModel):
@@ -100,8 +123,12 @@ class AppConfig(BaseModel):
     def from_json(path: str | None = None) -> "AppConfig":
         """Load configuration from a JSON file.
 
-        ``SPARK_MASTER_URL`` (when set) overrides ``spark.master`` so the same config works
-        locally (``localhost``) and inside Docker Compose (the Spark service name).
+        Environment variables override the matching ``spark`` settings so the same
+        ``config.json`` works locally and inside Docker Compose:
+
+        ``SPARK_MASTER_URL``, ``SPARK_DRIVER_MEMORY``, ``SPARK_EXECUTOR_MEMORY``,
+        ``SPARK_EXECUTOR_CORES``, ``SPARK_SHUFFLE_PARTITIONS`` and
+        ``SPARK_MAX_RESULT_SIZE``.
 
         Args:
             path: Path to the JSON config file. Defaults to ``config.json``
@@ -114,9 +141,17 @@ class AppConfig(BaseModel):
             path = CONFIG_PATH
         with open(path) as f:
             data = json.load(f)
-        # Container runs connect to the Compose service name instead of localhost. Keeping
-        # this as an environment override leaves the repository config usable for local runs.
-        spark_master = os.environ.get("SPARK_MASTER_URL")
-        if spark_master:
-            data.setdefault("spark", {})["master"] = spark_master
+        spark = data.setdefault("spark", {})
+        env_overrides = {
+            "SPARK_MASTER_URL": "master",
+            "SPARK_DRIVER_MEMORY": "driver_memory",
+            "SPARK_EXECUTOR_MEMORY": "executor_memory",
+            "SPARK_EXECUTOR_CORES": "executor_cores",
+            "SPARK_SHUFFLE_PARTITIONS": "shuffle_partitions",
+            "SPARK_MAX_RESULT_SIZE": "max_result_size",
+        }
+        for env_name, field in env_overrides.items():
+            value = os.environ.get(env_name)
+            if value:
+                spark[field] = value
         return AppConfig(**data)

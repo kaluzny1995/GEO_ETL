@@ -75,6 +75,10 @@ GEO_ETL is baked into the **`geo_airflow_spark`** image by the Compose stack in
   local runs.
 - Airflow and Spark share the `geo_data` volume at `/opt/geo/GEO_Download/data`, so
   drivers and executors see the same CSVs.
+- Spark drivers run inside the Airflow scheduler container. Their heap is capped by
+  `spark.driver_memory` / `spark.executor_memory` in `config.json` (1 GB each by default)
+  and can be overridden with `SPARK_DRIVER_MEMORY` / `SPARK_EXECUTOR_MEMORY` in
+  `GEO_E2E/.env`. This keeps the scheduler's Compose memory limit effective.
 
 ```bash
 cd ../GEO_E2E

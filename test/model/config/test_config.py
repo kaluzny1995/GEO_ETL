@@ -75,6 +75,31 @@ class TestSparkConfig:
         cfg = SparkConfig(master="spark://localhost:7078")
         assert cfg.app_name_prefix == "geo_etl"
 
+    def test_default_resource_caps(self):
+        cfg = SparkConfig(master="spark://localhost:7078")
+        assert cfg.driver_memory == "1g"
+        assert cfg.executor_memory == "1g"
+        assert cfg.executor_cores == 1
+        assert cfg.shuffle_partitions == 8
+        assert cfg.max_result_size == "256m"
+
+    def test_session_options(self):
+        cfg = SparkConfig(
+            master="spark://localhost:7078",
+            driver_memory="2g",
+            executor_memory="3g",
+            executor_cores=2,
+            shuffle_partitions=16,
+            max_result_size="512m",
+        )
+        assert cfg.session_options == {
+            "spark.driver.memory": "2g",
+            "spark.executor.memory": "3g",
+            "spark.executor.cores": "2",
+            "spark.sql.shuffle.partitions": "16",
+            "spark.driver.maxResultSize": "512m",
+        }
+
 
 class TestLoggingConfig:
     def test_level_int(self):
@@ -121,6 +146,23 @@ class TestAppConfig:
         cfg = AppConfig.from_json(str(config_path))
 
         assert cfg.spark.master == "spark://geo-spark-master:7078"
+
+    def test_from_json_spark_resource_env_overrides(self, monkeypatch, tmp_path):
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps(VALID_CONFIG))
+        monkeypatch.setenv("SPARK_DRIVER_MEMORY", "512m")
+        monkeypatch.setenv("SPARK_EXECUTOR_MEMORY", "2g")
+        monkeypatch.setenv("SPARK_EXECUTOR_CORES", "2")
+        monkeypatch.setenv("SPARK_SHUFFLE_PARTITIONS", "4")
+        monkeypatch.setenv("SPARK_MAX_RESULT_SIZE", "128m")
+
+        cfg = AppConfig.from_json(str(config_path))
+
+        assert cfg.spark.driver_memory == "512m"
+        assert cfg.spark.executor_memory == "2g"
+        assert cfg.spark.executor_cores == 2
+        assert cfg.spark.shuffle_partitions == 4
+        assert cfg.spark.max_result_size == "128m"
 
     def test_from_json_missing_file(self):
         with pytest.raises(FileNotFoundError):

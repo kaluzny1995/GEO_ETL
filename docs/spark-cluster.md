@@ -8,11 +8,11 @@ The Spark standalone cluster is part of the **`geo_airflow_spark`** image built 
 
 | Service | Hostname | Ports | Resources |
 |---------|----------|-------|-----------|
-| `geo-spark-master` | `geo-spark-master` | 7078 (cluster), 8083 (Web UI) | — |
-| `geo-spark-worker-1` | `geo-spark-worker-1` | 8084 (Web UI) | 2 cores, 2g RAM |
-| `geo-spark-worker-2` | `geo-spark-worker-2` | 8085 (Web UI) | 2 cores, 2g RAM |
+| `geo-spark-master` | `geo-spark-master` | 7078 (cluster), 8083 (Web UI) | 1g container limit |
+| `geo-spark-worker-1` | `geo-spark-worker-1` | 8084 (Web UI) | 2 cores, 2g advertised, 3g container limit |
+| `geo-spark-worker-2` | `geo-spark-worker-2` | 8085 (Web UI) | 2 cores, 2g advertised, 3g container limit |
 
-The master and both workers run the same image (`geo_airflow_spark`); only the container command differs.
+The master and both workers run the same image (`geo_airflow_spark`); only the container command differs. Worker memory/cores and the container limit are configurable through `SPARK_WORKER_MEMORY`, `SPARK_WORKER_CORES` and `SPARK_WORKER_MEM_LIMIT` in `GEO_E2E/.env`; the container limit must stay above the worker JVM plus its executor. Every Compose service also has `memswap_limit` equal to `mem_limit`, so Spark cannot swap the host to death.
 
 ### Starting the cluster
 
@@ -20,7 +20,7 @@ The `docker-compose.yaml` lives in [GEO_E2E](../../GEO_E2E) — build the shared
 
 ```bash
 cd ../GEO_E2E
-docker compose build airflow-init
+./build-images.sh                   # serial build; docker compose build works too
 docker compose up -d geo-spark-master geo-spark-worker-1 geo-spark-worker-2
 ```
 
@@ -47,7 +47,7 @@ GEO_E2E's `docker/geo_airflow_spark/Dockerfile` builds the `geo_airflow_spark` i
 
 ```bash
 cd ../GEO_E2E
-docker compose build airflow-init
+./build-images.sh                   # serial build; docker compose build works too
 docker compose up -d
 ```
 

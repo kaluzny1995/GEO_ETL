@@ -1,7 +1,12 @@
 {
   "spark": {
     "master": "spark://localhost:7078",
-    "app_name_prefix": "geo_etl"
+    "app_name_prefix": "geo_etl",
+    "driver_memory": "1g",
+    "executor_memory": "1g",
+    "executor_cores": 1,
+    "shuffle_partitions": 8,
+    "max_result_size": "256m"
   },
   "database": {
     "db_schema": "geo",
