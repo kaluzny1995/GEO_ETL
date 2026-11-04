@@ -6,7 +6,7 @@ All tables live in the `geo` PostgreSQL schema of Supabase. Every data source is
 
 - **Raw table** (`<name>_raw`) — every column is TEXT, exactly as ingested from the CSV.
 - **Plain table** (`<name>`) — typed columns (int, bool, float, date, datetime) produced by the raw2plain transform.
-- **ETL table** (`<name>_etl`) — canonical event row (same 21 columns for every source) produced by the [`SINGLE_ETL` job](etl_jobs/single-etl.md), deduplicated to one row per natural event per `file_date` (each script's `DEDUP_KEYS`), ready to be merged with the other `*_etl` tables.
+- **ETL table** (`<name>_etl`) — canonical event row (same 21 columns for every source) produced by the [`SINGLE_ETL` job](etl_jobs/single-etl.md), deduplicated to one row per natural event per `file_date` (the `dedup_keys` configured for each script), ready to be merged with the other `*_etl` tables.
 - **Union table** (`union_etl`) — every `*_etl` table stacked into one by the [`union_etl` script](etl_jobs/single-etl/union-etl.md) of the [`SINGLE_ETL` job](etl_jobs/single-etl.md); `source_name` says which of the nine tables a row came from — one distinct label per table (incl. `USGS_EARTHQUAKE`, `USGS_NWIS`, `USGS_VOLCANO`), which is also what keeps incremental loads per source.
 - **View** (`<name>_vw`) — a SQL view over one `*_etl` table, defined by the [`VIEW` job](etl_jobs/view.md) from a query kept in `config.json`. It stores no rows (the database recomputes it on every read), is always redefined in full (`HISTORICAL` only) and needs no `CREATE` run — it is not registered in `TableFactory`.
 

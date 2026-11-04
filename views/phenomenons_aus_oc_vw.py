@@ -44,38 +44,8 @@ from views.view_script import ViewScript
 
 _cfg = load_dataset(__file__, "view", ViewDatasetConfig)
 
-#: ISO 3166-1 alpha-2 codes of UN M49 Oceania accepted by the view.
-COUNTRY_CODES: tuple[str, ...] = (
-    "AS",
-    "AU",
-    "CC",
-    "CK",
-    "CX",
-    "FJ",
-    "FM",
-    "GU",
-    "HM",
-    "KI",
-    "MH",
-    "MP",
-    "NC",
-    "NF",
-    "NR",
-    "NU",
-    "NZ",
-    "PF",
-    "PG",
-    "PN",
-    "PW",
-    "SB",
-    "TK",
-    "TO",
-    "TV",
-    "UM",
-    "VU",
-    "WF",
-    "WS",
-)
+#: ISO 3166-1 alpha-2 codes from ``config.json`` — UN M49 Oceania accepted by the view.
+COUNTRY_CODES: tuple[str, ...] = tuple(_cfg.country_codes)
 
 
 class PhenomenonsAusOcVwScript(ViewScript):

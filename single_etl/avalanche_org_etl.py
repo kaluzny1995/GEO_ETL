@@ -85,15 +85,7 @@ class AvalancheOrgEtlScript(SingleEtlScript):
 
     SOURCE_TABLE = _cfg.source_table
     TARGET_TABLE = _cfg.target_table
-    DEDUP_KEYS = (
-        "subsource_name",
-        "state_province",
-        "place_location",
-        "latitude",
-        "longitude",
-        "event_start",
-        "event_end",
-    )
+    DEDUP_KEYS = tuple(_cfg.dedup_keys)
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.avalanche_org`` columns onto the canonical ETL structure.

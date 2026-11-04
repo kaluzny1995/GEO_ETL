@@ -181,7 +181,7 @@ class UsgsEarthquakeEtlScript(SingleEtlScript):
 
     SOURCE_TABLE = _cfg.source_table
     TARGET_TABLE = _cfg.target_table
-    DEDUP_KEYS = ("event_start", "latitude", "longitude")
+    DEDUP_KEYS = tuple(_cfg.dedup_keys)
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.usgs_earthquake`` columns onto the canonical ETL structure.

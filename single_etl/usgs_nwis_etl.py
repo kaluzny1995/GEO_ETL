@@ -206,7 +206,7 @@ class UsgsNwisEtlScript(SingleEtlScript):
 
     SOURCE_TABLE = _cfg.source_table
     TARGET_TABLE = _cfg.target_table
-    DEDUP_KEYS = ("subsource_name", "event_start")
+    DEDUP_KEYS = tuple(_cfg.dedup_keys)
 
     def __init__(self, flood_categories_path: str | None = None) -> None:
         """Load the script with an explicit flood-category reference path.

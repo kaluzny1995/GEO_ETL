@@ -39,7 +39,7 @@ How the data flows:
 5. No rows → the runner returns `EtlOutcome(loaded=False, …)`; `jobs/view.py` warns with that summary and raises `RuntimeError`, so `run_etl.py` exits with code 1 (same contract as SINGLE_ETL) and **the existing view is not touched**.
 6. Rows → `execute_statement` runs `CREATE OR REPLACE VIEW geo.<target_view> AS <query>` over JDBC. The definition is stored in the database, which recomputes the view on every read — so the view always reflects the current contents of its `*_etl` source.
 
-The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDatasetConfig` model) — the script itself is only wiring. The registered views:
+The query — and, for the five regional phenomenon views, the sorted `country_codes` whitelist — lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDatasetConfig` model) — the script itself is only wiring. The registered views:
 
 | Script | Source rows | Target view | Description |
 |--------|-------------|-------------|-------------|
@@ -60,6 +60,8 @@ The query lives entirely in `config.json` (`datasets.view.<script>`, the `ViewDa
 | `phenomenons_africa_vw` | `country_code IN (<Africa ISO list>)` | `geo.phenomenons_africa_vw` | [map view](view/phenomenon-views.md#phenomenons_africa_vw) |
 | `phenomenons_aus_oc_vw` | `country_code IN (<Oceania ISO list>)` | `geo.phenomenons_aus_oc_vw` | [map view](view/phenomenon-views.md#phenomenons_aus_oc_vw) |
 | `phenomenons_waters_vw` | `ZZ ∪ sea_lake_ice ∪ maritime keywords` | `geo.phenomenons_waters_vw` | [map view](view/phenomenon-views.md#phenomenons_waters_vw) |
+
+The five regional `phenomenons_*_vw` entries carry a sorted `country_codes` whitelist; the script exposes it as `COUNTRY_CODES` and the query must use the same list. `ViewDatasetConfig` rejects duplicates, unsorted codes and non-ISO codes when the script is imported.
 
 One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories), plus the denormalized per-country/region map views — see [Metrics views](view/metrics-views.md) and [Phenomenon views](view/phenomenon-views.md).
 

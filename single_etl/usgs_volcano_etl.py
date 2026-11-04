@@ -176,7 +176,7 @@ class UsgsVolcanoEtlScript(SingleEtlScript):
 
     SOURCE_TABLE = _cfg.source_table
     TARGET_TABLE = _cfg.target_table
-    DEDUP_KEYS = ("event_name", "event_start", "subsource_name")
+    DEDUP_KEYS = tuple(_cfg.dedup_keys)
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.usgs_volcano`` columns onto the canonical ETL structure.

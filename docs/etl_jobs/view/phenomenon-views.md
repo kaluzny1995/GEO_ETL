@@ -5,6 +5,8 @@
 The denormalized per-country/region map views over `geo.union_etl`, shaped for Looker
 Studio. Each shares the same 15-column display query as `phenomenons_us_vw`; the
 differences are the country filters and, for the water view, the open-water heuristic.
+Each regional entry keeps its whitelist in `datasets.view.<view>.country_codes`; the
+script exports it as `COUNTRY_CODES` and the tests pin it to the query.
 
 ## phenomenons_us_vw
 
@@ -47,7 +49,7 @@ WHERE country_code IN ('AG','AI','AR','AW','BB','BL','BM','BO','BQ','BR','BS','B
                        'MQ','MS','MX','NI','PA','PE','PM','PR','PY','SR','SV','SX','TC','TT','UY','VC','VE','VG','VI')
 ```
 
-55 codes: every ISO 3166-1 alpha-2 code of the Americas (UN M49 Northern + Central + South America and the Caribbean — countries *and* territories, since GDACS/seismic catalogs assign them) minus `US`/`CA`. Audited against the UN M49 Americas set (region `019`): the audit found and added `BM`, `BV`, `GS`, `KY`, `SV` — the last two carry records (8 + 3 rows), the rest are kept proactively for future data. A bare `NOT IN ('US','CA')` would wrongly include Europe, Africa, Asia and Oceania. The same tuple is exported as `COUNTRY_CODES` from the script, and tests pin: query `SELECT` == US view's, whitelist == `COUNTRY_CODES`, `US`/`CA`/`ZZ` absent, the five audited codes present.
+55 codes: every ISO 3166-1 alpha-2 code of the Americas (UN M49 Northern + Central + South America and the Caribbean — countries *and* territories, since GDACS/seismic catalogs assign them) minus `US`/`CA`. Audited against the UN M49 Americas set (region `019`): the audit found and added `BM`, `BV`, `GS`, `KY`, `SV` — the last two carry records (8 + 3 rows), the rest are kept proactively for future data. A bare `NOT IN ('US','CA')` would wrongly include Europe, Africa, Asia and Oceania. The whitelist is `datasets.view.phenomenons_cs_amer_vw.country_codes` in `config.json`, exported as `COUNTRY_CODES` by the script; tests pin the query `SELECT` == the US view's, the whitelist == `COUNTRY_CODES`, `US`/`CA`/`ZZ` absent and the five audited codes present.
 
 Live shape: 4,506 rows across 29 country codes (largest: BR, MX, CO, AR, PA).
 
@@ -75,7 +77,7 @@ WHERE country_code IN ('AD','AL','AT','AX','BA','BE','BG','BY','CH','CZ','DE','D
                        'ME','MK','MT','NL','NO','PL','PT','RO','RS','SE','SI','SJ','SK','SM','UA','VA','XK')
 ```
 
-51 codes: every UN M49 European state/territory/microstate (`SM`, `FO`, `XK`, `AX`, `SJ`, …) **minus `RU`**. Per the agreed definition the transcontinental M49-“Western Asia” edge cases are **excluded** — `TR`, `CY`, `AM`, `AZ`, `GE` (tests pin `RU`/`TR`/`CY`/`AM`/`AZ`/`GE`/`ZZ`/`US`/`CA` absent). Same tuple exported as `COUNTRY_CODES`.
+51 codes: every UN M49 European state/territory/microstate (`SM`, `FO`, `XK`, `AX`, `SJ`, …) **minus `RU`**. Per the agreed definition the transcontinental M49-“Western Asia” edge cases are **excluded** — `TR`, `CY`, `AM`, `AZ`, `GE` (tests pin `RU`/`TR`/`CY`/`AM`/`AZ`/`GE`/`ZZ`/`US`/`CA` absent). Same config-driven whitelist (`datasets.view.phenomenons_europe_vw.country_codes`) exported as `COUNTRY_CODES`.
 
 Live shape: 2,614 rows across 22 country codes (largest: FR 431, RO 420, DE 315, ES 238).
 

@@ -74,6 +74,7 @@ The `datasets` section of the same file holds every script's wiring and transfor
         "source_table": "avalanche_org",
         "target_table": "avalanche_org_etl",
         "source_name": "AVALANCHE_ORG",
+        "dedup_keys": ["subsource_name", "state_province", "place_location", "latitude", "longitude", "event_start", "event_end"],
         "country_code": "US",
         "event_category": "avalanche",
         "metric_name": "magnitude",
@@ -89,6 +90,12 @@ The `datasets` section of the same file holds every script's wiring and transfor
         "source_table": "union_etl",
         "target_view": "metrics_avalanche_vw",
         "query": "WITH avalanche AS (...), other_metric AS (...) SELECT ... UNION ALL SELECT ..."
+      },
+      "phenomenons_europe_vw": {
+        "source_table": "union_etl",
+        "target_view": "phenomenons_europe_vw",
+        "country_codes": ["AD", "AL", "AT", "..."],
+        "query": "SELECT ... WHERE country_code IN ('AD','AL','AT',...)"
       }
     }
   }
@@ -99,8 +106,10 @@ The `datasets` section of the same file holds every script's wiring and transfor
 |---------|----------|----------------|
 | `datasets.upload.<script>` | raw table name, CSV folder | `UploadDatasetConfig` |
 | `datasets.raw2plain.<script>` | raw + plain table names | `Raw2PlainDatasetConfig` |
-| `datasets.single_etl.<script>` | plain/ETL tables, source name, category and country maps, metric labels, lookup tables (`union_etl` instead lists the `*_etl` tables it stacks) | one `<Name>EtlConfig` per script, `UnionEtlConfig` for the union script |
-| `datasets.view.<script>` | `*_etl` source table, `*_vw` target view and the `SELECT` query the view exposes | `ViewDatasetConfig` |
+| `datasets.single_etl.<script>` | plain/ETL tables, source name, `dedup_keys`, category and country maps, metric labels, lookup tables (`union_etl` instead lists the `*_etl` tables it stacks) | one `<Name>EtlConfig` per script, `UnionEtlConfig` for the union script |
+| `datasets.view.<script>` | `*_etl` source table, `*_vw` target view, optional `country_codes` whitelist and the `SELECT` query the view exposes | `ViewDatasetConfig` |
+
+`dedup_keys` is the natural-event key set the `SINGLE_ETL` runner extends with `file_date`; it must be non-empty, unique and must not contain `file_date`. `country_codes` is the sorted ISO 3166-1 alpha-2 whitelist used by the regional phenomenon views (empty for views that filter on a single country); the configured query must use the same list. Both are validated when the script is imported.
 
 Each view entry is keyed by the view script's file stem and holds the whole view definition — see [VIEW job](etl_jobs/view.md) and its [Adding a new view script](etl_jobs/view.md#adding-a-new-view-script) recipe (the query is abridged above; the real entry carries the full SQL).
 

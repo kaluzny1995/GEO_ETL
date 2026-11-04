@@ -27,6 +27,7 @@ DATASETS = {
             "source_table": "demo",
             "target_table": "demo_etl",
             "source_name": "DEMO",
+            "dedup_keys": ["event_name", "latitude", "longitude", "event_start"],
             "category_map": {"A": "alpha"},
         },
         "demo_union_etl": {"target_table": "demo_union_etl", "source_tables": ["alpha_etl", "beta_etl"]},
@@ -64,7 +65,90 @@ class TestLoadDataset:
         cfg = load_dataset("single_etl/demo_etl.py", "single_etl", EonetEventEtlConfig, path=config_path)
         assert cfg.source_table == "demo"
         assert cfg.target_table == "demo_etl"
+        assert cfg.dedup_keys == ["event_name", "latitude", "longitude", "event_start"]
         assert cfg.category_map == {"A": "alpha"}
+
+    @pytest.mark.parametrize(
+        ("dedup_keys", "message"),
+        [
+            ([], "must not be empty"),
+            (["event_name", "event_name"], "must be unique"),
+            (["event_name", "file_date"], "must not include file_date"),
+            (["event_name", " "], "must not contain blank"),
+        ],
+    )
+    def test_invalid_dedup_keys_are_rejected(self, dedup_keys, message):
+        path = _write_config(
+            {
+                "single_etl": {
+                    "demo_etl": {
+                        "source_table": "demo",
+                        "target_table": "demo_etl",
+                        "source_name": "DEMO",
+                        "dedup_keys": dedup_keys,
+                        "category_map": {"A": "alpha"},
+                    }
+                }
+            }
+        )
+        try:
+            with pytest.raises(ValidationError, match=message):
+                load_dataset("/x/demo_etl.py", "single_etl", EonetEventEtlConfig, path=path)
+        finally:
+            os.unlink(path)
+
+    def test_view_country_codes_are_optional(self, config_path):
+        cfg = load_dataset("/x/demo_vw.py", "view", ViewDatasetConfig, path=config_path)
+        assert cfg.country_codes == []
+
+    def test_view_country_codes_are_loaded(self):
+        path = _write_config(
+            {
+                "view": {
+                    "demo_vw": {
+                        "source_table": "demo_etl",
+                        "target_view": "demo_vw",
+                        "query": "SELECT * FROM geo.demo_etl WHERE country_code IN ('CA','US')",
+                        "country_codes": ["CA", "US"],
+                    }
+                }
+            }
+        )
+        try:
+            cfg = load_dataset("/x/demo_vw.py", "view", ViewDatasetConfig, path=path)
+            assert cfg.country_codes == ["CA", "US"]
+        finally:
+            os.unlink(path)
+
+    @pytest.mark.parametrize(
+        ("country_codes", "message"),
+        [
+            (["US", "US"], "must be unique"),
+            (["US", "CA"], "must be sorted"),
+            (["us"], "two-letter upper-case"),
+            (["USA"], "two-letter upper-case"),
+            (["U1"], "two-letter upper-case"),
+            (["ÜS"], "two-letter upper-case"),
+        ],
+    )
+    def test_invalid_country_codes_are_rejected(self, country_codes, message):
+        path = _write_config(
+            {
+                "view": {
+                    "demo_vw": {
+                        "source_table": "demo_etl",
+                        "target_view": "demo_vw",
+                        "query": "SELECT * FROM geo.demo_etl",
+                        "country_codes": country_codes,
+                    }
+                }
+            }
+        )
+        try:
+            with pytest.raises(ValidationError, match=message):
+                load_dataset("/x/demo_vw.py", "view", ViewDatasetConfig, path=path)
+        finally:
+            os.unlink(path)
 
     def test_returns_typed_union_config(self, config_path):
         cfg = load_dataset("/x/demo_union_etl.py", "single_etl", UnionEtlConfig, path=config_path)

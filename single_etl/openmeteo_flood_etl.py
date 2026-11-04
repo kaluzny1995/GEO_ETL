@@ -301,7 +301,7 @@ class OpenMeteoFloodEtlScript(SingleEtlScript):
 
     SOURCE_TABLE = _cfg.source_table
     TARGET_TABLE = _cfg.target_table
-    DEDUP_KEYS = ("event_name", "place_location", "latitude", "longitude", "event_start")
+    DEDUP_KEYS = tuple(_cfg.dedup_keys)
 
     def __init__(self, thresholds_path: str | None = None) -> None:
         """Load the script with an explicit threshold reference path.

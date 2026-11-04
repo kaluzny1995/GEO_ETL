@@ -155,7 +155,7 @@ class GdacsEventEtlScript(SingleEtlScript):
 
     SOURCE_TABLE = _cfg.source_table
     TARGET_TABLE = _cfg.target_table
-    DEDUP_KEYS = ("event_category", "event_name", "latitude", "longitude", "event_start")
+    DEDUP_KEYS = tuple(_cfg.dedup_keys)
 
     def _convert(self, df: DataFrame) -> DataFrame:
         """Map ``geo.gdacs_event`` columns onto the canonical ETL structure.

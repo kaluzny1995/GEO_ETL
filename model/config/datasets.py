@@ -16,7 +16,7 @@ from functools import cache
 from pathlib import Path
 from typing import Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from model.config.app_config import CONFIG_PATH
 from model.enums import DangerRating
@@ -45,13 +45,33 @@ class Raw2PlainDatasetConfig(BaseModel):
 
 
 class SingleEtlDatasetConfig(BaseModel):
-    """Fields every script in ``single_etl/`` shares."""
+    """Fields every source script in ``single_etl/`` shares.
+
+    Attributes:
+        dedup_keys: Canonical columns that identify one natural event in the
+            source. The runner adds ``file_date`` to the key set, so the list
+            must be non-empty, unique and must not contain ``file_date``.
+    """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     source_table: str
     target_table: str
     source_name: str
+    dedup_keys: list[str]
+
+    @field_validator("dedup_keys")
+    @classmethod
+    def _validate_dedup_keys(cls, keys: list[str]) -> list[str]:
+        if not keys:
+            raise ValueError("dedup_keys must not be empty")
+        if any(not key.strip() for key in keys):
+            raise ValueError("dedup_keys must not contain blank column names")
+        if len(set(keys)) != len(keys):
+            raise ValueError("dedup_keys must be unique")
+        if "file_date" in keys:
+            raise ValueError("dedup_keys must not include file_date — the runner adds it")
+        return keys
 
 
 class DangerRatedEtlConfig(SingleEtlDatasetConfig):
@@ -214,6 +234,10 @@ class ViewDatasetConfig(BaseModel):
             runner executes it through Spark JDBC first to prove it returns
             rows, then stores it as ``CREATE OR REPLACE VIEW
             geo.<target_view> AS <query>``.
+        country_codes: Sorted ISO 3166-1 alpha-2 whitelist for the regional
+            phenomenon views; empty for views that filter on a single country
+            or do not filter by country. The script exposes it as
+            ``COUNTRY_CODES`` and the query must use the same list.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -221,6 +245,20 @@ class ViewDatasetConfig(BaseModel):
     source_table: str
     target_view: str
     query: str
+    country_codes: list[str] = Field(default_factory=list)
+
+    @field_validator("country_codes")
+    @classmethod
+    def _validate_country_codes(cls, codes: list[str]) -> list[str]:
+        if not codes:
+            return codes
+        if len(set(codes)) != len(codes):
+            raise ValueError("country_codes must be unique")
+        if codes != sorted(codes):
+            raise ValueError("country_codes must be sorted")
+        if any(len(code) != 2 or not code.isascii() or not code.isalpha() or not code.isupper() for code in codes):
+            raise ValueError("country_codes must be two-letter upper-case ISO 3166-1 alpha-2 codes")
+        return codes
 
 
 @cache

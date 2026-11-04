@@ -54,7 +54,7 @@ parametrize.
 | `test/jobs/test_view.py` | VIEW job (script resolution, logger passing, no `load_type` kwarg, config loading, unknown script, raises `RuntimeError` when the query returned no rows) |
 | `test/model/test_enums.py` | JobType and LoadType enums (values, membership, from_value, invalid value) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig models |
-| `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models (incl. `ViewDatasetConfig` for the `view` section), project config sections (incl. the union script's `source_tables` and the registered view entries) |
+| `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models (incl. `ViewDatasetConfig` for the `view` section), `dedup_keys` / `country_codes` validation, project config sections (incl. the union script's `source_tables` and the registered view entries) |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/test_model_contract.py` | Shared contract for all 28 canonical models (plain + raw + ETL): full-row kwargs, optional fields default to None, Spark schema field count/names/nullable/type, missing `file_date` raises |
 | `test/model/raw/test_raw_models.py` | All nine raw models parametrized (all-fields-accepted, optional present, missing required field, all-string Spark schema) + NIFC CSV header order |
@@ -69,6 +69,7 @@ parametrize.
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from raw + plain or ETL-only, table derivation, skip on empty, data_quality rejection) |
 | `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all ten SINGLE_ETL scripts (the nine source scripts + `union_etl`) parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, `loaded=False` for no-new-rows / empty conversion, source table) + the union's per-source INCREMENTAL thresholds (keyed by each table's `source_name`) |
+| `test/single_etl/test_dedup_keys.py` | DEDUP_KEYS contract for the nine source scripts, parametrized (non-empty, canonical columns, no `file_date`/duplicates, matches the configured `dedup_keys`) + `union_etl` declares none |
 | `test/single_etl/test_union_etl.py` | union script (nine configured source tables, identity `_convert`, target from config, registry entry) |
 | `test/views/test_metrics_avalanche_vw.py` | metrics_avalanche_vw view script (source/target/query from config, `_vw` suffix, avalanche filter + numeric `other_metrics` explosion + `file_date` cast in the query, registry entry) |
 | `test/views/test_metrics_drought_vw.py` | metrics_drought_vw view script (same contract as the avalanche view, drought filter) |
@@ -80,12 +81,13 @@ parametrize.
 | `test/views/test_metrics_volcano_vw.py` | metrics_volcano_vw view script (same contract as the avalanche view, volcano filter) |
 | `test/views/test_phenomenons_us_vw.py` | phenomenons_us_vw Looker Studio map view (US filter, capitalized categories, `event_ndesc` formula, `danger_rating` passthrough, `other_metrics` text format, date coalescing, registry entry) |
 | `test/views/test_phenomenons_ca_vw.py` | phenomenons_ca_vw Canada twin (CA filter, US-query equality beyond the country code, shared display shape, registry entry) |
-| `test/views/test_phenomenons_cs_amer_vw.py` | phenomenons_cs_amer_vw Americas twin (55-code M49 whitelist incl. audit catch `BM BV GS KY SV`, US/CA/ZZ exclusion, identical `SELECT` vs US view, registry entry) |
+| `test/views/test_country_whitelists.py` | Parametrized common contract for the five regional phenomenon views (config-driven `country_codes`, query whitelist match, ordering/uniqueness, US display shape, registry entry) |
+| `test/views/test_phenomenons_cs_amer_vw.py` | phenomenons_cs_amer_vw Americas twin — region-specific invariants (audit catch `BM BV GS KY SV`, US/CA/ZZ exclusion); common contract in `test_country_whitelists.py` |
 | `test/views/test_phenomenons_ru_vw.py` | phenomenons_ru_vw Russia twin (RU filter, US-query equality beyond the country code, shared display shape, registry entry) |
-| `test/views/test_phenomenons_europe_vw.py` | phenomenons_europe_vw Europe twin (51-code M49 whitelist minus RU, TR/CY/AM/AZ/GE/ZZ exclusion, identical `SELECT` vs US view, registry entry) |
-| `test/views/test_phenomenons_asia_vw.py` | phenomenons_asia_vw Asia twin (51-code M49 whitelist minus RU, edge cases included, disjoint from Europe, identical `SELECT` vs US view, registry entry) |
-| `test/views/test_phenomenons_africa_vw.py` | phenomenons_africa_vw Africa twin (60-code M49 whitelist, 54-AU coverage, disjoint from Europe/Asia, identical `SELECT` vs US view, registry entry) |
-| `test/views/test_phenomenons_aus_oc_vw.py` | phenomenons_aus_oc_vw Australia/Oceania twin (29-code M49 whitelist, four sub-region coverage, disjoint from Europe/Asia/Africa, identical `SELECT` vs US view, registry entry) |
+| `test/views/test_phenomenons_europe_vw.py` | phenomenons_europe_vw Europe twin — region-specific exclusion of RU and the M49 Western Asia edge cases; common contract in `test_country_whitelists.py` |
+| `test/views/test_phenomenons_asia_vw.py` | phenomenons_asia_vw Asia twin — region-specific edge-case inclusion and disjointness from Europe; common contract in `test_country_whitelists.py` |
+| `test/views/test_phenomenons_africa_vw.py` | phenomenons_africa_vw Africa twin — region-specific 54-AU coverage and disjointness from Europe/Asia; common contract in `test_country_whitelists.py` |
+| `test/views/test_phenomenons_aus_oc_vw.py` | phenomenons_aus_oc_vw Australia/Oceania twin — region-specific four sub-region coverage and disjointness from Europe/Asia/Africa; common contract in `test_country_whitelists.py` |
 | `test/views/test_phenomenons_waters_vw.py` | phenomenons_waters_vw ocean/sea twin (geocode guard, ZZ + AQ branches, sea_lake_ice, maritime keyword regex with `\y` boundaries, identical `SELECT` vs US view, registry entry) |
 | `test/single_etl/test_avalanche_org_etl.py` | Avalanche SINGLE_ETL script (column mapping, source coordinate pass-through, forecast-window collapse) |
 | `test/single_etl/test_eonet_event_etl.py` | EONET SINGLE_ETL script (category/place/country mapping, stamped geocode pass-through with description-state precedence) |

@@ -3,6 +3,17 @@
 import pytest
 
 from model.etl.event_etl import EventEtl
+from single_etl import (
+    avalanche_org_etl,
+    eonet_event_etl,
+    gdacs_event_etl,
+    ibtracs_cyclone_etl,
+    nifc_fire_etl,
+    openmeteo_flood_etl,
+    usgs_earthquake_etl,
+    usgs_nwis_etl,
+    usgs_volcano_etl,
+)
 from single_etl.avalanche_org_etl import AvalancheOrgEtlScript
 from single_etl.eonet_event_etl import EonetEventEtlScript
 from single_etl.gdacs_event_etl import GdacsEventEtlScript
@@ -26,6 +37,18 @@ SOURCE_SCRIPTS = [
     UsgsVolcanoEtlScript,
 ]
 
+CONFIG_CASES = [
+    (AvalancheOrgEtlScript, avalanche_org_etl._cfg),
+    (EonetEventEtlScript, eonet_event_etl._cfg),
+    (GdacsEventEtlScript, gdacs_event_etl._cfg),
+    (IbtracsCycloneEtlScript, ibtracs_cyclone_etl._cfg),
+    (NifcFireEtlScript, nifc_fire_etl._cfg),
+    (OpenMeteoFloodEtlScript, openmeteo_flood_etl._cfg),
+    (UsgsEarthquakeEtlScript, usgs_earthquake_etl._cfg),
+    (UsgsNwisEtlScript, usgs_nwis_etl._cfg),
+    (UsgsVolcanoEtlScript, usgs_volcano_etl._cfg),
+]
+
 CANONICAL_COLUMNS = set(EventEtl.model_fields)
 
 
@@ -36,6 +59,10 @@ class TestDedupKeys:
             f"{script_cls.__name__} must declare DEDUP_KEYS — every source table "
             "deduplicates its converted rows within each file_date"
         )
+
+    @pytest.mark.parametrize("script_cls, cfg", CONFIG_CASES)
+    def test_keys_come_from_the_config(self, script_cls, cfg):
+        assert tuple(cfg.dedup_keys) == script_cls.DEDUP_KEYS
 
     @pytest.mark.parametrize("script_cls", SOURCE_SCRIPTS)
     def test_keys_are_canonical_columns(self, script_cls):

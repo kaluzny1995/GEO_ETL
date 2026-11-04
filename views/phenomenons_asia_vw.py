@@ -41,60 +41,8 @@ from views.view_script import ViewScript
 
 _cfg = load_dataset(__file__, "view", ViewDatasetConfig)
 
-#: ISO 3166-1 alpha-2 codes of UN M49 Asia (minus RU) accepted by the view.
-COUNTRY_CODES: tuple[str, ...] = (
-    "AE",
-    "AF",
-    "AM",
-    "AZ",
-    "BD",
-    "BH",
-    "BN",
-    "BT",
-    "CN",
-    "CY",
-    "GE",
-    "HK",
-    "ID",
-    "IL",
-    "IN",
-    "IQ",
-    "IR",
-    "JO",
-    "JP",
-    "KG",
-    "KH",
-    "KP",
-    "KR",
-    "KW",
-    "KZ",
-    "LA",
-    "LB",
-    "LK",
-    "MM",
-    "MN",
-    "MO",
-    "MV",
-    "MY",
-    "NP",
-    "OM",
-    "PH",
-    "PK",
-    "PS",
-    "QA",
-    "SA",
-    "SG",
-    "SY",
-    "TH",
-    "TJ",
-    "TL",
-    "TM",
-    "TR",
-    "TW",
-    "UZ",
-    "VN",
-    "YE",
-)
+#: ISO 3166-1 alpha-2 codes from ``config.json`` — UN M49 Asia (minus RU) accepted by the view.
+COUNTRY_CODES: tuple[str, ...] = tuple(_cfg.country_codes)
 
 
 class PhenomenonsAsiaVwScript(ViewScript):
