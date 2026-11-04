@@ -11,6 +11,7 @@ from model.etl.usgs_earthquake_etl import UsgsEarthquakeEtl
 from model.etl.usgs_nwis_etl import UsgsNwisEtl
 from model.etl.usgs_volcano_etl import UsgsVolcanoEtl
 from model.other.data_quality import DataQuality
+from model.other.data_source_file import DataSourceFile, DataSourceSource
 from model.plain.avalanche_org import AvalancheOrg
 from model.plain.eonet_event import EonetEvent
 from model.plain.gdacs_event import GdacsEvent
@@ -75,6 +76,8 @@ __all__ = [
     "AvalancheOrgEtl",
     "AvalancheOrgRaw",
     "DataQuality",
+    "DataSourceFile",
+    "DataSourceSource",
     "EonetEvent",
     "EonetEventEtl",
     "EonetEventRaw",

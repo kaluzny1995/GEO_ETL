@@ -6,6 +6,7 @@ Usage::
     python run_etl.py INGESTION <table_name>
     python run_etl.py DATA_QUALITY <table_name>
     python run_etl.py DATA_QUALITY <table_name> --overall
+    python run_etl.py DATA_SOURCE_FILE <source_name> [--load-type auto|historical|incremental]
     python run_etl.py SINGLE_ETL <script_name> [--load-type auto|historical|incremental]
     python run_etl.py VIEW <script_name>
 """
@@ -163,15 +164,18 @@ def main() -> None:
         "--load-type",
         choices=["auto", "historical", "incremental"],
         default="auto",
-        help=("SINGLE_ETL only: force the load type (default: auto — the script detects it from its target table)"),
+        help=(
+            "SINGLE_ETL / DATA_SOURCE_FILE only: force the load type "
+            "(default: auto — the job detects it from its target)"
+        ),
     )
     args = parser.parse_args()
 
     if args.overall and args.job is not JobType.DATA_QUALITY:
         parser.error("--overall can only be used with the DATA_QUALITY job")
 
-    if args.load_type != "auto" and args.job is not JobType.SINGLE_ETL:
-        parser.error("--load-type can only be used with the SINGLE_ETL job")
+    if args.load_type != "auto" and args.job not in (JobType.SINGLE_ETL, JobType.DATA_SOURCE_FILE):
+        parser.error("--load-type can only be used with the SINGLE_ETL or DATA_SOURCE_FILE job")
 
     job_name = args.job.value.lower()
     table_name = args.table_name
@@ -215,7 +219,7 @@ def main() -> None:
         job_kwargs: dict[str, object] = {}
         if args.overall:
             job_kwargs["overall"] = True
-        if args.job is JobType.SINGLE_ETL:
+        if args.job in (JobType.SINGLE_ETL, JobType.DATA_SOURCE_FILE):
             job_kwargs["load_type"] = None if args.load_type == "auto" else LoadType(args.load_type.upper())
         result = job_module.run(spark, raw_table_name, logger=logger, **job_kwargs)
         logger.info(result)

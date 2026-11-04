@@ -16,10 +16,11 @@ PySpark scripts normally run inside the `geo_airflow_spark` image and connect to
 - **Custom Spark image** — based on `apache/spark:3.5.5` with Hadoop AWS + PostgreSQL JARs
 - **Local PySpark client** — scripts run on the host, connecting to the cluster remotely
 - **Model-driven schema** — Pydantic models define table structures; DDL and PySpark schemas are generated automatically
-- **Canonical event tables** — the `SINGLE_ETL` job maps every source into one shared 21-column event structure (`geo.<source>_etl`), deduplicates each source to one row per event per `file_date`, and the [`union_etl` script](docs/etl_jobs/single-etl.md#union_etl) stacks them all into one `geo.union_etl` table keyed per source by a distinct `source_name` (see [Data tables](docs/data-tables.md))
+- **Canonical event tables** — the `SINGLE_ETL` job maps every source into one shared 21-column event structure (`geo.<source>_etl`), deduplicates each source to one row per event per `file_date`, and the [`union_etl` script](docs/etl_jobs/single-etl/union-etl.md) stacks them all into one `geo.union_etl` table keyed per source by a distinct `source_name` (see [Data tables](docs/data-tables.md))
 - **Views** — the `VIEW` job defines `geo.<name>_vw` views over the `*_etl` tables from queries kept in `config.json` (HISTORICAL only — every run re-proves the query and replaces the view)
 - **Data quality metrics** — per-`file_date` null/bad/duplicate rates plus field varyingness (min/max/range, mean/stddev, percentiles, distinct counts) in `geo.data_quality`, measured incrementally (HISTORICAL first, then only new dates); each run also refreshes the whole-table `overall` snapshot
-- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) via a job registry
+- **CSV inventory publishing** — the `DATA_SOURCE_FILE` job publishes each source's CSV metadata (file name, snapshot date, modification time, record count, size) to `geo.data_source_files` and its source registry to `geo.data_source_sources`, so GEO_API can serve the Data Source Files view without mounting the data folder; files dated today or later are skipped
+- **CLI entry point** — `run_etl.py` dispatches jobs (CREATE TABLE, INGESTION, DATA_QUALITY, DATA_SOURCE_FILE, SINGLE_ETL, VIEW) via a job registry
 
 ## Tech Stack
 
@@ -43,13 +44,13 @@ PySpark scripts normally run inside the `geo_airflow_spark` image and connect to
 | Document | Contents |
 |----------|----------|
 | [Project structure](docs/architecture.md) | Directory layout — what each folder and entry-point script is for. |
-| [Usage](docs/usage.md) | Setup, creating tables, running ingestion, drop/delete scripts and expected output. |
-| [ETL jobs](docs/etl-jobs.md) | Job registry and links to the CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL and VIEW pipelines, plus load type detection. |
+| [Usage](docs/usage.md) | Setup, creating tables, running ingestion and standalone pipelines; [data-quality checks](docs/usage/data-quality.md) and [maintenance](docs/usage/maintenance.md) have their own pages. |
+| [ETL jobs](docs/etl-jobs.md) | Job registry and links to the CREATE, INGESTION, DATA_QUALITY, DATA_SOURCE_FILE, SINGLE_ETL and VIEW pipelines, plus load type detection; [SINGLE_ETL source mappings](docs/etl_jobs/single-etl.md#source-scripts) and [VIEW catalogues](docs/etl_jobs/view.md#view-scripts) are split into subpages. |
 | [Data quality metrics](docs/data-quality-metrics.md) | Metric families, rules and querying `geo.data_quality`. |
 | [Data tables](docs/data-tables.md) | The `geo` schema — raw/plain table pairs, registered models, current data and how to add a table. |
-| [Configuration](docs/configuration.md) | `config.json` reference and Supabase credentials (`.env`). |
+| [Configuration](docs/configuration.md) | `config.json` reference and [Supabase credentials](docs/configuration/supabase-credentials.md) (`.env`). |
 | [Spark cluster](docs/spark-cluster.md) | Cluster services, Web UI, Spark JARs and connecting from PySpark. |
-| [Logging](docs/logging.md) | Log structure and format, plus stage memory monitoring and the SparkListener build. |
+| [Logging](docs/logging.md) | Log structure and format; [stage memory monitoring](docs/logging/stage-memory.md) and the SparkListener build. |
 | [Testing](docs/testing.md) | Running pytest and what each test suite covers. |
 | [Code quality](docs/development.md) | Ruff lint/format, mypy and the tox environments. |
 
@@ -126,7 +127,7 @@ python run_etl.py CREATE <table_name>
 python run_etl.py SINGLE_ETL <table_name>
 ```
 
-Supabase credentials must be provided as environment variables, most conveniently in the gitignored `.env` file in the project root. **Set them up once in [GEO_E2E](../GEO_E2E)** — run `../GEO_E2E/setup.sh`, which writes this project's `.env` with the same five `SUPABASE_DB_*` values it uses for Airflow's metadata DB (manual fallback: copy `.env.example` and fill it in). Details in [Configuration](docs/configuration.md). Full instructions, including verifying the schema, dropping tables, deleting the latest `file_date` and the standalone upload/raw2plain pipelines, are in [Usage](docs/usage.md).
+Supabase credentials must be provided as environment variables, most conveniently in the gitignored `.env` file in the project root. **Set them up once in [GEO_E2E](../GEO_E2E)** — run `../GEO_E2E/setup.sh`, which writes this project's `.env` with the same five `SUPABASE_DB_*` values it uses for Airflow's metadata DB (manual fallback: copy `.env.example` and fill it in). Details in [Configuration](docs/configuration.md) and [Supabase Credentials](docs/configuration/supabase-credentials.md). Full instructions, including verifying the schema, dropping tables, deleting the latest `file_date` and the standalone upload/raw2plain pipelines, are in [Usage](docs/usage.md) and [Maintenance](docs/usage/maintenance.md).
 
 ## Related Projects
 

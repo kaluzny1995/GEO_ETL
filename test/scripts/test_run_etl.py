@@ -383,6 +383,64 @@ def test_single_etl_incremental_load_type(mock_logger, mock_create, mock_config,
 @patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
+def test_main_dispatches_data_source_file_job(mock_logger, mock_create, mock_config, mock_spark):
+    mock_create.return_value = MagicMock(run=MagicMock(return_value="done"))
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "DATA_SOURCE_FILE", "EONET"]):
+        from run_etl import main
+
+        main()
+
+    mock_create.assert_called_once_with(JobType.DATA_SOURCE_FILE)
+    assert mock_create.return_value.run.call_args[0][1] == "EONET"
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_data_source_file_defaults_to_auto_load_type(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "DATA_SOURCE_FILE", "EONET"]):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args.kwargs["load_type"] is None
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_data_source_file_passes_forced_load_type(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(
+        sys,
+        "argv",
+        ["run_etl.py", "DATA_SOURCE_FILE", "EONET", "--load-type", "incremental"],
+    ):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args.kwargs["load_type"] is LoadType.INCREMENTAL
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
 def test_load_type_rejected_for_other_jobs(mock_logger, mock_create, mock_config, mock_spark):
     import sys
 

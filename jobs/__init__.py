@@ -1,5 +1,5 @@
 from factory import JobFactory, Raw2PlainScriptFactory, SingleEtlFactory, UploadScriptFactory, ViewScriptFactory
-from jobs import create_table, data_quality, ingestion, single_etl, view
+from jobs import create_table, data_quality, data_source_file, ingestion, single_etl, view
 from model.enums import JobType
 
 
@@ -7,6 +7,7 @@ def _register():
     JobFactory.register(JobType.CREATE, create_table)
     JobFactory.register(JobType.INGESTION, ingestion)
     JobFactory.register(JobType.DATA_QUALITY, data_quality)
+    JobFactory.register(JobType.DATA_SOURCE_FILE, data_source_file)
     JobFactory.register(JobType.SINGLE_ETL, single_etl)
     JobFactory.register(JobType.VIEW, view)
 

@@ -21,7 +21,7 @@ would skip.
 
 Load behaviour (HISTORICAL / INCREMENTAL, auto-detected from the target's
 latest ``file_date``) is documented with the script in
-``docs/etl_jobs/single-etl.md#union_etl``.
+``docs/etl_jobs/single-etl/union-etl.md``.
 """
 
 from model.etl.event_etl import EventEtl

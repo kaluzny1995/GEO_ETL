@@ -49,6 +49,7 @@ parametrize.
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
 | `test/jobs/test_data_quality.py` | DATA_QUALITY job (HISTORICAL + INCREMENTAL load types, `overall` refresh, `--overall` mode, stale-metric purge, replace, no-new-data, logging, unknown table) |
 | `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logger passing, logging) |
+| `test/jobs/test_data_source_file.py` | DATA_SOURCE_FILE job (delegation to the publisher, forced load type, summary message) |
 | `test/jobs/test_single_etl.py` | SINGLE_ETL job (script resolution, load type and logger passing, unknown script, raises `RuntimeError` when the run loaded no records) |
 | `test/jobs/test_view.py` | VIEW job (script resolution, logger passing, no `load_type` kwarg, config loading, unknown script, raises `RuntimeError` when the query returned no rows) |
 | `test/model/test_enums.py` | JobType and LoadType enums (values, membership, from_value, invalid value) |
@@ -59,6 +60,7 @@ parametrize.
 | `test/model/raw/test_raw_models.py` | All nine raw models parametrized (all-fields-accepted, optional present, missing required field, all-string Spark schema) + NIFC CSV header order |
 | `test/model/plain/test_plain_models.py` | All nine plain models parametrized (missing required/key field, DDL fragments, DDL create table, factory registry) + IBTrACS field-name membership |
 | `test/model/other/test_data_quality.py` | DataQuality model validation + Spark schema + DDL types + registry |
+| `test/model/other/test_data_source_file.py` | DataSourceFile / DataSourceSource Spark schemas (published CSV and source-registry columns) |
 | `test/model/etl/test_event_etl_models.py` | The nine source ETL models + `UnionEtl` parametrized (missing required fields, empty model raises, canonical field order, field names, non-nullable required fields, DDL header/column types, registry) |
 | `test/ingestion/upload/test_upload_scripts.py` | All nine upload scripts parametrized (helpers + upload: historical, incremental, no files, logging, parse/max-file-date) |
 | `test/ingestion/raw2plain/test_raw2plain_scripts.py` | All nine Raw2Plain transforms parametrized (historical, incremental, no records, type conversion, max-file-date helper incl. the union's per-`source_name` scoping) |
@@ -96,6 +98,7 @@ parametrize.
 | `test/single_etl/test_usgs_volcano_etl.py` | USGS Volcano SINGLE_ETL script (VEI metric with unit and `VEI <n>` danger rating, other-metrics omissions incl. alert level and NCEI casualties/damage, notice type never reaching the subcategory, place/state fallbacks with stamped geocode state) |
 | `test/util/test_ddl_generator.py` | DDL generation, create/execute schema, drop table, drop schema, schema table check |
 | `test/util/test_dq_metrics.py` | Rules, rate/variance metric computation, unpivoting — run on a real local Spark session |
+| `test/util/test_data_source_files.py` | CSV metadata publisher (record counting, pipeline start date, source registry, HISTORICAL replace, INCREMENTAL new/changed/removed files, forced load types) |
 | `test/util/test_etl_utils.py` | Shared SINGLE_ETL runner `utils/etl_utils.py`: load-type resolution (auto → historical/incremental, forced type wins) |
 | `test/util/test_jdbc_retry.py` | Connection-error detection, bounded retries, delay and warning per attempt |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |

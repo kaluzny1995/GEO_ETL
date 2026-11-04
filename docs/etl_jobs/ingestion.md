@@ -51,6 +51,9 @@ How the data flows:
 
 Details of each step: [Upload pipeline](#upload-pipeline) · [Raw2Plain pipeline](#raw2plain-pipeline).
 
+> The CSV inventory is published by the separate [DATA_SOURCE_FILE job](data-source-file.md),
+> which runs after `DOWNLOAD` in the DAG and is not part of `INGESTION`.
+
 ## Upload pipeline
 
 Upload CSV files from GEO_Download to a Supabase table (`ingestion/upload/` scripts are classes implementing `ingestion/upload/upload_script.py`):

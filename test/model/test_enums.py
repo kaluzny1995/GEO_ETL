@@ -33,6 +33,10 @@ def test_job_type_data_quality_is_instance():
     assert isinstance(JobType.DATA_QUALITY, JobType)
 
 
+def test_job_type_data_source_file_is_instance():
+    assert isinstance(JobType.DATA_SOURCE_FILE, JobType)
+
+
 def test_job_type_single_etl_is_instance():
     assert isinstance(JobType.SINGLE_ETL, JobType)
 
@@ -41,14 +45,15 @@ def test_job_type_view_is_instance():
     assert isinstance(JobType.VIEW, JobType)
 
 
-def test_job_type_has_five_members():
-    assert len(JobType) == 5
+def test_job_type_has_six_members():
+    assert len(JobType) == 6
 
 
 def test_job_type_from_value():
     assert JobType("CREATE") is JobType.CREATE
     assert JobType("INGESTION") is JobType.INGESTION
     assert JobType("DATA_QUALITY") is JobType.DATA_QUALITY
+    assert JobType("DATA_SOURCE_FILE") is JobType.DATA_SOURCE_FILE
     assert JobType("SINGLE_ETL") is JobType.SINGLE_ETL
     assert JobType("VIEW") is JobType.VIEW
 

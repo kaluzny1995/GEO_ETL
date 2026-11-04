@@ -60,7 +60,7 @@ The JARs in `docker/geo_airflow_spark/jars/` are part of the build context:
 | JAR | Version | Purpose |
 |-----|---------|---------|
 | `postgresql` | 42.7.4 | PostgreSQL JDBC driver for Supabase connectivity |
-| `spark-monitor` | — | Stage memory logging SparkListener (built from `utils/spark_listener/`, see [Logging — Stage memory monitoring](logging.md#stage-memory-monitoring)) |
+| `spark-monitor` | — | Stage memory logging SparkListener (built from `utils/spark_listener/`, see [Logging — Stage memory monitoring](logging/stage-memory.md)) |
 
 The optional S3A JARs (`hadoop-aws`, `aws-java-sdk-bundle`) are not needed by this solution and are excluded from the image build context.
 

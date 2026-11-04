@@ -10,7 +10,7 @@ GEO_ETL/
 ├── environment.yml                   # Conda environment definition
 ├── pyproject.toml                    # Ruff, pytest, mypy and coverage configuration
 ├── tox.ini                           # Tox environments (lint, format, typecheck, py311, warnings)
-├── .env.example                      # Template for Supabase credentials (the real .env is gitignored; normally written by GEO_E2E's setup.sh — see docs/configuration.md)
+├── .env.example                      # Template for Supabase credentials (the real .env is gitignored; normally written by GEO_E2E's setup.sh — see docs/configuration/supabase-credentials.md)
 ├── run_etl.py                        # Main CLI entry point for ETL jobs
 ├── run_drop_table.py                 # Drop a table from Supabase
 ├── run_drop_schema.py                # Drop a schema from Supabase (if empty)
@@ -58,6 +58,7 @@ GEO_ETL/
 │   ├── __init__.py                   # Registers jobs in JobFactory, scripts in the script factories
 │   ├── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
 │   ├── data_quality.py              # DATA_QUALITY job (per-file_date metrics -> geo.data_quality + overall refresh)
+│   ├── data_source_file.py          # DATA_SOURCE_FILE job (CSV inventory -> geo.data_source_files)
 │   ├── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
 │   ├── single_etl.py                 # SINGLE_ETL job (runs one script from single_etl/)
 │   └── view.py                       # VIEW job (runs one script from views/, defines a *_vw view)
@@ -98,7 +99,7 @@ GEO_ETL/
 │   └── phenomenons_waters_vw.py       # geo.union_etl (open-water heuristic) -> geo.phenomenons_waters_vw (Looker map view)
 │
 ├── model/                            # Data models and configuration
-│   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
+│   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, DATA_SOURCE_FILE, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
 │   ├── config/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   ├── datasets.py               # Per-script dataset constants from config.json (load_dataset + frozen models)
@@ -136,9 +137,11 @@ GEO_ETL/
 │       ├── usgs_nwis.py              # UsgsNwis — typed model (date, float)
 │       └── usgs_volcano.py           # UsgsVolcano — typed model (int, float, datetime)
 │   └── other/
-│       └── data_quality.py           # DataQuality — metric row (str, float, datetime)
+│       ├── data_quality.py           # DataQuality — metric row (str, float, datetime)
+│       └── data_source_file.py       # DataSourceFile / DataSourceSource — published CSV and source rows
 │
 ├── utils/                            # Utility modules
+│   ├── data_source_files.py          # Publishes source CSV metadata to geo.data_source_files
 │   ├── ddl_generator.py              # Pydantic -> PostgreSQL DDL + JDBC execution
 │   ├── dq_metrics.py                 # Per-file_date data quality rules + metric computation
 │   ├── etl_utils.py                  # Shared single-ETL runner (resolve_load_type, run_etl template)

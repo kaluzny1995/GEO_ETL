@@ -58,7 +58,7 @@ class SupabaseConnectionConfig(BaseModel):
             raise ValueError(
                 f"Missing Supabase credentials: {', '.join(missing)}. "
                 "Set them as environment variables or in a .env file in the project root "
-                "(see .env.example and docs/configuration.md)."
+                "(see .env.example and docs/configuration/supabase-credentials.md)."
             )
         raw_port = os.environ[ENV_PORT]
         try:

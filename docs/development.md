@@ -78,7 +78,7 @@ Current state: **100 %** of the executed lines across the 1269-test suite.
 |---------|-----------|--------|
 | `tox` | default gate = `lint` + `py311` | ✅ |
 | `tox -e lint` | `ruff check --output-format=concise .` | ✅ 0 findings |
-| `tox -e py311` | full pytest suite (1619 tests) | ✅ |
+| `tox -e py311` | full pytest suite (1643 tests) | ✅ |
 | `tox -e format` | `ruff format --check .` | ✅ 224 files already formatted |
 | `tox -e format-fix` | `ruff format .` — writes the changes | – |
 | `tox -e typecheck` | `mypy` (126 files) | ✅ 0 errors |
