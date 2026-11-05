@@ -68,3 +68,31 @@ def test_setup_logger_no_duplicate_stdout_handlers(tmp_path):
         h for h in logger.handlers if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
     ]
     assert len(stream_handlers) == 1
+
+
+def test_setup_logger_survives_concurrent_directory_creation(tmp_path, monkeypatch):
+    """A concurrent task creating the shared job folder must not crash the logger.
+
+    Airflow starts several ETL tasks at once and they all log to the same folder
+    (e.g. ``logs/ingestion``).  Simulate the TOCTOU window: the folder exists but the
+    logger's existence check still reports it missing, as if another task had just
+    created it between check and ``makedirs``.
+    """
+    log_folder = tmp_path / "logs" / "ingestion"
+    log_folder.mkdir(parents=True)
+    real_exists = os.path.exists
+
+    def racing_exists(path):
+        if os.path.abspath(path) == os.path.abspath(log_folder):
+            return False
+        return real_exists(path)
+
+    monkeypatch.setattr("utils.logger.os.path.exists", racing_exists)
+    log_file = str(log_folder / "test.log")
+
+    logger = setup_logger(name="test_race", log_file=log_file)
+    logger.info("survived the race")
+
+    assert os.path.exists(log_file)
+    with open(log_file) as f:
+        assert "survived the race" in f.read()

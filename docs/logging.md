@@ -97,7 +97,7 @@ logger.error("Something failed")
 logger.exception("Traceback for failure")  # includes stack trace
 ```
 
-Each log file is timestamped and unique per execution. The `setup_logger` function auto-creates directories and prevents duplicate handlers — one `FileHandler` per distinct log file and at most one stdout `StreamHandler` per logger name, no matter how many times it is called.
+Each log file is timestamped and unique per execution. The `setup_logger` function auto-creates directories (atomically, with `os.makedirs(..., exist_ok=True)`) and prevents duplicate handlers — one `FileHandler` per distinct log file and at most one stdout `StreamHandler` per logger name, no matter how many times it is called. Atomic creation matters under Airflow: concurrent tasks of the same job type (e.g. several `INGESTION` tasks) share a folder such as `logs/ingestion`, so a check-then-create sequence could make one of them fail with `FileExistsError` after another task created the folder first.
 
 Log level and root directory come from `logging.level` and `logging.directory` in `config.json` — see [Configuration](configuration.md#application-configuration).
 

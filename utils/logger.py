@@ -7,10 +7,15 @@ def setup_logger(name: str, log_file: str, level: int = logging.INFO) -> logging
     """Setup logger — writes to *log_file* and mirrors every record to stdout so
     subprocess orchestrators (e.g. Airflow task logs) capture the full job output.
     Avoids duplicate handlers when called multiple times with the same name
-    (e.g. periodic Celery task invocations)."""
+    (e.g. periodic Celery task invocations).
+
+    The log directory is created with ``exist_ok=True``: Airflow runs several ETL
+    tasks concurrently and they all share the per-job folder (e.g. ``logs/ingestion``),
+    so a check-then-create sequence would race and one task would crash with
+    ``FileExistsError`` when another created the folder first."""
     log_file_folder: str = os.path.dirname(log_file)
-    if log_file_folder and not os.path.exists(log_file_folder):
-        os.makedirs(log_file_folder)
+    if log_file_folder:
+        os.makedirs(log_file_folder, exist_ok=True)
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
