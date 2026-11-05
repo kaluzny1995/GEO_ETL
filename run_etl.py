@@ -150,7 +150,7 @@ def main() -> None:
     parser.add_argument(
         "table_name",
         help=(
-            "Table name, e.g. avalanche_org (raw suffix added automatically for ingestion); "
+            "Table name, e.g. avalanche_org (INGESTION writes directly to the plain table); "
             "SINGLE_ETL expects the name of a script from single_etl/, "
             "VIEW expects the name of a script from views/ (HISTORICAL load only)"
         ),
@@ -181,9 +181,6 @@ def main() -> None:
     table_name = args.table_name
     log_dir = config.logging.directory
     app_prefix = config.spark.app_name_prefix
-
-    # For ingestion, auto-append _raw suffix for internal factory lookups
-    raw_table_name = table_name + "_raw" if job_name == "ingestion" and not table_name.endswith("_raw") else table_name
 
     logger = setup_logger(
         name=f"etl_{job_name}_{table_name}",
@@ -221,7 +218,7 @@ def main() -> None:
             job_kwargs["overall"] = True
         if args.job in (JobType.SINGLE_ETL, JobType.DATA_SOURCE_FILE):
             job_kwargs["load_type"] = None if args.load_type == "auto" else LoadType(args.load_type.upper())
-        result = job_module.run(spark, raw_table_name, logger=logger, **job_kwargs)
+        result = job_module.run(spark, table_name, logger=logger, **job_kwargs)
         logger.info(result)
     except Exception:
         logger.exception("ETL job failed")

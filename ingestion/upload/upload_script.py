@@ -2,39 +2,35 @@
 
 import logging
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
-from pydantic import BaseModel
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
 import utils.upload_utils as upload_utils
-from factory.table_factory import TableFactory
 from model.config import AppConfig, SupabaseConnectionConfig
 
 
 class UploadScript(ABC):
     """Interface every upload script in ``ingestion/upload/`` implements.
 
-    Subclasses provide the abstract :attr:`TABLE_NAME` and
-    :attr:`DATASET_FOLDER` attributes (plain class attributes satisfy them)
-    and read them from their ``config.json`` entry; the concrete
-    :meth:`upload` method delegates to the shared
-    :func:`~utils.upload_utils.upload` runner.
+    Subclasses set :attr:`TABLE_NAME` and :attr:`DATASET_FOLDER` and implement
+    :meth:`_convert`; the concrete :meth:`upload` method delegates to the
+    shared :func:`~utils.upload_utils.upload` runner.
     """
 
-    @property
-    @abstractmethod
-    def TABLE_NAME(self) -> str:
-        """Raw table the script writes to (e.g. ``"avalanche_org_raw"``)."""
+    TABLE_NAME: ClassVar[str]
+    DATASET_FOLDER: ClassVar[str]
 
-    @property
     @abstractmethod
-    def DATASET_FOLDER(self) -> str:
-        """Subdirectory under the data path containing the CSV files."""
+    def _convert(self, df: DataFrame) -> DataFrame:
+        """Cast the CSV text columns to the plain table's typed structure.
 
-    @property
-    def MODEL(self) -> type[BaseModel]:
-        """Raw-table Pydantic model for :attr:`TABLE_NAME`, from the table registry."""
-        return TableFactory.get(self.TABLE_NAME)
+        Args:
+            df: CSV rows (all columns as text) with ``file_date`` stamped.
+
+        Returns:
+            The DataFrame in :attr:`TABLE_NAME` column order.
+        """
 
     def upload(
         self,
@@ -43,7 +39,7 @@ class UploadScript(ABC):
         db_config: SupabaseConnectionConfig,
         logger: logging.Logger | None = None,
     ) -> bool:
-        """Run this script's CSV → raw-table upload via the shared runner.
+        """Run this script's CSV → plain-table ingestion via the shared runner.
 
         Args:
             spark: Active Spark session.
@@ -52,7 +48,9 @@ class UploadScript(ABC):
             logger: Optional logger; when ``None`` a file-based logger is created.
 
         Returns:
-            ``True`` when CSV files were written to the raw table, ``False``
+            ``True`` when CSV files were written to the plain table, ``False``
             when there was nothing to ingest.
         """
-        return upload_utils.upload(spark, config, db_config, self.TABLE_NAME, self.MODEL, self.DATASET_FOLDER, logger)
+        return upload_utils.upload(
+            spark, config, db_config, self.TABLE_NAME, self.DATASET_FOLDER, self._convert, logger
+        )

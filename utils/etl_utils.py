@@ -20,7 +20,7 @@ from pyspark.sql import functions as F
 
 from model.config import AppConfig, SupabaseConnectionConfig
 from model.enums import LoadType
-from utils.raw2plain_utils import get_max_file_date
+from utils.upload_utils import get_max_file_date
 
 FILE_DATE_COL = "file_date"
 

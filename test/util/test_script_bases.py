@@ -2,7 +2,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ingestion.raw2plain.raw2plain_script import Raw2PlainScript
 from ingestion.upload.upload_script import UploadScript
 from single_etl.single_etl_script import SingleEtlScript
 from utils.etl_utils import EtlOutcome
@@ -88,56 +87,12 @@ class TestSingleEtlScript:
         assert mock_run.call_args.kwargs == {"dedup_keys": None, "load_type": load_type, "logger": logger}
 
 
-class _StubRaw2PlainScript(Raw2PlainScript):
-    RAW_TABLE = "src_raw"
-    PLAIN_TABLE = "src_plain"
+class _StubUploadScript(UploadScript):
+    TABLE_NAME = "src_plain"
+    DATASET_FOLDER = "Src"
 
     def _convert(self, df):
         return df
-
-
-class TestRaw2PlainScript:
-    def test_base_cannot_be_instantiated(self):
-        with pytest.raises(TypeError):
-            Raw2PlainScript()  # type: ignore[abstract]
-
-    def test_subclass_without_convert_cannot_be_instantiated(self):
-        class Incomplete(Raw2PlainScript):
-            RAW_TABLE = "src_raw"
-            PLAIN_TABLE = "src_plain"
-
-        with pytest.raises(TypeError):
-            Incomplete()
-
-    def test_raw2plain_delegates_to_runner_with_the_class_tables_and_convert(self):
-        script = _StubRaw2PlainScript()
-        spark, config, db_config = MagicMock(), MagicMock(), MagicMock()
-
-        with patch("utils.raw2plain_utils.raw2plain", return_value=True) as mock_run:
-            result = script.raw2plain(spark, config, db_config)
-
-        assert result is True
-        args = mock_run.call_args[0]
-        assert args[:5] == (spark, config, db_config, "src_raw", "src_plain")
-        assert args[5] == script._convert
-        assert script._convert("frame") == "frame"
-        assert args[6] is None
-
-    def test_raw2plain_passes_logger_through(self):
-        script = _StubRaw2PlainScript()
-        logger = MagicMock(name="logger")
-
-        with patch("utils.raw2plain_utils.raw2plain", return_value=False) as mock_run:
-            result = script.raw2plain(MagicMock(), MagicMock(), MagicMock(), logger=logger)
-
-        assert result is False
-        assert mock_run.call_args[0][6] is logger
-
-
-class _StubUploadScript(UploadScript):
-    TABLE_NAME = "src_raw"
-    MODEL = MagicMock(name="MODEL")
-    DATASET_FOLDER = "Src"
 
 
 class TestUploadScript:
@@ -145,10 +100,10 @@ class TestUploadScript:
         with pytest.raises(TypeError):
             UploadScript()  # type: ignore[abstract]
 
-    def test_subclass_without_config_cannot_be_instantiated(self):
+    def test_subclass_without_convert_cannot_be_instantiated(self):
         class Incomplete(UploadScript):
-            TABLE_NAME = "src_raw"
-            MODEL = MagicMock(name="MODEL")
+            TABLE_NAME = "src_plain"
+            DATASET_FOLDER = "Src"
 
         with pytest.raises(TypeError):
             Incomplete()
@@ -162,10 +117,9 @@ class TestUploadScript:
 
         assert result is True
         args = mock_run.call_args[0]
-        assert args[:3] == (spark, config, db_config)
-        assert args[3] == "src_raw"
-        assert args[4] is _StubUploadScript.MODEL
-        assert args[5] == "Src"
+        assert args[:5] == (spark, config, db_config, "src_plain", "Src")
+        assert args[5] == script._convert
+        assert script._convert("frame") == "frame"
         assert args[6] is None
 
     def test_upload_passes_logger_through(self):

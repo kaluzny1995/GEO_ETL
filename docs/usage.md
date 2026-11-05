@@ -80,17 +80,15 @@ The CSV counts are illustrative — they grow with every [GEO_Download](../../GE
 
 ## Create tables and run ingestion
 
-The `run_etl.py` CLI creates tables in Supabase by generating DDL from Pydantic models — one `CREATE` run creates exactly one table, so the raw and the plain table need their own run:
+The `run_etl.py` CLI creates tables in Supabase by generating DDL from Pydantic models — one `CREATE` run creates exactly one table:
 
 ```bash
 conda activate geo_etl_311
 
-# Create the tables for a data source — one CREATE per table:
-# raw (all-TEXT) and plain (typed)
-python run_etl.py CREATE <table_name>_raw
+# Create the plain table for a data source
 python run_etl.py CREATE <table_name>
 
-# Run full ingestion pipeline (upload CSVs → raw table → typed plain table)
+# Run ingestion (read CSVs, convert to typed columns, write the plain table)
 python run_etl.py INGESTION <table_name>
 
 # Measure data quality of the plain table (writes geo.data_quality)
@@ -130,10 +128,7 @@ GEO_ETL makes no reverse-geocoding API calls: the lookup and the fetching live i
 **Every registered table — one run per table (the names are listed in [Data tables](data-tables.md)):**
 
 ```bash
-# Create the raw tables (all TEXT) — one CREATE run per table
-python run_etl.py CREATE <table_name>_raw
-
-# Create the plain tables (typed) — again one CREATE run per table
+# Create the plain tables (typed) — one CREATE run per table
 python run_etl.py CREATE <table_name>
 
 # Canonical ETL tables (SINGLE_ETL targets) — one CREATE run per table
@@ -142,18 +137,18 @@ python run_etl.py CREATE <table_name>_etl
 # Union table — stacks every *_etl table into one (the union script)
 python run_etl.py CREATE <table_name>
 
-# Ingest data (upload + transform) — one run per data source
+# Ingest data (CSV → typed plain table) — one run per data source
 python run_etl.py INGESTION <table_name>
 ```
 
-> **Note:** `CREATE` takes the exact table name — one run creates one table, so raw and plain tables need their own `CREATE`. Only `INGESTION` appends the `_raw` suffix itself: pass `<table_name>`, not `<table_name>_raw`.
+> **Note:** `CREATE` takes the exact table name — one run creates one table. `INGESTION` also takes the plain table name and writes directly to it.
 
 **How it works:**
 
 1. Reads config from `config.json` (Spark master, DB schema, JDBC driver) and the `SUPABASE_DB_*` environment variables / `.env` (Supabase credentials)
 2. Connects to the Spark cluster
 3. For `CREATE`: creates the schema if needed, generates DDL from the Pydantic model for the **exact** table name passed on the command line, executes it against Supabase — one table per run
-4. For `INGESTION`: runs the upload script (CSVs → raw table) then the raw2plain script (raw → typed table) via factories — **exits with code 1 when nothing was ingested** (no CSV newer than the raw table's max `file_date` and no raw row newer than the plain table's)
+4. For `INGESTION`: runs the upload script (CSVs → typed plain table) via the factory — **exits with code 1 when nothing was ingested** (no CSV newer than the plain table's max `file_date`)
 5. For `DATA_QUALITY`: measures only the selected `file_date`s of the plain table and replaces those rows in `geo.data_quality`, then refreshes the whole-table `overall` snapshot (when not run with `--overall`)
 6. For `SINGLE_ETL`: resolves the script name (`single_etl/<name>.py`) via `SingleEtlFactory` and runs it with the selected load type — **exits with code 1 when no record was loaded** (no source row newer than the `_etl` table's max `file_date`, an empty source, or a conversion that yields zero rows). The `union_etl` script is one of them: it stacks every `*_etl` table into `geo.union_etl`
 7. For `VIEW`: resolves the script name (`views/<name>.py`) via `ViewScriptFactory`, runs its query over the `*_etl` source through Spark and replaces the `*_vw` view definition (HISTORICAL only) — **exits with code 1 when the query returned no rows**
@@ -171,4 +166,4 @@ See [ETL jobs](etl-jobs.md) for the job registry, the CREATE, INGESTION, SINGLE_
 
 ## Standalone pipelines
 
-`upload()` and `raw2plain()` can also be called directly instead of through `run_etl.py` — see [Upload pipeline](etl_jobs/ingestion.md#upload-pipeline) for examples and behavior.
+`upload()` can also be called directly instead of through `run_etl.py` — see [Upload pipeline](etl_jobs/ingestion.md#upload-pipeline) for examples and behavior.

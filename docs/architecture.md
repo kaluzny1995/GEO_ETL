@@ -2,7 +2,7 @@
 
 # Project Structure
 
-The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` and `ingestion/raw2plain/` hold script classes with their interfaces (`upload_script.py`, `raw2plain_script.py`), `single_etl/` holds per-dataset PySpark scripts (interface in `single_etl/single_etl_script.py`) run by the `SINGLE_ETL` job — including a `union_etl` script that stacks their output into one `geo.union_etl` table, `views/` holds view-defining PySpark scripts (interface in `views/view_script.py`) run by the `VIEW` job (each defines one `*_vw` view over a `*_etl` table, HISTORICAL only), `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
+The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` holds the CSV upload/convert script classes (interface in `upload_script.py`), `single_etl/` holds per-dataset PySpark scripts (interface in `single_etl/single_etl_script.py`) run by the `SINGLE_ETL` job — including a `union_etl` script that stacks their output into one `geo.union_etl` table, `views/` holds view-defining PySpark scripts (interface in `views/view_script.py`) run by the `VIEW` job (each defines one `*_vw` view over a `*_etl` table, HISTORICAL only), `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
 
 ```
 GEO_ETL/
@@ -14,43 +14,29 @@ GEO_ETL/
 ├── run_etl.py                        # Main CLI entry point for ETL jobs
 ├── run_drop_table.py                 # Drop a table from Supabase
 ├── run_drop_schema.py                # Drop a schema from Supabase (if empty)
-├── run_delete_last_filedate_data.py  # Delete latest file_date from raw + plain (or ETL) tables
+├── run_delete_last_filedate_data.py  # Delete latest file_date from a plain (or ETL) table
 ├── run_pyspark_csv_test.py           # Cluster verification script
 ├── run_pyspark_supabase_test.py      # Supabase connection test script
 │
-├── ingestion/                        # Ingestion scripts (CSV upload + raw-to-plain transforms)
+├── ingestion/                        # Ingestion scripts (CSV → typed plain table)
 │   ├── __init__.py
 │   ├── upload/                       # Upload scripts (UploadScript interface + script classes)
 │   │   ├── __init__.py
-│   │   ├── upload_script.py           # UploadScript interface (TABLE_NAME, MODEL, DATASET_FOLDER + upload())
-│   │   ├── avalanche_org_upload.py       # Upload Avalanche_ORG CSVs -> Supabase via JDBC
-│   │   ├── eonet_event_upload.py         # Upload EONET CSVs -> Supabase via JDBC
-│   │   ├── gdacs_event_upload.py         # Upload GDACS CSVs -> Supabase via JDBC
-│   │   ├── ibtracs_cyclone_upload.py     # Upload IBTrACS CSVs -> Supabase via JDBC
-│   │   ├── nifc_fire_upload.py           # Upload NIFC CSVs -> Supabase via JDBC
-│   │   ├── openmeteo_flood_upload.py     # Upload OpenMeteo_Flood CSVs -> Supabase via JDBC
-│   │   ├── usgs_earthquake_upload.py     # Upload USGS_Earthquake CSVs -> Supabase via JDBC
-│   │   ├── usgs_nwis_upload.py           # Upload USGS_NWIS CSVs -> Supabase via JDBC
-│   │   └── usgs_volcano_upload.py        # Upload USGS_Volcano CSVs -> Supabase via JDBC
-│   └── raw2plain/                    # Raw-to-plain scripts (Raw2PlainScript interface + script classes)
-│       ├── __init__.py
-│       ├── raw2plain_script.py        # Raw2PlainScript interface (RAW_TABLE, PLAIN_TABLE + _convert())
-│       ├── avalanche_org_raw2plain.py    # Transform Avalanche_ORG raw -> typed data
-│       ├── eonet_event_raw2plain.py      # Transform EONET raw -> typed data
-│       ├── gdacs_event_raw2plain.py      # Transform GDACS raw -> typed data
-│       ├── ibtracs_cyclone_raw2plain.py  # Transform IBTrACS raw -> typed data
-│       ├── nifc_fire_raw2plain.py        # Transform NIFC raw -> typed data
-│       ├── openmeteo_flood_raw2plain.py  # Transform OpenMeteo_Flood raw -> typed data
-│       ├── usgs_earthquake_raw2plain.py  # Transform USGS_Earthquake raw -> typed data
-│       ├── usgs_nwis_raw2plain.py        # Transform USGS_NWIS raw -> typed data
-│       └── usgs_volcano_raw2plain.py     # Transform USGS_Volcano raw -> typed data
-│
+│   │   ├── upload_script.py           # UploadScript interface (TABLE_NAME, DATASET_FOLDER + _convert() + upload())
+│   │   ├── avalanche_org_upload.py       # Convert Avalanche_ORG CSVs -> typed Supabase table
+│   │   ├── eonet_event_upload.py         # Convert EONET CSVs -> typed Supabase table
+│   │   ├── gdacs_event_upload.py         # Convert GDACS CSVs -> typed Supabase table
+│   │   ├── ibtracs_cyclone_upload.py     # Convert IBTrACS CSVs -> typed Supabase table
+│   │   ├── nifc_fire_upload.py           # Convert NIFC CSVs -> typed Supabase table
+│   │   ├── openmeteo_flood_upload.py     # Convert OpenMeteo_Flood CSVs -> typed Supabase table
+│   │   ├── usgs_earthquake_upload.py     # Convert USGS_Earthquake CSVs -> typed Supabase table
+│   │   ├── usgs_nwis_upload.py           # Convert USGS_NWIS CSVs -> typed Supabase table
+│   │   └── usgs_volcano_upload.py        # Convert USGS_Volcano CSVs -> typed Supabase table
 ├── factory/                          # Registry factories
 │   ├── __init__.py                   # Exports all factories (lazy imports)
 │   ├── job_factory.py                # JobFactory: job type -> module registry
 │   ├── table_factory.py              # TableFactory: table_name -> Pydantic model
 │   ├── upload_script_factory.py      # UploadScriptFactory: table_name -> upload script instance
-│   ├── raw2plain_script_factory.py   # Raw2PlainScriptFactory: table_name -> raw2plain script instance
 │   ├── single_etl_factory.py         # SingleEtlFactory: script name -> script instance
 │   └── view_script_factory.py        # ViewScriptFactory: view name -> view script instance
 │
@@ -59,7 +45,7 @@ GEO_ETL/
 │   ├── create_table.py              # CREATE TABLE job (DDL from Pydantic models)
 │   ├── data_quality.py              # DATA_QUALITY job (per-file_date metrics -> geo.data_quality + overall refresh)
 │   ├── data_source_file.py          # DATA_SOURCE_FILE job (CSV inventory -> geo.data_source_files)
-│   ├── ingestion.py                 # INGESTION job (upload + raw2plain via factories)
+│   ├── ingestion.py                 # INGESTION job (CSV → typed plain table via the upload factory)
 │   ├── single_etl.py                 # SINGLE_ETL job (runs one script from single_etl/)
 │   └── view.py                       # VIEW job (runs one script from views/, defines a *_vw view)
 │
@@ -104,16 +90,6 @@ GEO_ETL/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
 │   │   ├── datasets.py               # Per-script dataset constants from config.json (load_dataset + frozen models)
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
-│   ├── raw/
-│   │   ├── avalanche_org_raw.py      # AvalancheOrgRaw — all-TEXT raw model
-│   │   ├── eonet_event_raw.py        # EonetEventRaw — all-TEXT raw model
-│   │   ├── gdacs_event_raw.py        # GdacsEventRaw — all-TEXT raw model
-│   │   ├── ibtracs_cyclone_raw.py    # IbtacsCycloneRaw — all-TEXT raw model
-│   │   ├── nifc_fire_raw.py          # NifcFireRaw — all-TEXT raw model
-│   │   ├── openmeteo_flood_raw.py    # OpenMeteoFloodRaw — all-TEXT raw model
-│   │   ├── usgs_earthquake_raw.py    # UsgsEarthquakeRaw — all-TEXT raw model
-│   │   ├── usgs_nwis_raw.py          # UsgsNwisRaw — all-TEXT raw model
-│   │   └── usgs_volcano_raw.py       # UsgsVolcanoRaw — all-TEXT raw model
 │   ├── etl/
 │   │   ├── event_etl.py               # EventEtl — canonical event structure shared by all *_etl tables
 │   │   ├── avalanche_org_etl.py       # AvalancheOrgEtl — geo.avalanche_org_etl model
@@ -127,15 +103,15 @@ GEO_ETL/
 │   │   ├── usgs_volcano_etl.py        # UsgsVolcanoEtl — geo.usgs_volcano_etl model
 │   │   └── union_etl.py               # UnionEtl — geo.union_etl model (every *_etl table stacked)
 │   ├── plain/
-│       ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
-│       ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
-│       ├── gdacs_event.py            # GdacsEvent — typed model (float, int, datetime, bool)
-│       ├── ibtracs_cyclone.py        # IbtacsCyclone — typed model (float, int, datetime)
-│       ├── nifc_fire.py              # NifcFire — typed model (float, str, datetime)
-│       ├── openmeteo_flood.py        # OpenMeteoFlood — typed model (float, date)
-│       ├── usgs_earthquake.py        # UsgsEarthquake — typed model (float, int, datetime)
-│       ├── usgs_nwis.py              # UsgsNwis — typed model (date, float)
-│       └── usgs_volcano.py           # UsgsVolcano — typed model (int, float, datetime)
+│   │   ├── avalanche_org.py          # AvalancheOrg — typed model (int, bool, datetime, date)
+│   │   ├── eonet_event.py            # EonetEvent — typed model (float, int, datetime, date)
+│   │   ├── gdacs_event.py            # GdacsEvent — typed model (float, int, datetime, bool)
+│   │   ├── ibtracs_cyclone.py        # IbtacsCyclone — typed model (float, int, datetime)
+│   │   ├── nifc_fire.py              # NifcFire — typed model (float, str, datetime)
+│   │   ├── openmeteo_flood.py        # OpenMeteoFlood — typed model (float, date)
+│   │   ├── usgs_earthquake.py        # UsgsEarthquake — typed model (float, int, datetime)
+│   │   ├── usgs_nwis.py              # UsgsNwis — typed model (date, float)
+│   │   └── usgs_volcano.py           # UsgsVolcano — typed model (int, float, datetime)
 │   └── other/
 │       ├── data_quality.py           # DataQuality — metric row (str, float, datetime)
 │       └── data_source_file.py       # DataSourceFile / DataSourceSource — published CSV and source rows
@@ -147,7 +123,6 @@ GEO_ETL/
 │   ├── etl_utils.py                  # Shared single-ETL runner (resolve_load_type, run_etl template)
 │   ├── jdbc_retry.py                 # Bounded retry for transient pooler connection failures
 │   ├── logger.py                     # setup_logger() — file + stdout mirror
-│   ├── raw2plain_utils.py            # Shared raw2plain logic (DRY: get_max_file_date, raw2plain template)
 │   ├── schema_converter.py           # Pydantic -> PySpark StructType schemas
 │   ├── spark_monitor.py              # Stage memory logging via Java SparkListener
 │   ├── spark_listener/               # Compiled Java SparkListener classes
@@ -156,7 +131,7 @@ GEO_ETL/
 │   │   ├── ListenerHelper.java       # Py4J bridge for listener registration
 │   │   ├── ListenerHelper.class
 │   │   └── spark-monitor.jar         # Packaged JAR (committed), installed into PySpark's jars/
-│   ├── upload_utils.py               # Shared upload logic (DRY: parse_file_date, get_max_file_date, upload template)
+│   ├── upload_utils.py               # Shared CSV ingestion logic (parse_file_date, get_max_file_date, upload template)
 │   └── view_utils.py                 # Shared view runner (run_view template, HISTORICAL only)
 │   └── column_helpers.py             # Shared Spark column expressions (literal_map, state_province)
 │
@@ -171,18 +146,17 @@ GEO_ETL/
 │   ├── delete_last_filedate/         # Delete last file_date job logs
 │   ├── memory/                       # Per-stage memory consumption logs
 │   ├── upload/                       # Standalone upload job logs
-│   ├── raw2plain/                    # Standalone raw2plain transform logs
 │   ├── single_etl/                   # SINGLE_ETL job logs
 │   ├── view/                         # VIEW job logs
 │   ├── pyspark_csv_test/             # CSV test script logs
 │   └── pyspark_supabase_test/        # Supabase test script logs
 │
 └── test/                             # Unit tests (pytest)
-    ├── conftest.py                   # Shared test helpers (mock_F_upload, mock_F_raw2plain, mock_app_config_upload, mock_app_config_raw2plain, mock_db_config, mock_spark_upload, mock_spark_raw2plain) + the spark_session fixture
+    ├── conftest.py                   # Shared test helpers (mock_F_upload, mock_app_config_upload, mock_db_config, mock_spark_upload) + the spark_session fixture
     ├── factory/
     │   ├── test_factory_init.py      # TableFactory registration mechanics
     │   ├── test_job_factory.py
-    │   ├── test_script_factories.py  # upload/raw2plain/single_etl script factories (parametrized)
+    │   ├── test_script_factories.py  # upload/single_etl/view script factories (parametrized)
     │   └── test_table_factory.py
     ├── jobs/
     │   ├── test_create_table.py
@@ -192,7 +166,7 @@ GEO_ETL/
     │   └── test_view.py                 # VIEW job (script resolution, logging, unknown script, empty-query RuntimeError)
     ├── model/
     │   ├── test_enums.py
-    │   ├── test_model_contract.py    # Shared contract for all 28 plain/raw/ETL models
+    │   ├── test_model_contract.py    # Shared contract for all 19 plain/ETL models
     │   ├── config/
     │   │   ├── test_config.py
     │   │   ├── test_datasets.py
@@ -201,8 +175,6 @@ GEO_ETL/
     │   │   └── test_event_etl_models.py   # 10 ETL models incl. UnionEtl (parametrized)
     │   ├── plain/
     │   │   └── test_plain_models.py       # 9 plain models (parametrized)
-    │   ├── raw/
-    │   │   └── test_raw_models.py         # 9 raw models (parametrized)
     │   └── other/
     │       └── test_data_quality.py
     ├── scripts/
@@ -211,10 +183,8 @@ GEO_ETL/
     │   ├── test_run_drop_schema.py
     │   └── test_run_delete_last_filedate_data.py
     ├── ingestion/
-    │   ├── upload/
-    │   │   └── test_upload_scripts.py     # 9 upload scripts (parametrized)
-    │   └── raw2plain/
-    │       └── test_raw2plain_scripts.py  # 9 raw2plain scripts (parametrized)
+    │   └── upload/
+    │       └── test_upload_scripts.py     # 9 upload scripts (parametrized)
     ├── single_etl/
     │   ├── test_shared_etl_behavior.py    # Run() behavior shared by all 10 scripts
     │   ├── test_avalanche_org_etl.py

@@ -5,7 +5,7 @@
 ```bash
 conda activate geo_etl_311
 
-# One table (plain name — no _raw suffix)
+# One table (plain name)
 python run_etl.py DATA_QUALITY <table_name>
 
 # One table — whole table as a single snapshot (file_date = 'overall')
@@ -14,7 +14,7 @@ python run_etl.py DATA_QUALITY <table_name> --overall
 # All plain tables — repeat the first command once per table
 ```
 
-> **Note:** Pass the plain table name — `DATA_QUALITY` does not add the `_raw` suffix, and the metrics are computed on the typed table.
+> **Note:** Pass the plain table name — the metrics are computed on the typed table.
 
 The first run measures every `file_date` (`HISTORICAL`); later runs measure only the `file_date`s added since (`INCREMENTAL`) and drop metrics for `file_date`s that no longer exist in the source. Run it after each INGESTION to keep `geo.data_quality` in step with the data — see [Load type detection](../etl_jobs/load-types.md#data_quality). Each normal run also refreshes the whole-table `overall` snapshot, so the aggregate never falls behind the dated rows — see [Overall refresh](../etl_jobs/data-quality.md#overall-refresh).
 

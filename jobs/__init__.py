@@ -1,4 +1,4 @@
-from factory import JobFactory, Raw2PlainScriptFactory, SingleEtlFactory, UploadScriptFactory, ViewScriptFactory
+from factory import JobFactory, SingleEtlFactory, UploadScriptFactory, ViewScriptFactory
 from jobs import create_table, data_quality, data_source_file, ingestion, single_etl, view
 from model.enums import JobType
 
@@ -146,77 +146,50 @@ def _register():
     _script = PhenomenonsWatersVwScript()
     ViewScriptFactory.register(_script.TARGET_VIEW, _script)
 
-    from ingestion.raw2plain.avalanche_org_raw2plain import AvalancheOrgRaw2PlainScript
     from ingestion.upload.avalanche_org_upload import AvalancheOrgUploadScript
 
     _upload = AvalancheOrgUploadScript()
     UploadScriptFactory.register(_upload.TABLE_NAME, _upload)
-    _r2p = AvalancheOrgRaw2PlainScript()
-    Raw2PlainScriptFactory.register(_r2p.RAW_TABLE, _r2p)
 
-    from ingestion.raw2plain.eonet_event_raw2plain import EonetEventRaw2PlainScript
     from ingestion.upload.eonet_event_upload import EonetEventUploadScript
 
     _upload = EonetEventUploadScript()
     UploadScriptFactory.register(_upload.TABLE_NAME, _upload)
-    _r2p = EonetEventRaw2PlainScript()
-    Raw2PlainScriptFactory.register(_r2p.RAW_TABLE, _r2p)
 
-    from ingestion.raw2plain.gdacs_event_raw2plain import GdacsEventRaw2PlainScript
     from ingestion.upload.gdacs_event_upload import GdacsEventUploadScript
 
     _upload = GdacsEventUploadScript()
     UploadScriptFactory.register(_upload.TABLE_NAME, _upload)
-    _r2p = GdacsEventRaw2PlainScript()
-    Raw2PlainScriptFactory.register(_r2p.RAW_TABLE, _r2p)
 
-    from ingestion.raw2plain.ibtracs_cyclone_raw2plain import IbtracsCycloneRaw2PlainScript
     from ingestion.upload.ibtracs_cyclone_upload import IbtracsCycloneUploadScript
 
     _upload = IbtracsCycloneUploadScript()
     UploadScriptFactory.register(_upload.TABLE_NAME, _upload)
-    _r2p = IbtracsCycloneRaw2PlainScript()
-    Raw2PlainScriptFactory.register(_r2p.RAW_TABLE, _r2p)
 
-    from ingestion.raw2plain.nifc_fire_raw2plain import NifcFireRaw2PlainScript
     from ingestion.upload.nifc_fire_upload import NifcFireUploadScript
 
     _upload = NifcFireUploadScript()
     UploadScriptFactory.register(_upload.TABLE_NAME, _upload)
-    _r2p = NifcFireRaw2PlainScript()
-    Raw2PlainScriptFactory.register(_r2p.RAW_TABLE, _r2p)
 
-    from ingestion.raw2plain.openmeteo_flood_raw2plain import OpenMeteoFloodRaw2PlainScript
     from ingestion.upload.openmeteo_flood_upload import OpenMeteoFloodUploadScript
 
     _upload = OpenMeteoFloodUploadScript()
     UploadScriptFactory.register(_upload.TABLE_NAME, _upload)
-    _r2p = OpenMeteoFloodRaw2PlainScript()
-    Raw2PlainScriptFactory.register(_r2p.RAW_TABLE, _r2p)
 
-    from ingestion.raw2plain.usgs_earthquake_raw2plain import UsgsEarthquakeRaw2PlainScript
     from ingestion.upload.usgs_earthquake_upload import UsgsEarthquakeUploadScript
 
     _upload = UsgsEarthquakeUploadScript()
     UploadScriptFactory.register(_upload.TABLE_NAME, _upload)
-    _r2p = UsgsEarthquakeRaw2PlainScript()
-    Raw2PlainScriptFactory.register(_r2p.RAW_TABLE, _r2p)
 
-    from ingestion.raw2plain.usgs_nwis_raw2plain import UsgsNwisRaw2PlainScript
     from ingestion.upload.usgs_nwis_upload import UsgsNwisUploadScript
 
     _upload = UsgsNwisUploadScript()
     UploadScriptFactory.register(_upload.TABLE_NAME, _upload)
-    _r2p = UsgsNwisRaw2PlainScript()
-    Raw2PlainScriptFactory.register(_r2p.RAW_TABLE, _r2p)
 
-    from ingestion.raw2plain.usgs_volcano_raw2plain import UsgsVolcanoRaw2PlainScript
     from ingestion.upload.usgs_volcano_upload import UsgsVolcanoUploadScript
 
     _upload = UsgsVolcanoUploadScript()
     UploadScriptFactory.register(_upload.TABLE_NAME, _upload)
-    _r2p = UsgsVolcanoRaw2PlainScript()
-    Raw2PlainScriptFactory.register(_r2p.RAW_TABLE, _r2p)
 
 
 _register()

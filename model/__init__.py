@@ -21,47 +21,27 @@ from model.plain.openmeteo_flood import OpenMeteoFlood
 from model.plain.usgs_earthquake import UsgsEarthquake
 from model.plain.usgs_nwis import UsgsNwis
 from model.plain.usgs_volcano import UsgsVolcano
-from model.raw import (
-    AvalancheOrgRaw,
-    EonetEventRaw,
-    GdacsEventRaw,
-    IbtacsCycloneRaw,
-    NifcFireRaw,
-    OpenMeteoFloodRaw,
-    UsgsEarthquakeRaw,
-    UsgsNwisRaw,
-    UsgsVolcanoRaw,
-)
 
 
 def _register_tables():
     from factory import TableFactory
 
-    TableFactory.register("avalanche_org_raw", AvalancheOrgRaw)
     TableFactory.register("avalanche_org", AvalancheOrg)
     TableFactory.register("avalanche_org_etl", AvalancheOrgEtl)
-    TableFactory.register("eonet_event_raw", EonetEventRaw)
     TableFactory.register("eonet_event", EonetEvent)
     TableFactory.register("eonet_event_etl", EonetEventEtl)
-    TableFactory.register("gdacs_event_raw", GdacsEventRaw)
     TableFactory.register("gdacs_event", GdacsEvent)
     TableFactory.register("gdacs_event_etl", GdacsEventEtl)
-    TableFactory.register("ibtracs_cyclone_raw", IbtacsCycloneRaw)
     TableFactory.register("ibtracs_cyclone", IbtacsCyclone)
     TableFactory.register("ibtracs_cyclone_etl", IbtracsCycloneEtl)
-    TableFactory.register("nifc_fire_raw", NifcFireRaw)
     TableFactory.register("nifc_fire", NifcFire)
     TableFactory.register("nifc_fire_etl", NifcFireEtl)
-    TableFactory.register("openmeteo_flood_raw", OpenMeteoFloodRaw)
     TableFactory.register("openmeteo_flood", OpenMeteoFlood)
     TableFactory.register("openmeteo_flood_etl", OpenMeteoFloodEtl)
-    TableFactory.register("usgs_earthquake_raw", UsgsEarthquakeRaw)
     TableFactory.register("usgs_earthquake", UsgsEarthquake)
     TableFactory.register("usgs_earthquake_etl", UsgsEarthquakeEtl)
-    TableFactory.register("usgs_nwis_raw", UsgsNwisRaw)
     TableFactory.register("usgs_nwis", UsgsNwis)
     TableFactory.register("usgs_nwis_etl", UsgsNwisEtl)
-    TableFactory.register("usgs_volcano_raw", UsgsVolcanoRaw)
     TableFactory.register("usgs_volcano", UsgsVolcano)
     TableFactory.register("usgs_volcano_etl", UsgsVolcanoEtl)
     TableFactory.register("union_etl", UnionEtl)
@@ -74,35 +54,26 @@ __all__ = [
     "AppConfig",
     "AvalancheOrg",
     "AvalancheOrgEtl",
-    "AvalancheOrgRaw",
     "DataQuality",
     "DataSourceFile",
     "DataSourceSource",
     "EonetEvent",
     "EonetEventEtl",
-    "EonetEventRaw",
     "GdacsEvent",
     "GdacsEventEtl",
-    "GdacsEventRaw",
     "IbtacsCyclone",
-    "IbtacsCycloneRaw",
     "IbtracsCycloneEtl",
     "JobType",
     "NifcFire",
     "NifcFireEtl",
-    "NifcFireRaw",
     "OpenMeteoFlood",
     "OpenMeteoFloodEtl",
-    "OpenMeteoFloodRaw",
     "SupabaseConnectionConfig",
     "UnionEtl",
     "UsgsEarthquake",
     "UsgsEarthquakeEtl",
-    "UsgsEarthquakeRaw",
     "UsgsNwis",
     "UsgsNwisEtl",
-    "UsgsNwisRaw",
     "UsgsVolcano",
     "UsgsVolcanoEtl",
-    "UsgsVolcanoRaw",
 ]

@@ -13,7 +13,7 @@ from test.conftest import mock_app_config, mock_db_config
 @patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
 @patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
 @patch("run_delete_last_filedate_data.setup_logger")
-def test_deletes_from_both_tables(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
+def test_deletes_from_plain_table(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
     import sys
 
     sys.argv = ["run_delete_last_filedate_data.py", "avalanche_org"]
@@ -25,37 +25,10 @@ def test_deletes_from_both_tables(mock_logger, mock_app, mock_db, mock_max_date,
 
     main()
 
-    # Should execute DELETE on plain table first, then raw
     stmt = conn_mock.createStatement.return_value
     delete_calls = [c for c in stmt.executeUpdate.call_args_list if "DELETE" in str(c)]
-    assert len(delete_calls) == 2
-    assert "geo.avalanche_org" in str(delete_calls[0])
-    assert "geo.avalanche_org_raw" in str(delete_calls[1])
-
-
-@patch("run_delete_last_filedate_data.SparkSession.builder")
-@patch("run_delete_last_filedate_data._get_jdbc_connection")
-@patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
-@patch("run_delete_last_filedate_data.SupabaseConnectionConfig.from_env", return_value=mock_db_config())
-@patch("run_delete_last_filedate_data.AppConfig.from_json", return_value=mock_app_config(logging=True, spark="geo_etl"))
-@patch("run_delete_last_filedate_data.setup_logger")
-def test_derives_plain_table_name(mock_logger, mock_app, mock_db, mock_max_date, mock_conn, mock_builder):
-    import sys
-
-    sys.argv = ["run_delete_last_filedate_data.py", "eonet_event"]
-
-    conn_mock = MagicMock()
-    mock_conn.return_value = conn_mock
-
-    from run_delete_last_filedate_data import main
-
-    main()
-
-    stmt = conn_mock.createStatement.return_value
-    delete_calls = [c for c in stmt.executeUpdate.call_args_list if "DELETE" in str(c)]
-    assert len(delete_calls) == 2
-    assert "geo.eonet_event" in str(delete_calls[0])
-    assert "geo.eonet_event_raw" in str(delete_calls[1])
+    assert len(delete_calls) == 1
+    assert "geo.avalanche_org WHERE" in str(delete_calls[0])
 
 
 @patch("run_delete_last_filedate_data.SparkSession.builder")
@@ -101,7 +74,6 @@ def test_etl_suffix_deletes_only_the_etl_table(mock_logger, mock_app, mock_db, m
     delete_calls = [c for c in stmt.executeUpdate.call_args_list if "DELETE" in str(c)]
     assert len(delete_calls) == 1
     assert "geo.avalanche_org_etl WHERE" in str(delete_calls[0])
-    assert "geo.avalanche_org_raw" not in str(delete_calls[0])
 
 
 @patch("run_delete_last_filedate_data.SparkSession.builder")
@@ -122,7 +94,7 @@ def test_etl_suffix_skips_when_no_data(mock_logger, mock_app, mock_db, mock_max_
     mock_conn.assert_not_called()
 
 
-@pytest.mark.parametrize("arg", ["data_quality", "data_quality_raw", "data_quality_etl"])
+@pytest.mark.parametrize("arg", ["data_quality", "data_quality_etl"])
 @patch("run_delete_last_filedate_data.SparkSession.builder")
 @patch("run_delete_last_filedate_data._get_jdbc_connection")
 @patch("run_delete_last_filedate_data._get_max_file_date", return_value="2026-09-22")
@@ -203,8 +175,6 @@ def test_stops_spark_on_exception(mock_logger, mock_app, mock_db, mock_max_date,
     conn_mock = MagicMock()
     conn_mock.createStatement.return_value.executeUpdate.side_effect = RuntimeError("db error")
     mock_conn.return_value = conn_mock
-
-    import pytest
 
     from run_delete_last_filedate_data import main
 

@@ -8,7 +8,7 @@ class JobType(enum.Enum):
 
     Attributes:
         CREATE: Creates tables in the target database from Pydantic models.
-        INGESTION: Uploads CSV data and transforms raw tables to typed tables.
+        INGESTION: Converts CSV data and writes the typed rows to plain tables.
         DATA_QUALITY: Computes per-file_date quality metrics for a table.
         DATA_SOURCE_FILE: Publishes one source's CSV inventory to ``geo.data_source_files``.
         SINGLE_ETL: Runs one standalone PySpark script from ``single_etl/``.

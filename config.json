@@ -22,78 +22,40 @@
   "datasets": {
     "upload": {
       "avalanche_org_upload": {
-        "table_name": "avalanche_org_raw",
+        "table_name": "avalanche_org",
         "dataset_folder": "Avalanche_ORG"
       },
       "eonet_event_upload": {
-        "table_name": "eonet_event_raw",
+        "table_name": "eonet_event",
         "dataset_folder": "EONET"
       },
       "gdacs_event_upload": {
-        "table_name": "gdacs_event_raw",
+        "table_name": "gdacs_event",
         "dataset_folder": "GDACS"
       },
       "ibtracs_cyclone_upload": {
-        "table_name": "ibtracs_cyclone_raw",
+        "table_name": "ibtracs_cyclone",
         "dataset_folder": "IBTrACS"
       },
       "nifc_fire_upload": {
-        "table_name": "nifc_fire_raw",
+        "table_name": "nifc_fire",
         "dataset_folder": "NIFC"
       },
       "openmeteo_flood_upload": {
-        "table_name": "openmeteo_flood_raw",
+        "table_name": "openmeteo_flood",
         "dataset_folder": "OpenMeteo_Flood"
       },
       "usgs_earthquake_upload": {
-        "table_name": "usgs_earthquake_raw",
+        "table_name": "usgs_earthquake",
         "dataset_folder": "USGS_Earthquake"
       },
       "usgs_nwis_upload": {
-        "table_name": "usgs_nwis_raw",
+        "table_name": "usgs_nwis",
         "dataset_folder": "USGS_NWIS"
       },
       "usgs_volcano_upload": {
-        "table_name": "usgs_volcano_raw",
+        "table_name": "usgs_volcano",
         "dataset_folder": "USGS_Volcano"
-      }
-    },
-    "raw2plain": {
-      "avalanche_org_raw2plain": {
-        "raw_table": "avalanche_org_raw",
-        "plain_table": "avalanche_org"
-      },
-      "eonet_event_raw2plain": {
-        "raw_table": "eonet_event_raw",
-        "plain_table": "eonet_event"
-      },
-      "gdacs_event_raw2plain": {
-        "raw_table": "gdacs_event_raw",
-        "plain_table": "gdacs_event"
-      },
-      "ibtracs_cyclone_raw2plain": {
-        "raw_table": "ibtracs_cyclone_raw",
-        "plain_table": "ibtracs_cyclone"
-      },
-      "nifc_fire_raw2plain": {
-        "raw_table": "nifc_fire_raw",
-        "plain_table": "nifc_fire"
-      },
-      "openmeteo_flood_raw2plain": {
-        "raw_table": "openmeteo_flood_raw",
-        "plain_table": "openmeteo_flood"
-      },
-      "usgs_earthquake_raw2plain": {
-        "raw_table": "usgs_earthquake_raw",
-        "plain_table": "usgs_earthquake"
-      },
-      "usgs_nwis_raw2plain": {
-        "raw_table": "usgs_nwis_raw",
-        "plain_table": "usgs_nwis"
-      },
-      "usgs_volcano_raw2plain": {
-        "raw_table": "usgs_volcano_raw",
-        "plain_table": "usgs_volcano"
       }
     },
     "single_etl": {

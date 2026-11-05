@@ -19,7 +19,7 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
 
     Args:
         spark: Active Spark session.
-        table_name: Table name to create (e.g. ``"avalanche_org_raw"``).
+        table_name: Table name to create (e.g. ``"avalanche_org"``).
         logger: Optional logger; defaults to a module-level logger.
 
     Returns:

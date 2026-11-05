@@ -15,7 +15,7 @@ def test_main_dispatches_create_job(mock_logger, mock_create, mock_config, mock_
 
     import sys
 
-    with patch.object(sys, "argv", ["run_etl.py", "CREATE", "avalanche_org_raw"]):
+    with patch.object(sys, "argv", ["run_etl.py", "CREATE", "avalanche_org"]):
         from run_etl import main
 
         main()
@@ -186,7 +186,7 @@ def test_main_invalid_job_type_exits(mock_logger, mock_create, mock_config, mock
 @patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
-def test_ingestion_log_uses_name_without_raw(mock_logger, mock_create, mock_config, mock_spark):
+def test_ingestion_log_uses_plain_table_name(mock_logger, mock_create, mock_config, mock_spark):
     mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
 
     import sys
@@ -198,14 +198,13 @@ def test_ingestion_log_uses_name_without_raw(mock_logger, mock_create, mock_conf
 
     log_file_arg = mock_logger.call_args.kwargs.get("log_file") or mock_logger.call_args[0][1]
     assert "avalanche_org" in log_file_arg
-    assert "avalanche_org_raw" not in log_file_arg
 
 
 @patch("run_etl.SparkSession")
 @patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
 @patch("run_etl.JobFactory.create")
 @patch("run_etl.setup_logger")
-def test_ingestion_passes_raw_name_to_job(mock_logger, mock_create, mock_config, mock_spark):
+def test_ingestion_passes_plain_name_to_job(mock_logger, mock_create, mock_config, mock_spark):
     job_mock = MagicMock(run=MagicMock(return_value="done"))
     mock_create.return_value = job_mock
 
@@ -216,25 +215,7 @@ def test_ingestion_passes_raw_name_to_job(mock_logger, mock_create, mock_config,
 
         main()
 
-    assert job_mock.run.call_args[0][1] == "avalanche_org_raw"
-
-
-@patch("run_etl.SparkSession")
-@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
-@patch("run_etl.JobFactory.create")
-@patch("run_etl.setup_logger")
-def test_create_log_keeps_raw_suffix(mock_logger, mock_create, mock_config, mock_spark):
-    mock_create.return_value = MagicMock(run=lambda s, t, logger=None: "done")
-
-    import sys
-
-    with patch.object(sys, "argv", ["run_etl.py", "CREATE", "avalanche_org_raw"]):
-        from run_etl import main
-
-        main()
-
-    log_file_arg = mock_logger.call_args.kwargs.get("log_file") or mock_logger.call_args[0][1]
-    assert "avalanche_org_raw" in log_file_arg
+    assert job_mock.run.call_args[0][1] == "avalanche_org"
 
 
 @patch("run_etl.SparkSession")
@@ -589,7 +570,7 @@ def test_main_merges_captured_spark_logs_into_main_log(
     import sys
 
     # Act
-    with patch.object(sys, "argv", ["run_etl.py", "CREATE", "avalanche_org_raw"]):
+    with patch.object(sys, "argv", ["run_etl.py", "CREATE", "avalanche_org"]):
         from run_etl import main
 
         main()

@@ -7,7 +7,7 @@
 ```mermaid
 flowchart TD
     CLI["CLI<br/>python run_etl.py CREATE {table}"] -->|JobFactory| JOB["jobs/create_table.py"]
-    JOB --> MODEL["TableFactory.get<br/>Pydantic model (raw or plain)"]
+    JOB --> MODEL["TableFactory.get<br/>Pydantic model"]
     JOB --> CFG["AppConfig + SupabaseConnectionConfig<br/>build jdbc_url / properties"]
     CFG --> SCHEMA["create_schema<br/>CREATE SCHEMA IF NOT EXISTS geo"]
     MODEL --> DDL["pydantic_to_ddl<br/>CREATE TABLE IF NOT EXISTS ..."]
@@ -17,12 +17,12 @@ flowchart TD
     EXEC --> DB[("geo.avalanche_org")]
 ```
 
-One run creates **one** table: `jobs/create_table.py` builds a single `CREATE TABLE` statement for the exact `table_name` it is given. The raw (`geo.avalanche_org_raw`) and the plain (`geo.avalanche_org`) tables are therefore created by two separate `CREATE` runs.
+One run creates **one** table: `jobs/create_table.py` builds a single `CREATE TABLE` statement for the exact `table_name` it is given. The plain table (`geo.avalanche_org`) and the canonical ETL table (`geo.avalanche_org_etl`) are therefore created by separate `CREATE` runs.
 
 How the data flows:
 
 1. `run_etl.py` parses the CLI args and resolves `JobType.CREATE` → `jobs/create_table.py` through `JobFactory` (see [Job registry and dispatch](../etl-jobs.md#job-registry-and-dispatch)).
-2. `TableFactory.get(table_name)` returns the Pydantic model registered for the table — raw models produce all-TEXT columns, plain models produce typed columns. Unknown tables raise `ValueError`.
+2. `TableFactory.get(table_name)` returns the Pydantic model registered for the table — plain models produce typed columns, ETL models produce the canonical event structure. Unknown tables raise `ValueError`.
 3. `AppConfig.from_json()` and `SupabaseConnectionConfig.from_env()` build the JDBC URL and properties used by every database call below.
 4. `create_schema` creates the target schema (`geo` by default) if it does not exist.
 5. `pydantic_to_ddl` (`utils/ddl_generator.py`) turns the model into a `CREATE TABLE IF NOT EXISTS` statement.

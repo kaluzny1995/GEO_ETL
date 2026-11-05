@@ -4,7 +4,7 @@
 
 Every script writes structured log files to `logs/`, organized by job type. The logging setup uses the same pattern as [GEO_E2E](../../GEO_E2E) and [GEO_Download](../../GEO_Download).
 
-When called via the INGESTION job, `upload()` and `raw2plain()` receive the ingestion logger, so all logs are consolidated into a single ingestion log file. When called standalone, they create their own separate log files.
+When called via the INGESTION job, `upload()` receives the ingestion logger, so all logs are consolidated into a single ingestion log file. When called standalone, it creates its own separate log file.
 
 **Spark internal logs** (Log4j output from the Spark driver) are captured via a file-descriptor redirect before the JVM starts and merged into the same log file with a `[spark]` prefix when the job completes. This means every `.log` file contains both our application messages and Spark's internal diagnostics in one place.
 
@@ -23,7 +23,7 @@ logs/
 ├── ingestion/
 │   └── ingestion_avalanche_org_2026-10-03T22:31:51.141617.log
 ├── create/
-│   └── create_avalanche_org_raw_2026-10-03T22:31:01.313539.log
+│   └── create_avalanche_org_2026-10-03T22:31:01.313539.log
 ├── single_etl/
 │   └── single_etl_avalanche_org_etl_2026-10-04T21:09:27.962397.log
 ├── view/
@@ -35,20 +35,18 @@ logs/
 ├── drop_schema/
 │   └── drop_schema_geo_<timestamp>.log
 ├── delete_last_filedate/
-│   └── delete_last_filedate_avalanche_org_raw_<timestamp>.log
+│   └── delete_last_filedate_avalanche_org_<timestamp>.log
 ├── memory/
 │   └── stage_memory_<timestamp>.log            # transient — merged into the job log, then deleted
 ├── upload/                          # standalone only
-│   └── upload_avalanche_org_raw_<timestamp>.log
-├── raw2plain/                       # standalone only
-│   └── raw2plain_avalanche_org_<timestamp>.log
+│   └── upload_avalanche_org_<timestamp>.log
 ├── pyspark_csv_test/
 │   └── pyspark_csv_test_<timestamp>.log
 └── pyspark_supabase_test/
     └── pyspark_supabase_test_<timestamp>.log
 ```
 
-Directory names come from the job name (`run_etl.py` lowercases the `JobType` value), so the `CREATE` job writes to `logs/create/` with the file pattern `create_<table>_<timestamp>.log` — one file per run, named after the exact table passed on the command line (`create_avalanche_org_raw_…`, `create_avalanche_org_…`, `create_avalanche_org_etl_…`). An empty `logs/create_table/` directory may exist from an earlier naming scheme; nothing writes to it any more.
+Directory names come from the job name (`run_etl.py` lowercases the `JobType` value), so the `CREATE` job writes to `logs/create/` with the file pattern `create_<table>_<timestamp>.log` — one file per run, named after the exact table passed on the command line (`create_avalanche_org_…`, `create_avalanche_org_etl_…`). An empty `logs/create_table/` directory may exist from an earlier naming scheme; nothing writes to it any more.
 
 ## Log format
 
@@ -59,7 +57,7 @@ After a `run_etl.py` job finishes, `_merge_logs_by_timestamp` (`run_etl.py`) rew
 [spark] 26/10/04 03:18:38 WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
 [spark] Setting default log level to "WARN".
 [spark] 26/10/04 03:18:38 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
-2026-10-04 03:18:37,482 INFO ---- ETL job started: create avalanche_org_raw ----
+2026-10-04 03:18:37,482 INFO ---- ETL job started: create avalanche_org ----
 
 2026-10-04 03:18:40,267 INFO Connected to Spark: spark://localhost:7078
 
@@ -69,13 +67,13 @@ After a `run_etl.py` job finishes, `_merge_logs_by_timestamp` (`run_etl.py`) rew
 
 2026-10-04 03:18:41,184 INFO Schema 'geo' ready
 
-2026-10-04 03:18:41,185 INFO Generated DDL for geo.avalanche_org_raw
+2026-10-04 03:18:41,185 INFO Generated DDL for geo.avalanche_org
 
 2026-10-04 03:18:41,185 INFO Executing DDL against Supabase...
 
 2026-10-04 03:18:41,596 INFO DDL executed successfully
 
-2026-10-04 03:18:41,596 INFO Table geo.avalanche_org_raw created.
+2026-10-04 03:18:41,596 INFO Table geo.avalanche_org created.
 
 2026-10-04 03:18:42,028 INFO Spark session stopped
 ```

@@ -29,7 +29,6 @@ ignore = [
 # findspark.init() must run before the pyspark imports
 "run_*.py" = ["E402"]
 "utils/upload_utils.py" = ["E402"]
-"utils/raw2plain_utils.py" = ["E402"]
 
 [tool.ruff.format]
 quote-style = "double"

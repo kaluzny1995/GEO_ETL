@@ -34,13 +34,13 @@ Configured in `pyproject.toml`:
 - `line-length = 120`, `target-version = "py311"`; `logs/`, `__pycache__` and `.idea` are excluded.
 - Enabled families: `E,W` (pycodestyle), `F` (pyflakes), `I` (import sorting), `B` (bugbear), `UP` (pyupgrade), `C4` (comprehensions), `SIM` (simplify), `RUF` (ruff-specific).
 - Exceptions: `SIM108` ignored (ternary rewrites), `F401` ignored in `__init__.py`, `B011` ignored in `test/**`.
-- `E402` (import not at top of file) is ignored for `run_*.py`, `utils/upload_utils.py` and `utils/raw2plain_utils.py` — `findspark.init()` **must** run before any `pyspark` import.
+- `E402` (import not at top of file) is ignored for `run_*.py` and `utils/upload_utils.py` — `findspark.init()` **must** run before any `pyspark` import.
 
 Current state: `ruff check .` → **0 findings**.
 
 ### Format
 
-`ruff format .` has been applied repo-wide: **173 files already formatted** (157 Python files + `README.md` + 15 files under `docs/`).
+`ruff format .` has been applied repo-wide: **221 files already formatted**.
 
 > `ruff format` also walks `README.md` and `docs/*.md`, but only rewrites code inside fenced blocks tagged `python` — prose, tables and `bash`/`json`/`text` blocks are left untouched. `ruff check` (lint) only looks at `.py` files.
 
@@ -51,7 +51,7 @@ mypy                 # targets come from [tool.mypy] files in pyproject.toml
 tox -e typecheck     # same, in an isolated environment
 ```
 
-Checked packages: `model`, `utils`, `factory`, `jobs`, `ingestion` (`upload/` + `raw2plain/`), `single_etl`, `views` and the six `run_*.py` entry points — **109 source files**, tests excluded.
+Checked packages: `model`, `utils`, `factory`, `jobs`, `ingestion`, `single_etl`, `views` and the six `run_*.py` entry points — **106 source files**, tests excluded.
 
 `pyspark`, `findspark` and `py4j` ship no type stubs, so they are listed under `[[tool.mypy.overrides]]` with `ignore_missing_imports = true`.
 
@@ -78,7 +78,7 @@ Current state: **100 %** of the executed lines across the 1269-test suite.
 |---------|-----------|--------|
 | `tox` | default gate = `lint` + `py311` | ✅ |
 | `tox -e lint` | `ruff check --output-format=concise .` | ✅ 0 findings |
-| `tox -e py311` | full pytest suite (1670 tests) | ✅ |
+| `tox -e py311` | full pytest suite (1481 tests) | ✅ |
 | `tox -e format` | `ruff format --check .` | ✅ 224 files already formatted |
 | `tox -e format-fix` | `ruff format .` — writes the changes | – |
 | `tox -e typecheck` | `mypy` (126 files) | ✅ 0 errors |

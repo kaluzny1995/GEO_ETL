@@ -9,21 +9,21 @@ A **normal run also refreshes the whole-table `overall` snapshot** (stored under
 ```bash
 conda activate geo_etl_311
 
-# Plain table name — no _raw suffix, metrics are measured on the typed table
+# Plain table name — metrics are measured on the typed table
 python run_etl.py DATA_QUALITY <table_name>
 
 # Whole table as one snapshot, stored under file_date = 'overall'
 python run_etl.py DATA_QUALITY <table_name> --overall
 ```
 
-> **Note:** `INGESTION` appends `_raw` internally for its own lookups, `CREATE` takes the exact table name it is given, and `DATA_QUALITY` adds nothing — pass the plain table name.
+> **Note:** `INGESTION` and `DATA_QUALITY` both take the plain table name, while `CREATE` takes the exact table name it is given.
 
 ## How it works
 
 ```mermaid
 flowchart TD
     CLI["CLI<br/>python run_etl.py DATA_QUALITY {table}"] -->|JobFactory| JOB["jobs/data_quality.py"]
-    JOB --> MODEL["TableFactory.get<br/>Pydantic model (plain, no _raw suffix)"]
+    JOB --> MODEL["TableFactory.get<br/>Pydantic model (plain)"]
     JOB --> CFG["AppConfig + SupabaseConnectionConfig<br/>build jdbc_url / properties"]
     CFG --> SCHEMA["create_schema<br/>+ create geo.data_quality if missing"]
     MODEL --> STORED["MAX(file_date) stored for {table}<br/>in geo.data_quality"]

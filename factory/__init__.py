@@ -29,10 +29,6 @@ def __getattr__(name: str):
         from factory.upload_script_factory import UploadScriptFactory
 
         return UploadScriptFactory
-    if name == "Raw2PlainScriptFactory":
-        from factory.raw2plain_script_factory import Raw2PlainScriptFactory
-
-        return Raw2PlainScriptFactory
     if name == "SingleEtlFactory":
         from factory.single_etl_factory import SingleEtlFactory
 
@@ -46,7 +42,6 @@ def __getattr__(name: str):
 
 __all__ = [
     "JobFactory",
-    "Raw2PlainScriptFactory",
     "SingleEtlFactory",
     "TableFactory",
     "UploadScriptFactory",

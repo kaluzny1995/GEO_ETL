@@ -59,14 +59,8 @@ The `datasets` section of the same file holds every script's wiring and transfor
   "datasets": {
     "upload": {
       "avalanche_org_upload": {
-        "table_name": "avalanche_org_raw",
+        "table_name": "avalanche_org",
         "dataset_folder": "Avalanche_ORG"
-      }
-    },
-    "raw2plain": {
-      "avalanche_org_raw2plain": {
-        "raw_table": "avalanche_org_raw",
-        "plain_table": "avalanche_org"
       }
     },
     "single_etl": {
@@ -104,8 +98,7 @@ The `datasets` section of the same file holds every script's wiring and transfor
 
 | Section | Contains | Pydantic model |
 |---------|----------|----------------|
-| `datasets.upload.<script>` | raw table name, CSV folder | `UploadDatasetConfig` |
-| `datasets.raw2plain.<script>` | raw + plain table names | `Raw2PlainDatasetConfig` |
+| `datasets.upload.<script>` | plain table name, CSV folder | `UploadDatasetConfig` |
 | `datasets.single_etl.<script>` | plain/ETL tables, source name, `dedup_keys`, category and country maps, metric labels, lookup tables (`union_etl` instead lists the `*_etl` tables it stacks) | one `<Name>EtlConfig` per script, `UnionEtlConfig` for the union script |
 | `datasets.view.<script>` | `*_etl` source table, `*_vw` target view, optional `country_codes` whitelist and the `SELECT` query the view exposes | `ViewDatasetConfig` |
 

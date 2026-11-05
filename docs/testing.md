@@ -44,11 +44,11 @@ parametrize.
 |------------|---------------|
 | `test/factory/test_job_factory.py` | JobFactory (register, create, clear) |
 | `test/factory/test_factory_init.py` | Unknown-attribute access raises AttributeError |
-| `test/factory/test_script_factories.py` | UploadScriptFactory, Raw2PlainScriptFactory, SingleEtlFactory, ViewScriptFactory parametrized (register, get, tables/scripts, clear) |
+| `test/factory/test_script_factories.py` | UploadScriptFactory, SingleEtlFactory, ViewScriptFactory parametrized (register, get, tables/scripts, clear) |
 | `test/factory/test_table_factory.py` | TableFactory registry mechanics (register/get, unknown table raises `ValueError`, clear + restore, overwrite, `tables()` listing) |
 | `test/jobs/test_create_table.py` | CREATE TABLE job logic, schema creation, DDL execution |
 | `test/jobs/test_data_quality.py` | DATA_QUALITY job (HISTORICAL + INCREMENTAL load types, `overall` refresh, `--overall` mode, stale-metric purge, replace, no-new-data, logging, unknown table) |
-| `test/jobs/test_ingestion.py` | INGESTION job (upload + raw2plain ordering, config passing, logger passing, logging) |
+| `test/jobs/test_ingestion.py` | INGESTION job (upload invocation, config passing, logger passing, logging, nothing-to-ingest failure) |
 | `test/jobs/test_data_source_file.py` | DATA_SOURCE_FILE job (delegation to the publisher, forced load type, summary message) |
 | `test/jobs/test_single_etl.py` | SINGLE_ETL job (script resolution, load type and logger passing, unknown script, raises `RuntimeError` when the run loaded no records) |
 | `test/jobs/test_view.py` | VIEW job (script resolution, logger passing, no `load_type` kwarg, config loading, unknown script, raises `RuntimeError` when the query returned no rows) |
@@ -56,18 +56,16 @@ parametrize.
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig models |
 | `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models (incl. `ViewDatasetConfig` for the `view` section), `dedup_keys` / `country_codes` validation, project config sections (incl. the union script's `source_tables` and the registered view entries) |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
-| `test/model/test_model_contract.py` | Shared contract for all 28 canonical models (plain + raw + ETL): full-row kwargs, optional fields default to None, Spark schema field count/names/nullable/type, missing `file_date` raises |
-| `test/model/raw/test_raw_models.py` | All nine raw models parametrized (all-fields-accepted, optional present, missing required field, all-string Spark schema) + NIFC CSV header order |
+| `test/model/test_model_contract.py` | Shared contract for all 19 canonical models (plain + ETL): full-row kwargs, optional fields default to None, Spark schema field count/names/nullable/type, missing `file_date` raises |
 | `test/model/plain/test_plain_models.py` | All nine plain models parametrized (missing required/key field, DDL fragments, DDL create table, factory registry) + IBTrACS field-name membership |
 | `test/model/other/test_data_quality.py` | DataQuality model validation + Spark schema + DDL types + registry |
 | `test/model/other/test_data_source_file.py` | DataSourceFile / DataSourceSource Spark schemas (published CSV and source-registry columns) |
 | `test/model/etl/test_event_etl_models.py` | The nine source ETL models + `UnionEtl` parametrized (missing required fields, empty model raises, canonical field order, field names, non-nullable required fields, DDL header/column types, registry) |
-| `test/ingestion/upload/test_upload_scripts.py` | All nine upload scripts parametrized (helpers + upload: historical, incremental, no files, logging, parse/max-file-date) |
-| `test/ingestion/raw2plain/test_raw2plain_scripts.py` | All nine Raw2Plain transforms parametrized (historical, incremental, no records, type conversion, max-file-date helper incl. the union's per-`source_name` scoping) |
+| `test/ingestion/upload/test_upload_scripts.py` | All nine upload scripts parametrized (helpers + upload: historical, incremental, no files, logging, parse/max-file-date incl. the union's per-`source_name` scoping, type-conversion column counts) |
 | `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch incl. `VIEW`, `--overall` / `--load-type` incl. the VIEW rejection, Spark session lifecycle, logger passing, error handling) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
-| `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from raw + plain or ETL-only, table derivation, skip on empty, data_quality rejection) |
+| `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from a plain or ETL-only table, skip on empty, data_quality rejection) |
 | `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all ten SINGLE_ETL scripts (the nine source scripts + `union_etl`) parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, `loaded=False` for no-new-rows / empty conversion, source table) + the union's per-source INCREMENTAL thresholds (keyed by each table's `source_name`) |
 | `test/single_etl/test_dedup_keys.py` | DEDUP_KEYS contract for the nine source scripts, parametrized (non-empty, canonical columns, no `file_date`/duplicates, matches the configured `dedup_keys`) + `union_etl` declares none |
 | `test/single_etl/test_union_etl.py` | union script (nine configured source tables, identity `_convert`, target from config, registry entry) |
@@ -104,7 +102,7 @@ parametrize.
 | `test/util/test_etl_utils.py` | Shared SINGLE_ETL runner `utils/etl_utils.py`: load-type resolution (auto → historical/incremental, forced type wins) |
 | `test/util/test_jdbc_retry.py` | Connection-error detection, bounded retries, delay and warning per attempt |
 | `test/util/test_schema_converter.py` | Pydantic -> PySpark StructType conversion |
-| `test/util/test_script_bases.py` | Script interface contracts: `SingleEtlScript` ABC — abstract `_convert()`, `run()` delegates tables, convert, load type and logger to `run_etl`; `Raw2PlainScript` ABC — `raw2plain()` delegates tables, convert and logger to the shared runner; `UploadScript` ABC — abstract config attributes, `upload()` delegates table, model, folder and logger to the shared runner; `ViewScript` ABC — `run()` delegates table, view name, query and logger to `run_view` |
+| `test/util/test_script_bases.py` | Script interface contracts: `SingleEtlScript` ABC — abstract `_convert()`, `run()` delegates tables, convert, load type and logger to `run_etl`; `UploadScript` ABC — abstract `_convert()`, `upload()` delegates table, folder, convert and logger to the shared runner; `ViewScript` ABC — `run()` delegates table, view name, query and logger to `run_view` |
 | `test/util/test_spark_monitor.py` | Stage memory logger registration (Java bridge, directory creation, listener setup) |
 | `test/util/test_view_utils.py` | Shared VIEW runner `utils/view_utils.py`: query executed as a JDBC subquery, `CREATE OR REPLACE VIEW` DDL (trailing `;` stripped from the query), `loaded=False` without a definition on an empty result, HISTORICAL-only load type, logging |
 | `test/util/test_logger.py` | Logger setup, duplicate handlers (file + stdout mirror), nested directories, concurrent directory creation (the Airflow `FileExistsError` race) |

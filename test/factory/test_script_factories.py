@@ -1,20 +1,18 @@
-"""Parametrized tests shared by the four script factories.
+"""Parametrized tests shared by the three script factories.
 
 Each case exercises the same behaviour against a different factory class —
-Raw2Plain and Upload expose ``tables()``, SingleETL and View expose ``scripts()``,
+Upload exposes ``tables()``, SingleETL and View expose ``scripts()``,
 and each factory raises its own error message for an unknown key.
 """
 
 import pytest
 
-from factory.raw2plain_script_factory import Raw2PlainScriptFactory
 from factory.single_etl_factory import SingleEtlFactory
 from factory.upload_script_factory import UploadScriptFactory
 from factory.view_script_factory import ViewScriptFactory
 
 # (factory, list method, unknown-key error, register return, overwrite first, overwrite second)
 FACTORY_CASES = [
-    (Raw2PlainScriptFactory, "tables", "No raw2plain script for 'unknown'", None, None, None),
     (UploadScriptFactory, "tables", "No upload script for 'unknown'", None, None, None),
     (SingleEtlFactory, "scripts", "No single ETL script for 'unknown'", "done", "one", "two"),
     (ViewScriptFactory, "scripts", "No view script for 'unknown'", "done", "one", "two"),

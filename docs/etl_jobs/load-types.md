@@ -4,21 +4,13 @@
 
 The INGESTION pipelines, the DATA_QUALITY job, the DATA_SOURCE_FILE job and the SINGLE_ETL scripts decide their load type from the state of their target table — no manual flag is needed (`SINGLE_ETL` and `DATA_SOURCE_FILE` also accept `--load-type` to force one). The VIEW job decides nothing: views are always `HISTORICAL` ([below](#view)).
 
-## Upload
+## INGESTION (CSV → plain table)
 
 | Condition | Load Type | Behavior |
 |-----------|-----------|----------|
-| Table is empty | `HISTORICAL` | Uploads all CSV files |
-| Table has data | `INCREMENTAL` | Uploads only CSVs with `file_date` newer than the latest in the table |
+| Plain table is empty | `HISTORICAL` | Reads and converts all CSV files |
+| Plain table has data | `INCREMENTAL` | Reads only CSVs with `file_date` newer than the latest in the table |
 | No file newer than the table's max | `INCREMENTAL` | Warns, writes nothing, returns `False` |
-
-## Raw2Plain
-
-| Condition | Load Type | Behavior |
-|-----------|-----------|----------|
-| Final table is empty | `HISTORICAL` | Processes all raw data |
-| Final table has data | `INCREMENTAL` | Processes only raw rows with `file_date` > max in final |
-| No raw row newer than the final max | `INCREMENTAL` | Warns, writes nothing, returns `False` |
 
 ## DATA_QUALITY
 
@@ -62,16 +54,13 @@ WARNING No records loaded into avalanche_org_etl — no rows to process in avala
 ERROR ETL job failed   (RuntimeError)   → exit code 1
 ```
 
-**INGESTION fails when there is nothing to ingest** — both steps warn, and because neither wrote anything the job raises, so `run_etl.py` exits with code 1 (the E2E chain then logs a warning and skips `DATA_QUALITY`):
+**INGESTION fails when there is nothing to ingest** — the upload warns and the job raises, so `run_etl.py` exits with code 1 (the E2E chain then logs a warning and skips `DATA_QUALITY`):
 
 ```
-WARNING No new files to upload for avalanche_org_raw — nothing to do, table is up to date
-WARNING No new records to process for avalanche_org — nothing to do, table is up to date
-WARNING No new data to ingest for avalanche_org_raw — no file newer than the latest file_date
+WARNING No new files to upload for avalanche_org — nothing to do, table is up to date
+WARNING No new data to ingest for avalanche_org — no file newer than the latest file_date
 ERROR ETL job failed   (RuntimeError)   → exit code 1
 ```
-
-A step that *did* have work keeps the job green: raw rows left behind by an earlier crash are transformed even when no new file arrived.
 
 **DATA_QUALITY** keeps the opposite behaviour — with no new `file_date` to measure it warns and still finishes successfully, so an unchanged chain never fails on the quality step:
 

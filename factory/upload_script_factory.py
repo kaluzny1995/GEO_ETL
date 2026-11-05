@@ -6,7 +6,7 @@ from ingestion.upload.upload_script import UploadScript
 
 
 class UploadScriptFactory:
-    """Registry mapping raw table names to their :class:`UploadScript` instances.
+    """Registry mapping plain table names to their :class:`UploadScript` instances.
 
     Upload scripts are registered at import time via ``jobs/__init__.py``.
     """
@@ -18,7 +18,7 @@ class UploadScriptFactory:
         """Register a table name with its upload script.
 
         Args:
-            table_name: Raw table name (e.g. ``"avalanche_org_raw"``).
+            table_name: Plain table name (e.g. ``"avalanche_org"``).
             script: Script instance exposing ``upload(spark, config, db_config, ...)``.
         """
         cls._registry[table_name] = script
@@ -28,7 +28,7 @@ class UploadScriptFactory:
         """Retrieve the upload script for a table name.
 
         Args:
-            table_name: Raw table name.
+            table_name: Plain table name.
 
         Returns:
             The registered script instance.

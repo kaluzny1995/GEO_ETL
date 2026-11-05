@@ -1,9 +1,9 @@
 """Dataset constants loaded from the ``datasets`` section of ``config.json``.
 
-Every upload, raw2plain, single-ETL and view script keeps its wiring (table
-names, dataset folders) and transformation constants (source names, category
-maps, lookup tables, view queries) in ``config.json``. Scripts load their own
-entry at import time, keyed by the script's file stem::
+Every upload, single-ETL and view script keeps its wiring (table names,
+dataset folders) and transformation constants (source names, category maps,
+lookup tables, view queries) in ``config.json``. Scripts load their own entry
+at import time, keyed by the script's file stem::
 
     _cfg = load_dataset(__file__, "single_etl", GdacsEtlConfig)
 
@@ -23,7 +23,7 @@ from model.enums import DangerRating
 
 T = TypeVar("T", bound=BaseModel)
 
-DatasetSection = Literal["upload", "raw2plain", "single_etl", "view"]
+DatasetSection = Literal["upload", "single_etl", "view"]
 
 
 class UploadDatasetConfig(BaseModel):
@@ -33,15 +33,6 @@ class UploadDatasetConfig(BaseModel):
 
     table_name: str
     dataset_folder: str
-
-
-class Raw2PlainDatasetConfig(BaseModel):
-    """Wiring for one script in ``ingestion/raw2plain/``."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    raw_table: str
-    plain_table: str
 
 
 class SingleEtlDatasetConfig(BaseModel):
@@ -273,8 +264,8 @@ def load_dataset(script_file: str, section: DatasetSection, model: type[T], *, p
     Args:
         script_file: ``__file__`` of the calling script; the entry is keyed
             by its file stem (e.g. ``"gdacs_event_etl"``).
-        section: Layer the script belongs to (``"upload"``, ``"raw2plain"``,
-            ``"single_etl"`` or ``"view"``).
+        section: Layer the script belongs to (``"upload"``, ``"single_etl"``
+            or ``"view"``).
         model: Pydantic model validating the entry.
         path: Config file to read. Defaults to the project ``config.json``.
 

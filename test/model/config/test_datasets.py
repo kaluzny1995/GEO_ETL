@@ -10,7 +10,6 @@ from model.config.datasets import (
     AvalancheOrgEtlConfig,
     EonetEventEtlConfig,
     GdacsEventEtlConfig,
-    Raw2PlainDatasetConfig,
     UnionEtlConfig,
     UploadDatasetConfig,
     UsgsVolcanoEtlConfig,
@@ -20,8 +19,7 @@ from model.config.datasets import (
 from model.enums import DangerRating
 
 DATASETS = {
-    "upload": {"demo_upload": {"table_name": "demo_raw", "dataset_folder": "Demo"}},
-    "raw2plain": {"demo_raw2plain": {"raw_table": "demo_raw", "plain_table": "demo"}},
+    "upload": {"demo_upload": {"table_name": "demo", "dataset_folder": "Demo"}},
     "single_etl": {
         "demo_etl": {
             "source_table": "demo",
@@ -53,13 +51,8 @@ def config_path():
 class TestLoadDataset:
     def test_returns_typed_upload_config(self, config_path):
         cfg = load_dataset("/x/demo_upload.py", "upload", UploadDatasetConfig, path=config_path)
-        assert cfg.table_name == "demo_raw"
+        assert cfg.table_name == "demo"
         assert cfg.dataset_folder == "Demo"
-
-    def test_returns_typed_raw2plain_config(self, config_path):
-        cfg = load_dataset("/x/demo_raw2plain.py", "raw2plain", Raw2PlainDatasetConfig, path=config_path)
-        assert cfg.raw_table == "demo_raw"
-        assert cfg.plain_table == "demo"
 
     def test_key_is_the_script_file_stem(self, config_path):
         cfg = load_dataset("single_etl/demo_etl.py", "single_etl", EonetEventEtlConfig, path=config_path)
@@ -177,12 +170,18 @@ class TestLoadDataset:
         with pytest.raises(KeyError, match=r"datasets\.nope"):
             load_dataset("/x/demo_upload.py", "nope", UploadDatasetConfig, path=config_path)  # type: ignore[arg-type]
 
-    def test_extra_fields_are_rejected(self, config_path):
-        with pytest.raises(ValidationError):
-            load_dataset("/x/demo_upload.py", "upload", Raw2PlainDatasetConfig, path=config_path)
+    def test_extra_fields_are_rejected(self):
+        path = _write_config(
+            {"upload": {"demo_upload": {"table_name": "demo", "dataset_folder": "Demo", "extra": "nope"}}}
+        )
+        try:
+            with pytest.raises(ValidationError):
+                load_dataset("/x/demo_upload.py", "upload", UploadDatasetConfig, path=path)
+        finally:
+            os.unlink(path)
 
     def test_missing_field_is_rejected(self, config_path):
-        path = _write_config({"upload": {"demo_upload": {"table_name": "demo_raw"}}})
+        path = _write_config({"upload": {"demo_upload": {"table_name": "demo"}}})
         try:
             with pytest.raises(ValidationError):
                 load_dataset("/x/demo_upload.py", "upload", UploadDatasetConfig, path=path)
@@ -199,9 +198,8 @@ class TestProjectConfig:
     def test_project_config_has_all_dataset_sections(self):
         with open(CONFIG_PATH) as f:
             datasets = json.load(f)["datasets"]
-        assert set(datasets) == {"upload", "raw2plain", "single_etl", "view"}
+        assert set(datasets) == {"upload", "single_etl", "view"}
         assert len(datasets["upload"]) == 9
-        assert len(datasets["raw2plain"]) == 9
         assert len(datasets["single_etl"]) == 10
         assert set(datasets["view"]) == {
             "metrics_avalanche_vw",
@@ -241,7 +239,6 @@ class TestProjectConfig:
     def test_project_config_sections_load(self):
         for key, cfg in {
             "avalanche_org_upload": UploadDatasetConfig,
-            "avalanche_org_raw2plain": Raw2PlainDatasetConfig,
             "gdacs_event_etl": GdacsEventEtlConfig,
             "union_etl": UnionEtlConfig,
             "metrics_avalanche_vw": ViewDatasetConfig,
@@ -264,8 +261,6 @@ class TestProjectConfig:
         }.items():
             if key.endswith("_etl"):
                 section = "single_etl"
-            elif key.endswith("_raw2plain"):
-                section = "raw2plain"
             elif key.endswith("_vw"):
                 section = "view"
             else:
