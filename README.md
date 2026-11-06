@@ -85,14 +85,14 @@ GEO_ETL is baked into the **`geo_airflow_spark`** image by the Compose stack in
 
 ```bash
 cd ../GEO_E2E
-docker compose up -d --build
+./up.sh -d --build          # preflight (six repos + Supabase .env), then compose up
 ```
 
 After changing GEO_ETL, rebuild the Airflow/Spark image:
 
 ```bash
 docker compose build airflow-init
-docker compose up -d
+./up.sh -d
 ```
 
 ## Quick start
@@ -106,7 +106,7 @@ conda activate geo_etl_311
 
 # 2. Start the Spark cluster (docker-compose lives in GEO_E2E)
 cd ../GEO_E2E
-docker compose up -d geo-spark-master geo-spark-worker-1 geo-spark-worker-2
+./up.sh -d geo-spark-master geo-spark-worker-1 geo-spark-worker-2
 cd ../GEO_ETL
 
 # 3. Verify cluster connectivity

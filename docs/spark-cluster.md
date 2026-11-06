@@ -20,8 +20,8 @@ The `docker-compose.yaml` lives in [GEO_E2E](../../GEO_E2E) — build the shared
 
 ```bash
 cd ../GEO_E2E
-./build-images.sh                   # serial build; docker compose build works too
-docker compose up -d geo-spark-master geo-spark-worker-1 geo-spark-worker-2
+./build-images.sh                   # preflight + serial build; docker compose build works too
+./up.sh -d geo-spark-master geo-spark-worker-1 geo-spark-worker-2
 ```
 
 ### Starting with the machine
@@ -47,8 +47,8 @@ GEO_E2E's `docker/geo_airflow_spark/Dockerfile` builds the `geo_airflow_spark` i
 
 ```bash
 cd ../GEO_E2E
-./build-images.sh                   # serial build; docker compose build works too
-docker compose up -d
+./build-images.sh                   # preflight + serial build; docker compose build works too
+./up.sh -d
 ```
 
 `docker compose restart` does not rebuild the image. The PostgreSQL JDBC and `spark-monitor` JARs are copied at build time from `docker/geo_airflow_spark/jars/` into both `/opt/spark/jars/` and the `geo_etl_311` environment's PySpark `jars/` directory.

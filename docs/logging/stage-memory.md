@@ -85,7 +85,7 @@ When setting up the project on a new machine, use the committed `.jar` (rebuild 
 ```bash
 cd ../GEO_E2E
 docker compose build airflow-init
-docker compose up -d
+./up.sh -d
 ```
 
 The Dockerfile builds the same `geo_airflow_spark` image for Airflow and both Spark workers, so no manual image tag or Compose edit is needed.

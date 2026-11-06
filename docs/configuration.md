@@ -2,7 +2,7 @@
 
 # Configuration Reference
 
-Runtime settings live in two places: `config.json` in the project root (Spark, database, logging, data paths and dataset constants) and environment variables (Supabase credentials — **set up once in [GEO_E2E](../../GEO_E2E/README.md#1-configure-credentials--mandatory-before-docker-compose-up)**, see [Supabase Credentials](configuration/supabase-credentials.md) below).
+Runtime settings live in two places: `config.json` in the project root (Spark, database, logging, data paths and dataset constants) and environment variables (Supabase credentials — **set up once in [GEO_E2E](../../GEO_E2E/README.md#1-configure-the-checkout-and-credentials--mandatory-before-docker-compose-up)**, see [Supabase Credentials](configuration/supabase-credentials.md) below).
 
 ## Application Configuration
 

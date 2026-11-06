@@ -9,10 +9,10 @@ The supported end-to-end run uses the `geo_airflow_spark` image from [GEO_E2E](.
 ```bash
 cd ../GEO_E2E
 cp .env.example .env          # fill in the five SUPABASE_DB_* values
-docker compose up -d --build
+./up.sh -d --build            # preflight (six repos + Supabase .env), then compose up
 ```
 
-The image contains Anaconda, `geo_etl_311`, GEO_ETL under `/opt/geo/GEO_ETL` and the Spark cluster. `SPARK_MASTER_URL=spark://geo-spark-master:7078` is set by Compose; `airflow-init` writes `/opt/geo/GEO_ETL/.env` from the Compose credentials. Rebuild after changing GEO_ETL with `docker compose build airflow-init && docker compose up -d`.
+The image contains Anaconda, `geo_etl_311`, GEO_ETL under `/opt/geo/GEO_ETL` and the Spark cluster. `SPARK_MASTER_URL=spark://geo-spark-master:7078` is set by Compose; `airflow-init` writes `/opt/geo/GEO_ETL/.env` from the Compose credentials. Rebuild after changing GEO_ETL with `docker compose build airflow-init && ./up.sh -d`.
 
 The host-conda workflow below remains available for development and standalone jobs.
 
@@ -51,7 +51,7 @@ The cluster is managed by Docker Compose in [GEO_E2E](../../GEO_E2E). For a host
 ```bash
 cd ../GEO_E2E
 docker compose build airflow-init   # builds geo_airflow_spark
-docker compose up -d geo-spark-master geo-spark-worker-1 geo-spark-worker-2
+./up.sh -d geo-spark-master geo-spark-worker-1 geo-spark-worker-2
 ```
 
 See [Spark cluster](spark-cluster.md) for ports, Web UIs and the custom image.
