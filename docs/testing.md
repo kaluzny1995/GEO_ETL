@@ -73,14 +73,7 @@ parametrize.
 | `test/single_etl/test_dedup_keys.py` | DEDUP_KEYS contract for the nine source scripts, parametrized (non-empty, canonical columns, no `file_date`/duplicates, matches the configured `dedup_keys`) + `union_etl` declares none |
 | `test/single_etl/test_union_etl.py` | union script (nine configured source tables, identity `_convert`, target from config, registry entry) |
 | `test/views/test_metrics_observed_vw.py` | shared observed-metric view (union_etl source, eight-category coverage, `other_metrics` explosion, `FALSE AS is_predicted`, earthquake/flood filters, registry entry) |
-| `test/views/test_metrics_avalanche_vw.py` | metrics_avalanche_vw view script (observed + predicted union, source/target/query from config, `_vw` suffix, avalanche filter, `file_date` cast, registry entry) |
-| `test/views/test_metrics_drought_vw.py` | metrics_drought_vw view script (same contract as the avalanche view, drought filter) |
-| `test/views/test_metrics_earthquake_vw.py` | metrics_earthquake_vw view script (same contract as the avalanche view, earthquake filter) |
-| `test/views/test_metrics_fire_vw.py` | metrics_fire_vw view script (same contract as the avalanche view, fire filter) |
-| `test/views/test_metrics_flood_vw.py` | metrics_flood_vw view script (same contract as the avalanche view, flood filter) |
-| `test/views/test_metrics_iceberg_vw.py` | metrics_iceberg_vw view script (same contract as the avalanche view, iceberg filter) |
-| `test/views/test_metrics_storm_vw.py` | metrics_storm_vw view script (same contract as the avalanche view, storm filter) |
-| `test/views/test_metrics_volcano_vw.py` | metrics_volcano_vw view script (same contract as the avalanche view, volcano filter) |
+| `test/views/test_metrics_views.py` | All eight metrics view scripts parametrized by category (observed + predicted union, source/target/query from config, `_vw` suffix, category filter, `file_date` cast, shared registry entry) |
 | `test/views/test_phenomenons_us_vw.py` | phenomenons_us_vw Looker Studio map view (US filter, capitalized categories, `event_ndesc` formula, `danger_rating` passthrough, `other_metrics` text format, date coalescing, registry entry) |
 | `test/views/test_phenomenons_ca_vw.py` | phenomenons_ca_vw Canada twin (CA filter, US-query equality beyond the country code, shared display shape, registry entry) |
 | `test/views/test_country_whitelists.py` | Parametrized common contract for the five regional phenomenon views (config-driven `country_codes`, query whitelist match, ordering/uniqueness, US display shape, registry entry) |

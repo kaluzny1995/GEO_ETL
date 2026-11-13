@@ -259,8 +259,8 @@ class PredictionConfig(BaseModel):
         source_view: Observed metrics view over ``geo.union_etl``.
         table_name: Prediction table written by the job.
         model_directory: Directory for persisted Spark MLlib models and metadata.
-        exclude_metrics: Metrics that are identifiers or danger-derived and
-            should never be predicted.
+        exclude_metrics: Metrics that are categorical/danger-derived or
+            otherwise meaningless to predict.
         min_observations: Minimum observed daily points required to train.
         test_fraction: Fraction of the latest observed dates held out for model
             selection and drift monitoring.

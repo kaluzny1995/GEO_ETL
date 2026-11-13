@@ -39,9 +39,10 @@ flowchart TD
    `JobFactory` and passes the configured table name (`prediction_etl`).
 2. The job reads `datasets.prediction.source_view`
    (`geo.metrics_observed_vw`) through JDBC, drops the configured
-   `exclude_metrics` (`danger_level`, `vnum` — identifiers/categorical ratings
-   rather than measured quantities), and reduces each metric group to one
-   observed daily mean per `file_date`.
+   `exclude_metrics` (`danger_level` — a categorical rating rather than a
+   measured quantity), and reduces each metric group to one observed daily mean
+   per `file_date`. `vnum` (Volcano Number) is predicted like any other numeric
+   metric and rounded to a whole number.
 3. For each group with at least `min_observations` observed dates, the job builds
    the complete date range between that category's first and last observed date.
    Every date missing from the group is predicted — internal gaps as well as the
@@ -166,7 +167,7 @@ All knobs live in `datasets.prediction` (`PredictionConfig` in
 | `source_view` | `geo.metrics_observed_vw` | Observed-metric source |
 | `table_name` | `prediction_etl` | Table the job rebuilds; the CLI argument must match |
 | `model_directory` | `ml_models` | Model root, relative to `GEO_ETL/` |
-| `exclude_metrics` | `["danger_level", "vnum"]` | Metrics never predicted |
+| `exclude_metrics` | `["danger_level"]` | Metrics never predicted (Volcano Number is predicted) |
 | `min_observations` | `5` | Minimum observed daily points to train |
 | `test_fraction` | `0.2` | Latest fraction held out for selection/retraining |
 | `retrain_rmse_relative_tolerance` | `0.25` | Relative error-drift allowance |
@@ -187,10 +188,11 @@ write summary to `logs/prediction/prediction_prediction_etl_<timestamp>.log`:
 
 ```text
 INFO Prediction model directory: .../GEO_ETL/ml_models
-INFO Training/predicting 24 metric groups from geo.metrics_observed_vw
+INFO Training/predicting 29 metric groups from geo.metrics_observed_vw
 INFO flood/discharge/m³/s: 12 predicted rows using gbt_regressor (retrained)
-INFO Writing 214 predicted rows to geo.prediction_etl
-INFO Wrote 214 predictions to geo.prediction_etl (24 groups, 9 retrained, 2 skipped)
+INFO volcano/vnum/Smithsonian GVP: 26 predicted rows using gbt_regressor (retrained)
+INFO Writing 400 predicted rows to geo.prediction_etl
+INFO Wrote 400 predictions to geo.prediction_etl (29 groups, 9 retrained, 1 skipped)
 ```
 
 A mismatched CLI table name raises `ValueError` and exits 1. A run where no group

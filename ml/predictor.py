@@ -72,15 +72,30 @@ def _feature_frame(frame: DataFrame, base_date: dt.date) -> DataFrame:
     )
 
 
-def _split_dates(frame: DataFrame, test_fraction: float) -> tuple[DataFrame, DataFrame]:
-    """Split one metric frame chronologically into earlier train and latest test rows."""
-    count = frame.count()
+def _split_dates(
+    frame: DataFrame,
+    test_fraction: float,
+    count: int | None = None,
+) -> tuple[DataFrame, DataFrame, int, int]:
+    """Split one metric frame chronologically and return both row counts.
+
+    Args:
+        frame: One row per observed date.
+        test_fraction: Latest fraction held out for evaluation.
+        count: Known row count; avoids an extra Spark action when supplied.
+
+    Returns:
+        ``(train, test, train_count, test_count)``.
+    """
+    if count is None:
+        count = frame.count()
     test_count = min(max(1, round(count * test_fraction)), max(1, count - 2))
+    train_count = count - test_count
     window = Window.orderBy("file_date")
     numbered = frame.withColumn("_row_number", F.row_number().over(window))
-    train = numbered.filter(F.col("_row_number") <= count - test_count).drop("_row_number")
-    test = numbered.filter(F.col("_row_number") > count - test_count).drop("_row_number")
-    return train, test
+    train = numbered.filter(F.col("_row_number") <= train_count).drop("_row_number")
+    test = numbered.filter(F.col("_row_number") > train_count).drop("_row_number")
+    return train, test, train_count, test_count
 
 
 def _linear_pipeline(config: PredictionConfig) -> Pipeline:
@@ -276,6 +291,8 @@ def predict_metric(
     base_date: dt.date,
     config: PredictionConfig,
     model_dir: Path,
+    observed_count: int | None = None,
+    missing_count: int | None = None,
 ) -> PredictionResult | None:
     """Train/reuse one metric model and predict its missing dates.
 
@@ -288,18 +305,25 @@ def predict_metric(
         base_date: First date of the category range used for trend features.
         config: Prediction configuration.
         model_dir: Root folder for persisted Spark models.
+        observed_count: Known number of observed daily rows; avoids a Spark
+            action when the caller already aggregated it.
+        missing_count: Known number of missing dates; avoids a Spark action when
+            the caller already counted them.
 
     Returns:
         Prediction rows and model metadata, or None when the metric is too
         sparse to train or has no missing dates.
     """
-    observed_count = daily.count()
-    if observed_count < config.min_observations or missing_dates.count() == 0:
+    if observed_count is None:
+        observed_count = daily.count()
+    if missing_count is None:
+        missing_count = missing_dates.count()
+    if observed_count < config.min_observations or missing_count == 0:
         return None
 
     featured = _feature_frame(daily, base_date).withColumn("label", F.col("value").cast("double"))
-    train, test = _split_dates(featured, config.test_fraction)
-    if train.count() < 2 or test.count() < 1:
+    train, test, train_count, test_count = _split_dates(featured, config.test_fraction, observed_count)
+    if train_count < 2 or test_count < 1:
         return None
 
     key = model_key(event_category, metric_name, metric_unit)

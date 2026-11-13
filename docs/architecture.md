@@ -215,14 +215,7 @@ GEO_ETL/
     ├── views/
     │   ├── __init__.py
     │   ├── test_metrics_observed_vw.py   # Shared observed-metric view over geo.union_etl
-    │   ├── test_metrics_avalanche_vw.py  # First metrics VIEW script (config wiring, query contract, registry entry)
-    │   ├── test_metrics_drought_vw.py    # Drought twin of metrics_avalanche_vw
-    │   ├── test_metrics_earthquake_vw.py  # Earthquake twin of metrics_avalanche_vw
-    │   ├── test_metrics_fire_vw.py       # Fire twin of metrics_avalanche_vw
-    │   ├── test_metrics_flood_vw.py      # Flood twin of metrics_avalanche_vw
-    │   ├── test_metrics_iceberg_vw.py    # Iceberg twin of metrics_avalanche_vw
-    │   ├── test_metrics_storm_vw.py      # Storm twin of metrics_avalanche_vw
-    │   ├── test_metrics_volcano_vw.py    # Volcano twin of metrics_avalanche_vw
+    │   ├── test_metrics_views.py         # All eight metrics views, parametrized by category
     │   ├── test_phenomenons_us_vw.py     # US Looker Studio map view (denormalized)
     │   ├── test_phenomenons_ca_vw.py     # Canada twin (query equality beyond country code)
     │   ├── test_phenomenons_cs_amer_vw.py  # Americas twin (ISO whitelist minus US/CA)

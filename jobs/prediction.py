@@ -104,22 +104,22 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
                 )
             ).alias("file_date"),
         )
-        groups = daily.select("event_category", "metric_name", "metric_unit").distinct().collect()
-        logger.info("Training/predicting %d metric groups from %s", len(groups), _cfg.source_view)
+        group_counts = {
+            (row.event_category, row.metric_name, row.metric_unit): row["count"]
+            for row in daily.groupBy("event_category", "metric_name", "metric_unit").count().collect()
+        }
+        logger.info("Training/predicting %d metric groups from %s", len(group_counts), _cfg.source_view)
 
         predictions: DataFrame | None = None
         retrained = 0
         skipped = 0
-        for group in groups:
-            category = group["event_category"]
-            metric_name = group["metric_name"]
-            metric_unit = group["metric_unit"]
-            group_daily = _group_filter(daily, category, metric_name, metric_unit)
-            if group_daily.count() < _cfg.min_observations:
+        for (category, metric_name, metric_unit), observed_count in group_counts.items():
+            if observed_count < _cfg.min_observations:
                 skipped += 1
                 logger.info("Skipping sparse metric %s/%s/%s", category, metric_name, metric_unit)
                 continue
 
+            group_daily = _group_filter(daily, category, metric_name, metric_unit)
             start, _end = category_bounds[category]
             missing_df = (
                 date_ranges.filter(F.col("event_category") == category)
@@ -138,6 +138,8 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
                 base_date=start,
                 config=_cfg,
                 model_dir=model_dir,
+                observed_count=observed_count,
+                missing_count=missing_count,
             )
             if result is None:
                 skipped += 1
@@ -165,7 +167,7 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
         predictions.write.jdbc(url=jdbc_url, table=f"{schema}.{table_name}", mode="append", properties=properties)
         summary = (
             f"Wrote {row_count} predictions to {schema}.{table_name} "
-            f"({len(groups)} groups, {retrained} retrained, {skipped} skipped)"
+            f"({len(group_counts)} groups, {retrained} retrained, {skipped} skipped)"
         )
         logger.info(summary)
         return summary

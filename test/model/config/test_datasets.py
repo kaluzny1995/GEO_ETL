@@ -320,6 +320,9 @@ class TestPredictionConfig:
         assert cfg.model_directory == "ml_models"
         assert cfg.min_observations >= 2
         assert cfg.test_fraction == 0.2
+        assert "danger_level" in cfg.exclude_metrics
+        assert "vnum" not in cfg.exclude_metrics
+        assert "vnum" in cfg.integer_metrics
 
     def test_prediction_config_rejects_invalid_fraction(self):
         with pytest.raises(ValidationError, match="test_fraction"):

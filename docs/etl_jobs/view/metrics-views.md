@@ -116,7 +116,7 @@ python run_etl.py VIEW metrics_storm_vw
 
 ## metrics_volcano_vw
 
-`views/metrics_volcano_vw.py` (`datasets.view.metrics_volcano_vw`): the volcano twin of the avalanche view — same query shape, filtered to `event_category = 'volcano'` over `geo.union_etl`. Own metrics: USGS's `vei` / `VEI` (80 rows) and GDACS's `magnitude` / NULL (8 rows, NULL `other_metrics`). The explosion adds USGS notice numbers `vnum` / `Smithsonian GVP` (an identifier in numeric form — exclude with `metric_name != 'vnum'` if unwanted) and, on damage-affected volcanoes, `casualties` / `people` and `damage` / `million USD` (21 rows each). `color_code`, `alert_level` and `notice_identifier` are strings and are skipped by the numeric filter.
+`views/metrics_volcano_vw.py` (`datasets.view.metrics_volcano_vw`): the volcano twin of the avalanche view — same query shape, filtered to `event_category = 'volcano'` over `geo.union_etl`. Own metrics: USGS's `vei` / `VEI` (80 rows) and GDACS's `magnitude` / NULL (8 rows, NULL `other_metrics`). The explosion adds USGS notice numbers `vnum` / `Smithsonian GVP` (a numeric identifier; the PREDICTION job now fills its missing dates too) and, on damage-affected volcanoes, `casualties` / `people` and `damage` / `million USD` (21 rows each). `color_code`, `alert_level` and `notice_identifier` are strings and are skipped by the numeric filter.
 
 Live shape: 210 rows — 88 own metrics + 80 `vnum` + 21 `casualties` + 21 `damage`.
 

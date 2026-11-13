@@ -2,7 +2,7 @@
 
 # Configuration Reference
 
-Runtime settings live in two places: `config.json` in the project root (Spark, database, logging, data paths and dataset constants) and environment variables (Supabase credentials — **set up once in [GEO_E2E](../../GEO_E2E/README.md#1-configure-the-checkout-and-credentials--mandatory-before-docker-compose-up)**, see [Supabase Credentials](configuration/supabase-credentials.md) below).
+Runtime settings live in two places: `config.json` in the project root (Spark, database, logging, data paths and dataset constants) and environment variables (Supabase credentials — **set up once in [GEO_E2E](../../GEO_E2E/docs/docker-setup.md#1-configure-the-checkout-and-credentials--mandatory-before-docker-compose-up)**, see [Supabase Credentials](configuration/supabase-credentials.md) below).
 
 ## Application Configuration
 
@@ -48,7 +48,7 @@ The environment sections of `config.json`:
 | `logging.level` | `"INFO"` | — | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
 | `data.directory` | `"../GEO_Download/data"` | — | Relative path to CSV data source |
 
-The file is loaded through `AppConfig.from_json()` (`model/config/app_config.py`), which returns nested `SparkConfig`, `DatabaseConfig`, `LoggingConfig` and `DataConfig` objects. The `spark.*` memory/parallelism caps are applied by `run_etl.py` to every `SparkSession`; they keep the Airflow scheduler's 4 GB container limit meaningful. Docker Compose supplies the `SPARK_*` overrides from `.env` (see [GEO_E2E — Resource tuning](../../GEO_E2E/docs/configuration.md#resource-tuning-env)).
+The file is loaded through `AppConfig.from_json()` (`model/config/app_config.py`), which returns nested `SparkConfig`, `DatabaseConfig`, `LoggingConfig` and `DataConfig` objects. The `spark.*` memory/parallelism caps are applied by `run_etl.py` to every `SparkSession`; they keep the Airflow scheduler's 4 GB container limit meaningful. Docker Compose supplies the `SPARK_*` overrides from `.env` (see [GEO_E2E — Resource tuning](../../GEO_E2E/docs/configuration/environment.md#resource-tuning-env)).
 
 ## Dataset Constants
 
@@ -101,7 +101,7 @@ The `datasets` section of the same file holds every script's wiring and transfor
       "source_view": "geo.metrics_observed_vw",
       "table_name": "prediction_etl",
       "model_directory": "ml_models",
-      "exclude_metrics": ["danger_level", "vnum"],
+      "exclude_metrics": ["danger_level"],
       "min_observations": 5,
       "test_fraction": 0.2,
       "retrain_rmse_relative_tolerance": 0.25,
@@ -113,7 +113,7 @@ The `datasets` section of the same file holds every script's wiring and transfor
       "gbt_max_depth": 4,
       "gbt_step_size": 0.1,
       "random_seed": 42,
-      "integer_metrics": ["vei", "geometry_count", "nst", "baseline_days"],
+      "integer_metrics": ["vei", "geometry_count", "nst", "baseline_days", "vnum"],
       "metric_minimums": {"area": 0, "discharge": 0},
       "metric_maximums": {"direction": 360, "percent_contained": 100, "vei": 8}
     }

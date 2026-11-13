@@ -1052,8 +1052,7 @@
       "table_name": "prediction_etl",
       "model_directory": "ml_models",
       "exclude_metrics": [
-        "danger_level",
-        "vnum"
+        "danger_level"
       ],
       "min_observations": 5,
       "test_fraction": 0.2,
@@ -1070,7 +1069,8 @@
         "vei",
         "geometry_count",
         "nst",
-        "baseline_days"
+        "baseline_days",
+        "vnum"
       ],
       "metric_minimums": {
         "size": 0,
@@ -1092,7 +1092,8 @@
         "pressure": 0,
         "dist2land": 0,
         "landfall": 0,
-        "direction": 0
+        "direction": 0,
+        "vnum": 0
       },
       "metric_maximums": {
         "direction": 360,
