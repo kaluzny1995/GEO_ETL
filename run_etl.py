@@ -9,6 +9,7 @@ Usage::
     python run_etl.py DATA_SOURCE_FILE <source_name> [--load-type auto|historical|incremental]
     python run_etl.py SINGLE_ETL <script_name> [--load-type auto|historical|incremental]
     python run_etl.py VIEW <script_name>
+    python run_etl.py PREDICTION prediction_etl
 """
 
 import argparse
@@ -152,7 +153,8 @@ def main() -> None:
         help=(
             "Table name, e.g. avalanche_org (INGESTION writes directly to the plain table); "
             "SINGLE_ETL expects the name of a script from single_etl/, "
-            "VIEW expects the name of a script from views/ (HISTORICAL load only)"
+            "VIEW expects the name of a script from views/ (HISTORICAL load only); "
+            "PREDICTION expects prediction_etl"
         ),
     )
     parser.add_argument(
@@ -202,6 +204,12 @@ def main() -> None:
     builder = SparkSession.builder.master(config.spark.master).appName(f"{app_prefix}_{job_name}_{table_name}")
     for key, value in config.spark.session_options.items():
         builder = builder.config(key, value)
+    # Spark ML writes model files through the Hadoop local FS, from executor
+    # processes that may use a different UID than the driver (Compose workers vs
+    # the Airflow scheduler). World-writable model directories keep the shared
+    # ml_models bind mount usable by both.
+    if args.job is JobType.PREDICTION:
+        builder = builder.config("spark.hadoop.fs.permissions.umask-mode", "000")
     spark = builder.getOrCreate()
 
     # Register stage-level memory logger

@@ -23,7 +23,7 @@ from model.enums import DangerRating
 
 T = TypeVar("T", bound=BaseModel)
 
-DatasetSection = Literal["upload", "single_etl", "view"]
+DatasetSection = Literal["upload", "single_etl", "view", "prediction"]
 
 
 class UploadDatasetConfig(BaseModel):
@@ -252,10 +252,79 @@ class ViewDatasetConfig(BaseModel):
         return codes
 
 
+class PredictionConfig(BaseModel):
+    """Configuration for the PySpark MLlib PREDICTION job.
+
+    Attributes:
+        source_view: Observed metrics view over ``geo.union_etl``.
+        table_name: Prediction table written by the job.
+        model_directory: Directory for persisted Spark MLlib models and metadata.
+        exclude_metrics: Metrics that are identifiers or danger-derived and
+            should never be predicted.
+        min_observations: Minimum observed daily points required to train.
+        test_fraction: Fraction of the latest observed dates held out for model
+            selection and drift monitoring.
+        retrain_rmse_relative_tolerance: Retrain when current hold-out RMSE is
+            more than this fraction above the stored model RMSE.
+        retrain_rmse_absolute_tolerance: Additional absolute RMSE slack; the
+            effective threshold is ``max(stored * (1 + relative), stored + absolute)``.
+        force_retrain: Ignore persisted models and retrain every metric.
+        polynomial_degree: Polynomial expansion degree for the linear model.
+        linear_reg_param: LinearRegression L2 regularisation.
+        gbt_max_iter: GBTRegressor boosting iterations.
+        gbt_max_depth: GBTRegressor tree depth.
+        gbt_step_size: GBTRegressor learning rate.
+        random_seed: Shared MLlib random seed.
+        integer_metrics: Metrics rounded to whole numbers after prediction.
+        metric_minimums: Optional lower bounds by metric name.
+        metric_maximums: Optional upper bounds by metric name.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    source_view: str = "geo.metrics_observed_vw"
+    table_name: str = "prediction_etl"
+    model_directory: str = "ml_models"
+    exclude_metrics: list[str] = Field(default_factory=list)
+    min_observations: int = 5
+    test_fraction: float = 0.2
+    retrain_rmse_relative_tolerance: float = 0.25
+    retrain_rmse_absolute_tolerance: float = 0.0
+    force_retrain: bool = False
+    polynomial_degree: int = 2
+    linear_reg_param: float = 0.1
+    gbt_max_iter: int = 50
+    gbt_max_depth: int = 4
+    gbt_step_size: float = 0.1
+    random_seed: int = 42
+    integer_metrics: list[str] = Field(default_factory=list)
+    metric_minimums: dict[str, float] = Field(default_factory=dict)
+    metric_maximums: dict[str, float] = Field(default_factory=dict)
+
+    @field_validator("test_fraction")
+    @classmethod
+    def _validate_test_fraction(cls, value: float) -> float:
+        if not 0.0 < value < 1.0:
+            raise ValueError("test_fraction must be between 0 and 1")
+        return value
+
+    @field_validator("min_observations")
+    @classmethod
+    def _validate_min_observations(cls, value: int) -> int:
+        if value < 2:
+            raise ValueError("min_observations must be at least 2")
+        return value
+
+
 @cache
 def _read_datasets(path: str) -> dict:
     with open(path) as f:
         return json.load(f)["datasets"]
+
+
+def load_prediction_config(path: str = CONFIG_PATH) -> PredictionConfig:
+    """Load the single ``datasets.prediction`` configuration block."""
+    return PredictionConfig(**_read_datasets(path)["prediction"])
 
 
 def load_dataset(script_file: str, section: DatasetSection, model: type[T], *, path: str = CONFIG_PATH) -> T:

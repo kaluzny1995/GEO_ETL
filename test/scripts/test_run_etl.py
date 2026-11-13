@@ -583,3 +583,56 @@ def test_main_merges_captured_spark_logs_into_main_log(
     assert "2026-01-01 10:00:00 job started" in content
     # … and mirrored to stdout for the orchestrator's task log (Airflow)
     assert "[spark] 2026-01-01 10:00:01 captured spark line" in capsys.readouterr().out
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_main_dispatches_prediction_job(mock_logger, mock_create, mock_config, mock_spark):
+    mock_create.return_value = MagicMock(run=MagicMock(return_value="done"))
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "PREDICTION", "prediction_etl"]):
+        from run_etl import main
+
+        main()
+
+    mock_create.assert_called_once_with(JobType.PREDICTION)
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_prediction_passes_table_name_and_no_load_type(mock_logger, mock_create, mock_config, mock_spark):
+    job_mock = MagicMock(run=MagicMock(return_value="done"))
+    mock_create.return_value = job_mock
+
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "PREDICTION", "prediction_etl"]):
+        from run_etl import main
+
+        main()
+
+    assert job_mock.run.call_args[0][1] == "prediction_etl"
+    assert "load_type" not in job_mock.run.call_args[1]
+
+
+@patch("run_etl.SparkSession")
+@patch("run_etl.AppConfig.from_json", return_value=mock_app_config(database=False, logging=True, spark="GEO_ETL"))
+@patch("run_etl.JobFactory.create")
+@patch("run_etl.setup_logger")
+def test_load_type_rejected_for_prediction(mock_logger, mock_create, mock_config, mock_spark):
+    import sys
+
+    with patch.object(sys, "argv", ["run_etl.py", "PREDICTION", "prediction_etl", "--load-type", "historical"]):
+        from run_etl import main
+
+        with pytest.raises(SystemExit) as exc:
+            main()
+
+    assert exc.value.code == 2
+    mock_create.assert_not_called()

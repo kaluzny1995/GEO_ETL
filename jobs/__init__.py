@@ -1,5 +1,5 @@
 from factory import JobFactory, SingleEtlFactory, UploadScriptFactory, ViewScriptFactory
-from jobs import create_table, data_quality, data_source_file, ingestion, single_etl, view
+from jobs import create_table, data_quality, data_source_file, ingestion, prediction, single_etl, view
 from model.enums import JobType
 
 
@@ -10,6 +10,7 @@ def _register():
     JobFactory.register(JobType.DATA_SOURCE_FILE, data_source_file)
     JobFactory.register(JobType.SINGLE_ETL, single_etl)
     JobFactory.register(JobType.VIEW, view)
+    JobFactory.register(JobType.PREDICTION, prediction)
 
     from single_etl.avalanche_org_etl import AvalancheOrgEtlScript
 
@@ -64,6 +65,11 @@ def _register():
     from views.metrics_avalanche_vw import MetricsAvalancheVwScript
 
     _script = MetricsAvalancheVwScript()
+    ViewScriptFactory.register(_script.TARGET_VIEW, _script)
+
+    from views.metrics_observed_vw import MetricsObservedVwScript
+
+    _script = MetricsObservedVwScript()
     ViewScriptFactory.register(_script.TARGET_VIEW, _script)
 
     from views.metrics_drought_vw import MetricsDroughtVwScript

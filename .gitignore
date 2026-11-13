@@ -14,3 +14,8 @@ metastore_db/
 derby.log
 spark-warehouse/
 supabase_config.json
+
+# Generated PySpark MLlib models — the PREDICTION job recreates them on demand.
+# Keep the directory itself tracked so a fresh checkout has a writable bind mount.
+ml_models/*
+!ml_models/.gitkeep

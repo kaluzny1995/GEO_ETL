@@ -9,7 +9,7 @@ conda activate geo_etl_311
 pytest test/ -v
 ```
 
-The only exception is the `spark_session` fixture in `test/conftest.py` — a session-scoped local `SparkSession` (`local[2]`, UI disabled) used by `test/util/test_dq_metrics.py` (real DataFrame execution) and by the INCREMENTAL case of `test/jobs/test_data_quality.py` (building the `file_date` filter needs a live context). The fixture skips the test when no JVM is available, so the suite still runs on a machine without Java. Everything else stays fully mocked.
+The only exception is the `spark_session` fixture in `test/conftest.py` — a session-scoped local `SparkSession` (`local[2]`, UI disabled, worker Python pinned to the active interpreter) used by `test/util/test_dq_metrics.py` (real DataFrame execution), by the INCREMENTAL case of `test/jobs/test_data_quality.py` (building the `file_date` filter needs a live context), and by the MLlib tests in `test/ml/test_predictor.py` (real model fitting, persistence and prediction) and the DataFrame filters in `test/jobs/test_prediction.py`. The fixture skips the test when no JVM is available, so the suite still runs on a machine without Java. Everything else stays fully mocked.
 
 The same suite also runs in an isolated tox environment (`tox -e py311`) — see [Code quality](development.md#tox-environments) for the full check matrix.
 
@@ -52,28 +52,32 @@ parametrize.
 | `test/jobs/test_data_source_file.py` | DATA_SOURCE_FILE job (delegation to the publisher, forced load type, summary message) |
 | `test/jobs/test_single_etl.py` | SINGLE_ETL job (script resolution, load type and logger passing, unknown script, raises `RuntimeError` when the run loaded no records) |
 | `test/jobs/test_view.py` | VIEW job (script resolution, logger passing, no `load_type` kwarg, config loading, unknown script, raises `RuntimeError` when the query returned no rows) |
+| `test/jobs/test_prediction.py` | PREDICTION job helpers (inclusive date range, metric exclusion and null-safe group filtering, configured-table guard) |
+| `test/ml/test_predictor.py` | MLlib predictor (filesystem-safe model keys, candidate training and selection, model persistence/metadata, reuse within tolerance, retraining on drift, sparse-skip, clamping/rounding) |
 | `test/model/test_enums.py` | JobType and LoadType enums (values, membership, from_value, invalid value) |
 | `test/model/config/test_config.py` | AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig models |
-| `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models (incl. `ViewDatasetConfig` for the `view` section), `dedup_keys` / `country_codes` validation, project config sections (incl. the union script's `source_tables` and the registered view entries) |
+| `test/model/config/test_datasets.py` | Dataset constants: `load_dataset()` keyed by script file stem, frozen/extra-forbid models (incl. `ViewDatasetConfig` for the `view` section and `PredictionConfig` via `load_prediction_config()`), `dedup_keys` / `country_codes` / `test_fraction` validation, project config sections (incl. the union script's `source_tables`, the registered view entries and `datasets.prediction`) |
 | `test/model/config/test_supabase_config.py` | SupabaseConnectionConfig, JDBC URL/properties |
 | `test/model/test_model_contract.py` | Shared contract for all 19 canonical models (plain + ETL): full-row kwargs, optional fields default to None, Spark schema field count/names/nullable/type, missing `file_date` raises |
 | `test/model/plain/test_plain_models.py` | All nine plain models parametrized (missing required/key field, DDL fragments, DDL create table, factory registry) + IBTrACS field-name membership |
 | `test/model/other/test_data_quality.py` | DataQuality model validation + Spark schema + DDL types + registry |
 | `test/model/other/test_data_source_file.py` | DataSourceFile / DataSourceSource Spark schemas (published CSV and source-registry columns) |
+| `test/model/other/test_prediction_etl.py` | PredictionEtl validation, optional unit/RMSE, Spark schema, DDL types and TableFactory registration |
 | `test/model/etl/test_event_etl_models.py` | The nine source ETL models + `UnionEtl` parametrized (missing required fields, empty model raises, canonical field order, field names, non-nullable required fields, DDL header/column types, registry) |
 | `test/ingestion/upload/test_upload_scripts.py` | All nine upload scripts parametrized (helpers + upload: historical, incremental, no files, logging, parse/max-file-date incl. the union's per-`source_name` scoping, type-conversion column counts) |
-| `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch incl. `VIEW`, `--overall` / `--load-type` incl. the VIEW rejection, Spark session lifecycle, logger passing, error handling) |
+| `test/scripts/test_run_etl.py` | run_etl.py (CLI dispatch incl. `VIEW` and `PREDICTION`, `--overall` / `--load-type` incl. the VIEW/PREDICTION rejection, Spark session lifecycle, logger passing, error handling) |
 | `test/scripts/test_run_drop_table.py` | run_drop_table.py CLI script |
 | `test/scripts/test_run_drop_schema.py` | run_drop_schema.py CLI script |
 | `test/scripts/test_run_delete_last_filedate_data.py` | run_delete_last_filedate_data.py (delete latest file_date from a plain or ETL-only table, skip on empty, data_quality rejection) |
 | `test/single_etl/test_shared_etl_behavior.py` | Run behaviour shared by all ten SINGLE_ETL scripts (the nine source scripts + `union_etl`) parametrized (auto detection historical/incremental, forced historical, forced incremental on empty target, `loaded=False` for no-new-rows / empty conversion, source table) + the union's per-source INCREMENTAL thresholds (keyed by each table's `source_name`) |
 | `test/single_etl/test_dedup_keys.py` | DEDUP_KEYS contract for the nine source scripts, parametrized (non-empty, canonical columns, no `file_date`/duplicates, matches the configured `dedup_keys`) + `union_etl` declares none |
 | `test/single_etl/test_union_etl.py` | union script (nine configured source tables, identity `_convert`, target from config, registry entry) |
-| `test/views/test_metrics_avalanche_vw.py` | metrics_avalanche_vw view script (source/target/query from config, `_vw` suffix, avalanche filter + numeric `other_metrics` explosion + `file_date` cast in the query, registry entry) |
+| `test/views/test_metrics_observed_vw.py` | shared observed-metric view (union_etl source, eight-category coverage, `other_metrics` explosion, `FALSE AS is_predicted`, earthquake/flood filters, registry entry) |
+| `test/views/test_metrics_avalanche_vw.py` | metrics_avalanche_vw view script (observed + predicted union, source/target/query from config, `_vw` suffix, avalanche filter, `file_date` cast, registry entry) |
 | `test/views/test_metrics_drought_vw.py` | metrics_drought_vw view script (same contract as the avalanche view, drought filter) |
-| `test/views/test_metrics_earthquake_vw.py` | metrics_earthquake_vw view script (same contract as the avalanche view, earthquake filter + rare magnitude-scale exclusion) |
+| `test/views/test_metrics_earthquake_vw.py` | metrics_earthquake_vw view script (same contract as the avalanche view, earthquake filter) |
 | `test/views/test_metrics_fire_vw.py` | metrics_fire_vw view script (same contract as the avalanche view, fire filter) |
-| `test/views/test_metrics_flood_vw.py` | metrics_flood_vw view script (same contract as the avalanche view, flood filter + five-metric whitelist) |
+| `test/views/test_metrics_flood_vw.py` | metrics_flood_vw view script (same contract as the avalanche view, flood filter) |
 | `test/views/test_metrics_iceberg_vw.py` | metrics_iceberg_vw view script (same contract as the avalanche view, iceberg filter) |
 | `test/views/test_metrics_storm_vw.py` | metrics_storm_vw view script (same contract as the avalanche view, storm filter) |
 | `test/views/test_metrics_volcano_vw.py` | metrics_volcano_vw view script (same contract as the avalanche view, volcano filter) |

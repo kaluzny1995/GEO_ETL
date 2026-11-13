@@ -21,6 +21,10 @@ def test_job_type_view_value():
     assert JobType.VIEW.value == "VIEW"
 
 
+def test_job_type_prediction_value():
+    assert JobType.PREDICTION.value == "PREDICTION"
+
+
 def test_job_type_create_is_instance():
     assert isinstance(JobType.CREATE, JobType)
 
@@ -45,8 +49,12 @@ def test_job_type_view_is_instance():
     assert isinstance(JobType.VIEW, JobType)
 
 
-def test_job_type_has_six_members():
-    assert len(JobType) == 6
+def test_job_type_prediction_is_instance():
+    assert isinstance(JobType.PREDICTION, JobType)
+
+
+def test_job_type_has_seven_members():
+    assert len(JobType) == 7
 
 
 def test_job_type_from_value():
@@ -56,6 +64,7 @@ def test_job_type_from_value():
     assert JobType("DATA_SOURCE_FILE") is JobType.DATA_SOURCE_FILE
     assert JobType("SINGLE_ETL") is JobType.SINGLE_ETL
     assert JobType("VIEW") is JobType.VIEW
+    assert JobType("PREDICTION") is JobType.PREDICTION
 
 
 def test_job_type_invalid_value_raises():

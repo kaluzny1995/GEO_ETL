@@ -80,10 +80,15 @@ The `datasets` section of the same file holds every script's wiring and transfor
       }
     },
     "view": {
-      "metrics_avalanche_vw": {
+      "metrics_observed_vw": {
         "source_table": "union_etl",
+        "target_view": "metrics_observed_vw",
+        "query": "WITH observed AS (...) SELECT ... FALSE AS is_predicted"
+      },
+      "metrics_avalanche_vw": {
+        "source_table": "metrics_observed_vw",
         "target_view": "metrics_avalanche_vw",
-        "query": "WITH avalanche AS (...), other_metric AS (...) SELECT ... UNION ALL SELECT ..."
+        "query": "SELECT ... is_predicted FROM geo.metrics_observed_vw WHERE event_category = 'avalanche' UNION ALL SELECT ... predicted_value AS metric_value ... FROM geo.prediction_etl WHERE event_category = 'avalanche'"
       },
       "phenomenons_europe_vw": {
         "source_table": "union_etl",
@@ -91,6 +96,26 @@ The `datasets` section of the same file holds every script's wiring and transfor
         "country_codes": ["AD", "AL", "AT", "..."],
         "query": "SELECT ... WHERE country_code IN ('AD','AL','AT',...)"
       }
+    },
+    "prediction": {
+      "source_view": "geo.metrics_observed_vw",
+      "table_name": "prediction_etl",
+      "model_directory": "ml_models",
+      "exclude_metrics": ["danger_level", "vnum"],
+      "min_observations": 5,
+      "test_fraction": 0.2,
+      "retrain_rmse_relative_tolerance": 0.25,
+      "retrain_rmse_absolute_tolerance": 0.0,
+      "force_retrain": false,
+      "polynomial_degree": 2,
+      "linear_reg_param": 0.1,
+      "gbt_max_iter": 50,
+      "gbt_max_depth": 4,
+      "gbt_step_size": 0.1,
+      "random_seed": 42,
+      "integer_metrics": ["vei", "geometry_count", "nst", "baseline_days"],
+      "metric_minimums": {"area": 0, "discharge": 0},
+      "metric_maximums": {"direction": 360, "percent_contained": 100, "vei": 8}
     }
   }
 }
@@ -100,11 +125,12 @@ The `datasets` section of the same file holds every script's wiring and transfor
 |---------|----------|----------------|
 | `datasets.upload.<script>` | plain table name, CSV folder | `UploadDatasetConfig` |
 | `datasets.single_etl.<script>` | plain/ETL tables, source name, `dedup_keys`, category and country maps, metric labels, lookup tables (`union_etl` instead lists the `*_etl` tables it stacks) | one `<Name>EtlConfig` per script, `UnionEtlConfig` for the union script |
-| `datasets.view.<script>` | `*_etl` source table, `*_vw` target view, optional `country_codes` whitelist and the `SELECT` query the view exposes | `ViewDatasetConfig` |
+| `datasets.view.<script>` | source table, `*_vw` target view, optional `country_codes` whitelist and the `SELECT` query the view exposes; the eight combined `metrics_*_vw` entries read `metrics_observed_vw`, while the `phenomenons_*_vw` entries read `union_etl` | `ViewDatasetConfig` |
+| `datasets.prediction` | observed source view, prediction table, model directory, exclusions, train/test and retraining tolerances, MLlib hyperparameters and post-processing bounds | `PredictionConfig` |
 
 `dedup_keys` is the natural-event key set the `SINGLE_ETL` runner extends with `file_date`; it must be non-empty, unique and must not contain `file_date`. `country_codes` is the sorted ISO 3166-1 alpha-2 whitelist used by the regional phenomenon views (empty for views that filter on a single country); the configured query must use the same list. Both are validated when the script is imported.
 
-Each view entry is keyed by the view script's file stem and holds the whole view definition — see [VIEW job](etl_jobs/view.md) and its [Adding a new view script](etl_jobs/view.md#adding-a-new-view-script) recipe (the query is abridged above; the real entry carries the full SQL).
+Each view entry is keyed by the view script's file stem and holds the whole view definition — see [VIEW job](etl_jobs/view.md) and its [Adding a new view script](etl_jobs/view.md#adding-a-new-view-script) recipe (the query is abridged above; the real entry carries the full SQL). The single `datasets.prediction` block configures the [PREDICTION job](etl_jobs/prediction.md) — its SQL-free knobs are validated by `PredictionConfig`.
 
 Each script loads its own entry at import time and uses the model's fields directly — there are no per-field aliases:
 
@@ -117,7 +143,7 @@ def _event_category() -> Column:
     ...
 ```
 
-`load_dataset()` (`model/config/datasets.py`) keys the entry by the caller's file stem and validates it against the model — models are frozen and reject unknown keys, so a typo in `config.json` fails when the script is imported. The two computed earthquake helpers (`_us_suffixes`, `_country_name_by_code`) are still derived in the script from the loaded lists and maps.
+`load_dataset()` (`model/config/datasets.py`) keys the entry by the caller's file stem and validates it against the model — models are frozen and reject unknown keys, so a typo in `config.json` fails when the script is imported. The two computed earthquake helpers (`_us_suffixes`, `_country_name_by_code`) are still derived in the script from the loaded lists and maps. The `datasets.prediction` block is a single entry rather than a script-keyed map, so it is read through `load_prediction_config()`.
 
 ## Supabase Credentials
 

@@ -2,9 +2,40 @@
 
 # Metrics views
 
-One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories).
-The eight twins follow the same shape — own measured metric + numeric `other_metrics`
-explosion + trailing `file_date` — with the per-view differences documented below.
+One `metrics_*` view per `event_category` of `geo.union_etl` (all eight categories),
+plus the shared `metrics_observed_vw` they all start from. The eight twins follow the
+same shape — own measured metric + numeric `other_metrics` explosion + trailing
+`file_date`, then MLlib predictions for missing dates — with the per-view differences
+documented below.
+
+Every metrics row carries `is_predicted`:
+
+- `FALSE` — an observed value from `geo.union_etl`.
+- `TRUE` — a PySpark MLlib estimate from `geo.prediction_etl` for a date where that
+  metric group has no observation. The predicted row has
+  `event_subcategory = NULL` and its `metric_value` is the model estimate.
+
+The views use `UNION ALL`, not a join: event rows are never multiplied, and
+observed-only consumers (counts, quality metrics, maps) keep reading
+`geo.union_etl`. See [PREDICTION job](../prediction.md).
+
+## metrics_observed_vw
+
+`views/metrics_observed_vw.py` (`datasets.view.metrics_observed_vw`): the shared
+observed-metric extraction for all eight categories. It applies the category
+whitelist plus the per-category filters that used to live in each view:
+
+- earthquake: `metric_unit NOT IN ('mh', 'Mi', 'mun', 'ms_vx')` — only `Mw` survives;
+- flood: `metric_name IN ('discharge', 'threshold', 'baseline_days', 'exceedance_ratio', 'magnitude')`.
+
+It selects the row's own measured metric and the numeric `other_metrics` entries
+(with companion `<name>_unit` units) and emits `FALSE AS is_predicted` in both
+branches. The PREDICTION job reads this view; the eight combined views filter it
+by `event_category`.
+
+```bash
+python run_etl.py VIEW metrics_observed_vw
+```
 
 ## metrics_avalanche_vw
 
@@ -12,9 +43,10 @@ explosion + trailing `file_date` — with the per-view differences documented be
 
 | Column | Content |
 |--------|---------|
-| `event_category`, `event_subcategory` | carried over from the source row (the category is always `avalanche`) |
-| `metric_name`, `metric_value`, `metric_unit` | the row's own canonical metric — kept only when it carries a value (bare names with NULL value/unit, such as `size`, are skipped) — and, **appended** as extra rows, one row per numeric entry of its `other_metrics` JSON, with the unit taken from the companion `<name>_unit` key |
-| `file_date` | the source row's `YYYY-MM-DD` snapshot stamp, cast to `timestamp` (trailing column) |
+| `event_category`, `event_subcategory` | carried over from the source row (the category is always `avalanche`); predicted rows have a NULL subcategory |
+| `metric_name`, `metric_value`, `metric_unit` | the row's own canonical metric — kept only when it carries a value (bare names with NULL value/unit, such as `size`, are skipped) — and, **appended** as extra rows, one row per numeric entry of its `other_metrics` JSON, with the unit taken from the companion `<name>_unit` key; predicted rows replace `metric_value` with `predicted_value` |
+| `file_date` | the source row's `YYYY-MM-DD` snapshot stamp, cast to `timestamp` |
+| `is_predicted` | `FALSE` for observed rows, `TRUE` for rows read from `geo.prediction_etl` |
 
 So a zone publishing `metric_name = 'size'` with no value alongside `{"danger_level": 3, "danger_level_unit": "NAPADS level", "off_season": false}` yields one row: `danger_level` / `3` / `NAPADS level` (the unmeasured `size` name is dropped). In today's data every avalanche row's own metric is exactly such a bare `size` name, so the view currently carries the exploded `other_metrics` rows only — 4,426 `danger_level` rows. Companion `*_unit` keys are units, not metrics, and non-numeric entries (free text / booleans such as `warning`, `off_season`) carry no measurement and are skipped — the explosion happens in the database (`jsonb_each` + `jsonb_typeof(...) = 'number'` inside the configured query).
 

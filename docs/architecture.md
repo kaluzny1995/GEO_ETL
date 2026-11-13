@@ -2,7 +2,7 @@
 
 # Project Structure
 
-The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` holds the CSV upload/convert script classes (interface in `upload_script.py`), `single_etl/` holds per-dataset PySpark scripts (interface in `single_etl/single_etl_script.py`) run by the `SINGLE_ETL` job — including a `union_etl` script that stacks their output into one `geo.union_etl` table, `views/` holds view-defining PySpark scripts (interface in `views/view_script.py`) run by the `VIEW` job (each defines one `*_vw` view over a `*_etl` table, HISTORICAL only), `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
+The codebase is organized in layers: `jobs/` decides *what* to do, `factory/` resolves table and script names to implementations, `ingestion/upload/` holds the CSV upload/convert script classes (interface in `upload_script.py`), `single_etl/` holds per-dataset PySpark scripts (interface in `single_etl/single_etl_script.py`) run by the `SINGLE_ETL` job — including a `union_etl` script that stacks their output into one `geo.union_etl` table, `views/` holds view-defining PySpark scripts (interface in `views/view_script.py`) run by the `VIEW` job (each defines one `*_vw` view over a `*_etl` table, HISTORICAL only), `ml/` holds the PySpark MLlib model training/selection/persistence logic used by the `PREDICTION` job, `model/` defines the Pydantic schemas that drive DDL and Spark types, and `utils/` carries the shared logic.
 
 ```
 GEO_ETL/
@@ -47,7 +47,8 @@ GEO_ETL/
 │   ├── data_source_file.py          # DATA_SOURCE_FILE job (CSV inventory -> geo.data_source_files)
 │   ├── ingestion.py                 # INGESTION job (CSV → typed plain table via the upload factory)
 │   ├── single_etl.py                 # SINGLE_ETL job (runs one script from single_etl/)
-│   └── view.py                       # VIEW job (runs one script from views/, defines a *_vw view)
+│   ├── view.py                       # VIEW job (runs one script from views/, defines a *_vw view)
+│   └── prediction.py                 # PREDICTION job (MLlib models -> geo.prediction_etl)
 │
 ├── single_etl/                       # Standalone PySpark ETL scripts (SingleEtlScript interface, SINGLE_ETL job)
 │   ├── __init__.py
@@ -63,17 +64,24 @@ GEO_ETL/
 │   ├── usgs_volcano_etl.py            # geo.usgs_volcano -> geo.usgs_volcano_etl (canonical event structure)
 │   └── union_etl.py                   # every *_etl table -> geo.union_etl (stacks the nine canonical tables)
 │
+├── ml/                               # PySpark MLlib prediction logic (PREDICTION job)
+│   ├── __init__.py
+│   └── predictor.py                  # Per-metric training, candidate selection, persistence, reuse/retraining
+│
+├── ml_models/                        # Persisted Spark MLlib models + metadata (git-ignored, bind-mounted in Docker)
+│
 ├── views/                            # View-defining PySpark scripts (ViewScript interface, VIEW job)
 │   ├── __init__.py
 │   ├── view_script.py                # ViewScript interface (SOURCE_TABLE, TARGET_VIEW, QUERY + run())
-│   ├── metrics_avalanche_vw.py        # geo.union_etl (avalanche rows) -> geo.metrics_avalanche_vw
-│   ├── metrics_drought_vw.py          # geo.union_etl (drought rows) -> geo.metrics_drought_vw
-│   ├── metrics_earthquake_vw.py       # geo.union_etl (earthquake rows) -> geo.metrics_earthquake_vw
-│   ├── metrics_fire_vw.py             # geo.union_etl (fire rows) -> geo.metrics_fire_vw
-│   ├── metrics_flood_vw.py            # geo.union_etl (flood rows) -> geo.metrics_flood_vw
-│   ├── metrics_iceberg_vw.py          # geo.union_etl (iceberg rows) -> geo.metrics_iceberg_vw
-│   ├── metrics_storm_vw.py            # geo.union_etl (storm rows) -> geo.metrics_storm_vw
-│   ├── metrics_volcano_vw.py          # geo.union_etl (volcano rows) -> geo.metrics_volcano_vw
+│   ├── metrics_observed_vw.py         # geo.union_etl -> geo.metrics_observed_vw (shared observed metrics)
+│   ├── metrics_avalanche_vw.py        # geo.metrics_observed_vw + geo.prediction_etl -> geo.metrics_avalanche_vw
+│   ├── metrics_drought_vw.py          # observed + predicted drought rows -> geo.metrics_drought_vw
+│   ├── metrics_earthquake_vw.py       # observed + predicted earthquake rows -> geo.metrics_earthquake_vw
+│   ├── metrics_fire_vw.py             # observed + predicted fire rows -> geo.metrics_fire_vw
+│   ├── metrics_flood_vw.py            # observed + predicted flood rows -> geo.metrics_flood_vw
+│   ├── metrics_iceberg_vw.py          # observed + predicted iceberg rows -> geo.metrics_iceberg_vw
+│   ├── metrics_storm_vw.py            # observed + predicted storm rows -> geo.metrics_storm_vw
+│   ├── metrics_volcano_vw.py          # observed + predicted volcano rows -> geo.metrics_volcano_vw
 │   ├── phenomenons_us_vw.py           # geo.union_etl (US rows) -> geo.phenomenons_us_vw (Looker map view)
 │   ├── phenomenons_ca_vw.py           # geo.union_etl (Canada rows) -> geo.phenomenons_ca_vw (Looker map view)
 │   ├── phenomenons_cs_amer_vw.py      # geo.union_etl (Americas minus US/CA) -> geo.phenomenons_cs_amer_vw (Looker map view)
@@ -85,10 +93,10 @@ GEO_ETL/
 │   └── phenomenons_waters_vw.py       # geo.union_etl (open-water heuristic) -> geo.phenomenons_waters_vw (Looker map view)
 │
 ├── model/                            # Data models and configuration
-│   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, DATA_SOURCE_FILE, SINGLE_ETL, VIEW) + LoadType (HISTORICAL, INCREMENTAL)
+│   ├── enums.py                      # JobType (CREATE, INGESTION, DATA_QUALITY, DATA_SOURCE_FILE, SINGLE_ETL, VIEW, PREDICTION) + LoadType (HISTORICAL, INCREMENTAL)
 │   ├── config/
 │   │   ├── app_config.py             # AppConfig, SparkConfig, DatabaseConfig, LoggingConfig, DataConfig
-│   │   ├── datasets.py               # Per-script dataset constants from config.json (load_dataset + frozen models)
+│   │   ├── datasets.py               # Per-script dataset constants from config.json (load_dataset + frozen models; PredictionConfig)
 │   │   └── supabase_config.py        # SupabaseConnectionConfig + JDBC helpers
 │   ├── etl/
 │   │   ├── event_etl.py               # EventEtl — canonical event structure shared by all *_etl tables
@@ -114,7 +122,8 @@ GEO_ETL/
 │   │   └── usgs_volcano.py           # UsgsVolcano — typed model (int, float, datetime)
 │   └── other/
 │       ├── data_quality.py           # DataQuality — metric row (str, float, datetime)
-│       └── data_source_file.py       # DataSourceFile / DataSourceSource — published CSV and source rows
+│       ├── data_source_file.py       # DataSourceFile / DataSourceSource — published CSV and source rows
+│       └── prediction_etl.py         # PredictionEtl — predicted metric/date row + model metadata
 │
 ├── utils/                            # Utility modules
 │   ├── data_source_files.py          # Publishes source CSV metadata to geo.data_source_files
@@ -148,6 +157,7 @@ GEO_ETL/
 │   ├── upload/                       # Standalone upload job logs
 │   ├── single_etl/                   # SINGLE_ETL job logs
 │   ├── view/                         # VIEW job logs
+│   ├── prediction/                   # PREDICTION job logs
 │   ├── pyspark_csv_test/             # CSV test script logs
 │   └── pyspark_supabase_test/        # Supabase test script logs
 │
@@ -163,7 +173,10 @@ GEO_ETL/
     │   ├── test_data_quality.py
     │   ├── test_ingestion.py
     │   ├── test_single_etl.py
-    │   └── test_view.py                 # VIEW job (script resolution, logging, unknown script, empty-query RuntimeError)
+    │   ├── test_view.py                 # VIEW job (script resolution, logging, unknown script, empty-query RuntimeError)
+    │   └── test_prediction.py           # PREDICTION job (date ranges, filtering, table-name guard)
+    ├── ml/
+    │   └── test_predictor.py            # Model training, selection, persistence, reuse and retraining
     ├── model/
     │   ├── test_enums.py
     │   ├── test_model_contract.py    # Shared contract for all 19 plain/ETL models
@@ -176,7 +189,9 @@ GEO_ETL/
     │   ├── plain/
     │   │   └── test_plain_models.py       # 9 plain models (parametrized)
     │   └── other/
-    │       └── test_data_quality.py
+    │       ├── test_data_quality.py
+    │       ├── test_data_source_file.py
+    │       └── test_prediction_etl.py
     ├── scripts/
     │   ├── test_run_etl.py
     │   ├── test_run_drop_table.py
@@ -199,7 +214,8 @@ GEO_ETL/
     │   └── test_union_etl.py
     ├── views/
     │   ├── __init__.py
-    │   ├── test_metrics_avalanche_vw.py  # First VIEW script (config wiring, query contract, registry entry)
+    │   ├── test_metrics_observed_vw.py   # Shared observed-metric view over geo.union_etl
+    │   ├── test_metrics_avalanche_vw.py  # First metrics VIEW script (config wiring, query contract, registry entry)
     │   ├── test_metrics_drought_vw.py    # Drought twin of metrics_avalanche_vw
     │   ├── test_metrics_earthquake_vw.py  # Earthquake twin of metrics_avalanche_vw
     │   ├── test_metrics_fire_vw.py       # Fire twin of metrics_avalanche_vw

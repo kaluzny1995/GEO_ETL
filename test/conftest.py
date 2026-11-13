@@ -1,3 +1,4 @@
+import sys
 from unittest.mock import MagicMock
 
 import pytest
@@ -116,6 +117,8 @@ def _start_spark():
             .appName("geo_etl_tests")
             .config("spark.sql.shuffle.partitions", "2")
             .config("spark.ui.enabled", "false")
+            .config("spark.pyspark.python", sys.executable)
+            .config("spark.pyspark.driver.python", sys.executable)
             .getOrCreate()
         )
         spark.sparkContext.setLogLevel("ERROR")

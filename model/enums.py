@@ -14,6 +14,8 @@ class JobType(enum.Enum):
         SINGLE_ETL: Runs one standalone PySpark script from ``single_etl/``.
         VIEW: Runs one standalone PySpark script from ``views/`` that creates a
             ``*_vw`` view from a query over a ``*_etl`` table (HISTORICAL only).
+        PREDICTION: Trains/reuses PySpark MLlib models over the observed metric
+            views and rebuilds ``geo.prediction_etl``.
     """
 
     CREATE = "CREATE"
@@ -22,6 +24,7 @@ class JobType(enum.Enum):
     DATA_SOURCE_FILE = "DATA_SOURCE_FILE"
     SINGLE_ETL = "SINGLE_ETL"
     VIEW = "VIEW"
+    PREDICTION = "PREDICTION"
 
 
 class LoadType(enum.Enum):

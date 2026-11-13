@@ -10,11 +10,13 @@ from model.config.datasets import (
     AvalancheOrgEtlConfig,
     EonetEventEtlConfig,
     GdacsEventEtlConfig,
+    PredictionConfig,
     UnionEtlConfig,
     UploadDatasetConfig,
     UsgsVolcanoEtlConfig,
     ViewDatasetConfig,
     load_dataset,
+    load_prediction_config,
 )
 from model.enums import DangerRating
 
@@ -198,10 +200,11 @@ class TestProjectConfig:
     def test_project_config_has_all_dataset_sections(self):
         with open(CONFIG_PATH) as f:
             datasets = json.load(f)["datasets"]
-        assert set(datasets) == {"upload", "single_etl", "view"}
+        assert set(datasets) == {"upload", "single_etl", "view", "prediction"}
         assert len(datasets["upload"]) == 9
         assert len(datasets["single_etl"]) == 10
         assert set(datasets["view"]) == {
+            "metrics_observed_vw",
             "metrics_avalanche_vw",
             "metrics_drought_vw",
             "metrics_earthquake_vw",
@@ -241,6 +244,7 @@ class TestProjectConfig:
             "avalanche_org_upload": UploadDatasetConfig,
             "gdacs_event_etl": GdacsEventEtlConfig,
             "union_etl": UnionEtlConfig,
+            "metrics_observed_vw": ViewDatasetConfig,
             "metrics_avalanche_vw": ViewDatasetConfig,
             "metrics_drought_vw": ViewDatasetConfig,
             "metrics_earthquake_vw": ViewDatasetConfig,
@@ -306,3 +310,22 @@ class TestDangerRatedEtlConfig:
                 load_dataset("/x/demo_etl.py", "single_etl", GdacsEventEtlConfig, path=path)
         finally:
             os.unlink(path)
+
+
+class TestPredictionConfig:
+    def test_project_prediction_config_loads(self):
+        cfg = load_prediction_config()
+        assert cfg.source_view == "geo.metrics_observed_vw"
+        assert cfg.table_name == "prediction_etl"
+        assert cfg.model_directory == "ml_models"
+        assert cfg.min_observations >= 2
+        assert cfg.test_fraction == 0.2
+
+    def test_prediction_config_rejects_invalid_fraction(self):
+        with pytest.raises(ValidationError, match="test_fraction"):
+            PredictionConfig(test_fraction=1.0)
+
+    def test_prediction_config_is_frozen(self):
+        cfg = load_prediction_config()
+        with pytest.raises(ValidationError):
+            cfg.table_name = "other"  # type: ignore[misc]

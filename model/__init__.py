@@ -12,6 +12,7 @@ from model.etl.usgs_nwis_etl import UsgsNwisEtl
 from model.etl.usgs_volcano_etl import UsgsVolcanoEtl
 from model.other.data_quality import DataQuality
 from model.other.data_source_file import DataSourceFile, DataSourceSource
+from model.other.prediction_etl import PredictionEtl
 from model.plain.avalanche_org import AvalancheOrg
 from model.plain.eonet_event import EonetEvent
 from model.plain.gdacs_event import GdacsEvent
@@ -46,6 +47,7 @@ def _register_tables():
     TableFactory.register("usgs_volcano_etl", UsgsVolcanoEtl)
     TableFactory.register("union_etl", UnionEtl)
     TableFactory.register("data_quality", DataQuality)
+    TableFactory.register("prediction_etl", PredictionEtl)
 
 
 _register_tables()
@@ -68,6 +70,7 @@ __all__ = [
     "NifcFireEtl",
     "OpenMeteoFlood",
     "OpenMeteoFloodEtl",
+    "PredictionEtl",
     "SupabaseConnectionConfig",
     "UnionEtl",
     "UsgsEarthquake",
