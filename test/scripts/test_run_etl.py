@@ -543,6 +543,26 @@ def test_merge_logs_by_timestamp_merges_python_spark_and_memory(tmp_path):
     ]
 
 
+def test_merge_logs_by_timestamp_streams_extras_to_stdout(tmp_path, capsys):
+    from run_etl import _merge_logs_by_timestamp
+
+    # Arrange
+    main_log = tmp_path / "main.log"
+    main_log.write_text("2026-01-01 10:00:02 python line\n")
+
+    # Act — the production path mirrors while merging instead of building a list
+    extras = _merge_logs_by_timestamp(
+        str(main_log),
+        ["2026-01-01 10:00:01 spark line\n"],
+        str(tmp_path / "missing_memory.log"),
+        mirror_to_stdout=True,
+    )
+
+    # Assert
+    assert extras == []
+    assert "[spark] 2026-01-01 10:00:01 spark line" in capsys.readouterr().out
+
+
 @patch("run_etl.register_memory_logger")
 @patch("run_etl._StderrCapture")
 @patch("run_etl.SparkSession")

@@ -14,8 +14,11 @@ Usage::
 
 import argparse
 import datetime as dt
+import heapq
 import os
+import re
 import tempfile
+from contextlib import ExitStack
 
 import findspark
 
@@ -76,63 +79,93 @@ class _StderrCapture:
         return []
 
 
-def _merge_logs_by_timestamp(main_log: str, extra_lines: list[str], memory_log: str) -> list[str]:
-    """Rewrite *main_log* with lines from Python, Spark stderr, and memory merged by timestamp.
+def _parse_ts(line: str) -> str:
+    """Return the leading ``YYYY-MM-DD HH:MM:SS`` timestamp, or an empty string."""
+    match = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
+    return match.group(1) if match else ""
+
+
+def _iter_log_entries(lines, *, prefix: str = "", is_extra: bool = False):
+    """Yield ``(timestamp, rendered_line, is_extra)`` for the non-empty *lines*.
+
+    Parsing the timestamp separately from the line keeps the merge key cheap and
+    lets a caller stream lines from a file without materializing the file.
+    """
+    for line in lines:
+        stripped = line.rstrip()
+        if stripped:
+            yield _parse_ts(stripped), f"{prefix}{stripped}", is_extra
+
+
+def _merge_logs_by_timestamp(
+    main_log: str,
+    extra_lines: list[str],
+    memory_log: str,
+    *,
+    mirror_to_stdout: bool = False,
+) -> list[str]:
+    """Rewrite *main_log* with Python, Spark stderr and memory lines merged by timestamp.
 
     Both Python's ``logging`` and Java's ``StageMemoryListener`` use the
     ``YYYY-MM-DD HH:MM:SS`` format (Python adds milliseconds after a comma,
-    Java does not).  This function reads the existing *main_log*, appends
-    *extra_lines* (Spark stderr captured via fd redirect), reads the
-    *memory_log*, parses timestamps, and rewrites *main_log* in chronological
-    order.  The *memory_log* file is deleted afterward.
+    Java does not). The main log and the memory log are chronological; the
+    captured Spark stderr block is sorted once. All three are then merged as
+    streams with :func:`heapq.merge` instead of being read into one list and
+    sorted, keeping peak memory at one line per source rather than two copies
+    of the whole task log (Spark stderr for a 30-minute job can be tens of
+    megabytes). The *memory_log* file is deleted afterward.
 
-    Returns the extra lines (Spark stderr with a ``[spark]`` prefix plus the
-    memory lines, in timestamp order) so the caller can mirror them to stdout —
-    the Python lines already stream there live via the logger's stdout handler,
-    but the JVM/fd-redirected lines never pass through it.
+    Args:
+        main_log: Python task log to rewrite (read and replace atomically).
+        extra_lines: Captured Spark stderr lines, in capture order.
+        memory_log: Stage-memory log written by the Java listener, if present.
+        mirror_to_stdout: Print the Spark/memory lines while merging instead of
+            collecting them. ``main()`` uses this so the Airflow task log gets
+            the same lines without a second in-memory list; the default keeps
+            the historical return value for callers that need it.
+
+    Returns:
+        The extra lines (Spark stderr with a ``[spark]`` prefix plus the memory
+        lines, in timestamp order) when *mirror_to_stdout* is false; otherwise
+        an empty list because the lines were already written to stdout.
     """
-    import re
-
-    def _parse_ts(line: str) -> str:
-        m = re.match(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
-        return m.group(1) if m else ""
-
-    # Collect all (timestamp_key, full_line) pairs
-    entries: list[tuple[str, str]] = []
-    extras: list[tuple[str, str]] = []
-
-    # Lines already in main_log
-    with open(main_log) as f:
-        for line in f:
-            entries.append((_parse_ts(line), line))
-
-    # Spark stderr lines — prefix and add
-    for line in extra_lines:
-        stripped = line.rstrip()
-        if stripped:
-            full_line = f"[spark] {stripped}"
-            entries.append((_parse_ts(stripped), full_line))
-            extras.append((_parse_ts(stripped), full_line))
-
-    # Memory log lines
-    if os.path.exists(memory_log):
-        with open(memory_log) as f:
-            for line in f:
-                stripped = line.rstrip()
-                if stripped:
-                    entries.append((_parse_ts(stripped), stripped))
-                    extras.append((_parse_ts(stripped), stripped))
-        os.remove(memory_log)
-
-    # Stable sort by timestamp (preserves original order for equal timestamps)
-    entries.sort(key=lambda e: e[0])
-    extras.sort(key=lambda e: e[0])
-
-    with open(main_log, "w") as f:
-        for _, line in entries:
-            f.write(line + "\n")
-
-    return [line for _, line in extras]
+    main_dir = os.path.dirname(os.path.abspath(main_log))
+    merged_path: str | None = None
+    extras: list[str] = []
+    memory_exists = os.path.exists(memory_log)
+    try:
+        with ExitStack() as stack, open(main_log) as main_handle:
+            memory_handle = stack.enter_context(open(memory_log)) if memory_exists else None
+            memory_lines = _iter_log_entries(memory_handle, is_extra=True) if memory_handle else iter(())
+            # Spark stderr is captured as one block and is not guaranteed to be in
+            # timestamp order (Log4j lines without a timestamp sort first), so sort
+            # this input once; the file streams remain lazy.
+            spark_lines = sorted(extra_lines, key=_parse_ts)
+            merged = heapq.merge(
+                _iter_log_entries(main_handle),
+                _iter_log_entries(spark_lines, prefix="[spark] ", is_extra=True),
+                memory_lines,
+                key=lambda entry: entry[0],
+            )
+            with tempfile.NamedTemporaryFile(
+                mode="w", dir=main_dir, prefix=".merged-", suffix=".log", delete=False
+            ) as output:
+                merged_path = output.name
+                for _, line, is_extra in merged:
+                    output.write(line + "\n")
+                    if is_extra:
+                        if mirror_to_stdout:
+                            print(line, flush=True)
+                        else:
+                            extras.append(line)
+        os.replace(merged_path, main_log)
+        merged_path = None
+    finally:
+        if memory_exists:
+            os.remove(memory_log)
+        if merged_path is not None and os.path.exists(merged_path):
+            os.unlink(merged_path)
+    return extras
 
 
 def main() -> None:
@@ -245,10 +278,10 @@ def main() -> None:
                 main_log = h.baseFilename
 
         if main_log and (spark_lines or os.path.exists(memory_log)):
-            # Mirror the JVM/fd-redirected lines to stdout for the orchestrator's
-            # task log (Airflow) — the Python lines already stream there live.
-            for line in _merge_logs_by_timestamp(main_log, spark_lines, memory_log):
-                print(line, flush=True)
+            # Stream the JVM/fd-redirected lines to stdout for the orchestrator's task
+            # log (Airflow) — the Python lines already stream there live. Mirroring
+            # during the merge avoids building a second in-memory copy of Spark stderr.
+            _merge_logs_by_timestamp(main_log, spark_lines, memory_log, mirror_to_stdout=True)
 
 
 if __name__ == "__main__":

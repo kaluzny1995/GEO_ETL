@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
+from pyspark import StorageLevel
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
@@ -40,6 +43,39 @@ def _group_filter(daily: DataFrame, category: str, metric_name: str, metric_unit
 def _delete_existing(spark: SparkSession, schema: str, jdbc_url: str, properties: dict[str, str], table: str) -> None:
     """Remove the previous prediction run so reruns are idempotent."""
     execute_statement(spark, f"DELETE FROM {schema}.{table}", jdbc_url, properties)
+
+
+def _stack_predictions(accumulated: DataFrame | None, new: DataFrame) -> DataFrame:
+    """Append one metric group's predictions to the running union.
+
+    Args:
+        accumulated: Predictions of the groups processed so far, or ``None``
+            for the first group.
+        new: Predictions of the next group (same columns).
+
+    Returns:
+        The stacked predictions. The union is lazy; :func:`_persisted` is what
+        materializes it once before counting and writing.
+    """
+    return new if accumulated is None else accumulated.unionByName(new)
+
+
+@contextmanager
+def _persisted(frame: DataFrame) -> Iterator[DataFrame]:
+    """Materialize *frame* once for the count + write, then release the cache.
+
+    Building the predictions as one union per metric group creates a long
+    lineage of MLlib transforms. Without a cache, ``count()`` and the JDBC
+    write recompute every group and keep all intermediate plans alive at once.
+    MEMORY_AND_DISK spills to executor disk instead of failing a driver with a
+    small heap; the ``finally`` always releases the blocks, even when the write
+    raises.
+    """
+    cached = frame.persist(StorageLevel.MEMORY_AND_DISK)
+    try:
+        yield cached
+    finally:
+        cached.unpersist()
 
 
 def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = None) -> str:
@@ -155,16 +191,17 @@ def run(spark: SparkSession, table_name: str, logger: logging.Logger | None = No
                 result.model_name,
                 "retrained" if result.retrained else "reused",
             )
-            predictions = result.predictions if predictions is None else predictions.unionByName(result.predictions)
+            predictions = _stack_predictions(predictions, result.predictions)
 
         _delete_existing(spark, schema, jdbc_url, properties, table_name)
         if predictions is None:
             logger.warning("No metric group had enough observations to predict")
             return f"No predictions written to {schema}.{table_name} — all metric groups were skipped"
 
-        row_count = predictions.count()
-        logger.info("Writing %d predicted rows to %s.%s", row_count, schema, table_name)
-        predictions.write.jdbc(url=jdbc_url, table=f"{schema}.{table_name}", mode="append", properties=properties)
+        with _persisted(predictions) as materialized:
+            row_count = materialized.count()
+            logger.info("Writing %d predicted rows to %s.%s", row_count, schema, table_name)
+            materialized.write.jdbc(url=jdbc_url, table=f"{schema}.{table_name}", mode="append", properties=properties)
         summary = (
             f"Wrote {row_count} predictions to {schema}.{table_name} "
             f"({len(group_counts)} groups, {retrained} retrained, {skipped} skipped)"

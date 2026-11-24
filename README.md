@@ -54,6 +54,8 @@ PySpark scripts normally run inside the `geo_airflow_spark` image and connect to
 | [Configuration](docs/configuration.md) | `config.json` reference and [Supabase credentials](docs/configuration/supabase-credentials.md) (`.env`). |
 | [Spark cluster](docs/spark-cluster.md) | Cluster services, Web UI, Spark JARs and connecting from PySpark. |
 | [Logging](docs/logging.md) | Log structure and format; [stage memory monitoring](docs/logging/stage-memory.md) and the SparkListener build. |
+| [Memory leaks investigation 2026-11-23](docs/memory-leaks-investigation-2026-11-23.md) | Host-vs-Spark attribution, the streaming log merge and the bounded PREDICTION materialization. |
+| [Memory leaks investigation 2026-11-24](docs/memory-leaks-investigation-2026-11-24.md) | Follow-up after the daily run: workers back to baseline, no lingering driver, desktop growth. |
 | [Testing](docs/testing.md) | Running pytest and what each test suite covers. |
 | [Code quality](docs/development.md) | Ruff lint/format, mypy and the tox environments. |
 

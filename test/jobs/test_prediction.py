@@ -1,4 +1,5 @@
 import pytest
+from pyspark import StorageLevel
 from pyspark.sql import functions as F
 
 from jobs import prediction
@@ -39,3 +40,44 @@ class TestRunContract:
     def test_rejects_unexpected_table_name(self):
         with pytest.raises(ValueError, match="prediction_etl"):
             prediction.run(object(), "other_table")  # type: ignore[arg-type]
+
+
+class TestPredictionMaterialization:
+    """Tests for the helpers that keep the multi-group prediction plan bounded."""
+
+    def test_stack_predictions_starts_with_the_first_group(self, spark_session):
+        """The first group is returned as-is; later groups are unioned by name."""
+        first = spark_session.createDataFrame([("avalanche", 1.0)], ["event_category", "predicted_value"])
+        second = spark_session.createDataFrame([("fire", 2.0)], ["event_category", "predicted_value"])
+
+        assert prediction._stack_predictions(None, first).count() == 1
+        stacked = prediction._stack_predictions(first, second)
+        assert stacked.count() == 2
+        assert {row.event_category for row in stacked.collect()} == {"avalanche", "fire"}
+
+    def test_persisted_materializes_with_memory_and_disk_and_releases_it(self):
+        """The union is cached once for count + write and always unpersisted."""
+        from unittest.mock import MagicMock
+
+        frame = MagicMock()
+        materialized = MagicMock()
+        frame.persist.return_value = materialized
+
+        with prediction._persisted(frame) as cached:
+            assert cached is materialized
+            frame.persist.assert_called_once_with(StorageLevel.MEMORY_AND_DISK)
+
+        materialized.unpersist.assert_called_once_with()
+
+    def test_persisted_unpersists_when_the_write_fails(self):
+        """A failed JDBC write must not leave the prediction blocks cached."""
+        from unittest.mock import MagicMock
+
+        frame = MagicMock()
+        materialized = MagicMock()
+        frame.persist.return_value = materialized
+
+        with pytest.raises(RuntimeError, match="write failed"), prediction._persisted(frame):
+            raise RuntimeError("write failed")
+
+        materialized.unpersist.assert_called_once_with()
